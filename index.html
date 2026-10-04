@@ -323,7 +323,7 @@ function isYtd(){return ui.mode==="ytd";}
 function selKeys(){return isYtd()?ytdKeys(ui.week):[cur()];}
 function ytdLabel(){const fy=fyOf(ui.week);return "YTD · Week 1 – Week "+weekNo(ui.week);}
 function setCur(k){if(isDay(k))ui.dday=k;else if(isWeek(k))ui.week=k;else ui.month=k;}
-function rec(k){if(isDay(k)){const c=x24Cache[k.slice(0,7)];return c?c.days[k]:undefined;}if(isWeek(k)){const c=weekCache[fyOf(k)];return c?c[k]:undefined;}return state.months[k]||monthFromWeeks(k);}
+function rec(k){if(isDay(k)){const c=x24Cache[k.slice(0,7)];return c?c.days[k]:undefined;}if(isWeek(k)){const c=weekCache[fyOf(k)];return c?c[k]:undefined;}const r=state.months[k];if(r&&(r.source||num(r.sales)>0))return r;const w=monthFromWeeks(k);if(r&&w)return {...w,target:num(r.target)||w.target};return r||w;}
 /* a fiscal month with no month entry is built from its weeks (fiscal months are whole weeks) */
 function monthFromWeeks(k){
   const fy=fyOf(k),c=weekCache[fy];if(!c)return undefined;
@@ -416,6 +416,16 @@ function aggStaff(id,keys){
   });
   return derive(t);
 }
+/* YTD target: monthly targets (pro-rated for a part month) or, if a month has none, its weekly targets */
+function ytdTarget(wk){
+  const fy=fyOf(wk),cw=weekNo(wk),c=weekCache[fy]||{};let target=0,salesT=0;
+  for(const fm of monthKeys(fy)){const [a,b]=fmWeeks(fm);if(a>cw)break;const e=Math.min(b,cw),n=b-a+1,cov=e-a+1;
+    const mt=num(state.months[fm]?.target);let s=0,wt=0,ws=0;
+    for(let i=a;i<=e;i++){const r=c[weekKey(fy,i)];if(!r)continue;s+=num(r.sales);if(num(r.target)>0){wt+=num(r.target);ws+=num(r.sales);}}
+    if(mt>0){target+=mt*cov/n;salesT+=s;}else if(wt>0){target+=wt;salesT+=ws;}}
+  return {target,salesT};
+}
+function withYtdTarget(a,wk){const t=ytdTarget(wk);a.target=t.target;a.salesT=t.salesT;a.ach=t.target>0?t.salesT/t.target:NaN;return a;}
 function ytdKeys(k){const fy=fyOf(k);const all=periodKeys(fy);return all.slice(0,all.indexOf(k)+1);}
 function staffWithData(keys){
   return state.staff.filter(s=>s.active!==false || keys.some(k=>num(rec(k)?.staff?.[s.id]?.sales)>0));
@@ -612,6 +622,7 @@ function header(){
 
 function viewHome(){
   const k=cur(), m=aggStore(selKeys()), y=aggStore(ytdKeys(k));
+  if(isWeek(k)){withYtdTarget(y,k);if(isYtd())withYtdTarget(m,k);}
   const has=isYtd()?m.sales>0:!!rec(k);
   const fill=Math.max(0,Math.min(1,isFinite(m.ach)?m.ach:0));
   let h="";
@@ -623,7 +634,7 @@ function viewHome(){
     h+=`<div class="hero">
       <div class="lbl">${esc(isYtd()?ytdLabel():mLong(k))} sales</div>
       <div class="big">${inr(m.sales)}</div>
-      <div class="of">${m.target?"Target "+inr(m.target)+(m.salesT<m.sales-0.5?" · ach. counts only "+(isYtd()?"weeks":"periods")+" with a target":""):"Add a target in the Sales tab"}</div>
+      <div class="of">${m.target?"Target "+inr(m.target)+(m.salesT<m.sales-0.5?" · ach. counts only "+(isYtd()?"months/weeks":"periods")+" with a target":""):"Add a target in the Sales tab"}</div>
       <div class="bar"><i style="width:${(fill*100).toFixed(1)}%"></i></div>
       <div class="row">
         <div><b>${pct(m.ach)}</b>Achievement</div>
@@ -1022,7 +1033,13 @@ async function doImport(){
 }
 
 function viewAdd(){
-  if(isYtd()) return viewImport()+`<section class="block"><h2>Enter numbers</h2><p class="hint" style="margin:0">YTD is the total of your weeks. To type sales or targets, choose <b>Monthly</b>, <b>Weekly</b> or <b>Daily</b> at the top.</p></section>`;
+  if(isYtd()){const fy=fyOf(cur());
+    return viewImport()+`<section class="block"><h2>🎯 Monthly targets · ${esc(fyName(fy))}</h2>
+      <p class="hint" style="margin:0 0 10px">Type each month's store target once. YTD target and achievement are built from these (the current month is counted by weeks done).</p>
+      <div class="tscroll"><table><thead><tr><th>Month</th><th>Weeks</th><th>Target (₹)</th></tr></thead><tbody>${monthKeys(fy).map(fm=>{const [a,b]=fmWeeks(fm);
+        return `<tr><td>${esc(MN[parseKey(fm).m-1])}</td><td class="muted">W${a}–W${b}</td><td><input class="n" data-mt="${fm}" inputmode="decimal" value="${num(state.months[fm]?.target)||""}" style="min-width:130px"></td></tr>`;}).join("")}
+      <tr class="total"><td>Total</td><td></td><td id="mtTotal">${inr(monthKeys(fy).reduce((s,fm)=>s+num(state.months[fm]?.target),0))}</td></tr></tbody></table></div>
+      <div class="actions"><button class="btn primary" id="saveMT" style="flex:1">Save monthly targets</button></div></section>`;}
   const k=cur(), m=rec(k)||{};
   const lyAuto=num(rec(prevYearKey(k))?.sales);
   const team=state.staff.filter(s=>s.active!==false || m.staff?.[s.id]);
@@ -1553,7 +1570,7 @@ document.addEventListener("click",e=>{
   if(t.id==="phDel"){const pid=t.dataset.pid;askConfirm("Delete this photo?","Delete",()=>{fsdb.doc("stores/"+SID+"/vmphotos/"+pid).delete().then(()=>{photoCache[ui.day]=(photoCache[ui.day]||[]).filter(x=>x.id!==pid);document.getElementById("photoBox").hidden=true;toast("Photo deleted");render();}).catch(()=>toast("Could not delete"));});return;}
   if(t.dataset.revoke){const m=accessInfo&&accessInfo.members.find(x=>x.id===t.dataset.revoke);
     askConfirm("Remove "+(m&&m.name||"this person")+"'s access?","Remove",()=>{fsdb.doc("stores/"+SID+"/members/"+t.dataset.revoke).delete().then(()=>{accessInfo.members=accessInfo.members.filter(x=>x.id!==t.dataset.revoke);toast("Access removed");render();}).catch(()=>toast("Could not remove"));});return;}
-  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","dsrImport","exportCsv","backupDl"].includes(t.id)))return;
+  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","dsrImport","saveMT","exportCsv","backupDl"].includes(t.id)))return;
   if(t.dataset.tab){if(t.dataset.tab==="daily")delete photoCache[ui.day];if(t.dataset.tab==="staff"&&ui.tab==="staff")ui.staffPage="root";go(t.dataset.tab);return;}
   if(t.dataset.go){go(t.dataset.go);return;}
   if(t.dataset.month&&t.dataset.stay){setCur(t.dataset.month);render();window.scrollTo(0,0);return;}
@@ -1589,6 +1606,9 @@ document.addEventListener("click",e=>{
     case "clearMonth":askConfirm("Clear all "+mLong(cur())+" data?","Clear",()=>{delRec(cur());render();});break;
     case "cYes":{const f=pendingConfirm;closeConfirm();if(f)f();break;}
     case "cNo":closeConfirm();break;
+    case "saveMT":{document.querySelectorAll("[data-mt]").forEach(i=>{const fm=i.dataset.mt,v=num(i.value);const r=state.months[fm];
+        if(v>0)state.months[fm]={...(r||{}),target:v};else if(r){const c={...r};delete c.target;if(Object.keys(c).length)state.months[fm]=c;else delete state.months[fm];}});
+      persist("Monthly targets saved");ui.tab="home";render();window.scrollTo(0,0);break;}
     case "allPresent":{const iso=ui.day,mk=iso.slice(0,7),d=dayCache[mk];if(!d)break;const day=d.att[iso]||(d.att[iso]={});
       state.staff.filter(s=>s.active!==false).forEach(s=>{if(!attStatus(day[s.id]))day[s.id]={status:"P"};});persistDay(mk,"Marked present");render();break;}
     case "backupDl":backupDownload();break;

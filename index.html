@@ -242,7 +242,7 @@ select{font:inherit;font-size:15px;padding:9px 8px;border-radius:10px;border:1px
     <button data-mode="ytd" aria-pressed="false">YTD</button>
     <button data-mode="month" aria-pressed="true">Monthly</button>
     <button data-mode="week" aria-pressed="false">Weekly</button>
-    <button data-mode="day" aria-pressed="false">Daily</button></div>
+</div>
   <div class="monthbar" id="monthbar">
     <button id="prevM" aria-label="Previous">‹</button>
     <div class="label" id="monthLabel"></div>
@@ -1404,7 +1404,7 @@ function loadPhotos(iso){
 function viewVmPhotos(iso,tasks){
   if(!fsdb) return "";
   const list=photoCache[iso];if(!list)loadPhotos(iso);
-  let h=`<div class="vmph"><h2 style="margin-top:16px">📷 VM photos</h2>`;
+  let h=`<div class="vmph"><div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px"><h2 style="margin:0">📷 VM photos${list&&!list.err&&list.length?" ("+list.length+")":""}</h2><button class="btn small" id="phRefresh">↻ Refresh</button></div><div style="height:10px"></div>`;
   if(canPhoto()) h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <select id="phTask" aria-label="VM task for this photo" style="flex:1;min-width:150px"><option value="">General VM photo</option>${tasks.map(t=>`<option value="${t.id}">${esc(t.title)}${t.date!==iso?" ("+esc(shortDate(t.date))+")":""}</option>`).join("")}</select>
       <label class="btn primary" style="flex:0 0 auto">${ui.phBusy?"Uploading…":"+ Add photo"}<input type="file" id="vmPhotoFile" accept="image/*" capture="environment" hidden ${ui.phBusy?"disabled":""}></label></div>`;
@@ -1548,12 +1548,13 @@ document.addEventListener("click",e=>{
       if(navigator.share)navigator.share({title:"Levi's PMC Store",text:msg}).catch(()=>{});else window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");return;}
   }
   if(t.dataset.photo){openPhoto(t.dataset.photo);return;}
+  if(t.id==="phRefresh"){delete photoCache[ui.day];render();return;}
   if(t.id==="phClose"){document.getElementById("photoBox").hidden=true;return;}
   if(t.id==="phDel"){const pid=t.dataset.pid;askConfirm("Delete this photo?","Delete",()=>{fsdb.doc("stores/"+SID+"/vmphotos/"+pid).delete().then(()=>{photoCache[ui.day]=(photoCache[ui.day]||[]).filter(x=>x.id!==pid);document.getElementById("photoBox").hidden=true;toast("Photo deleted");render();}).catch(()=>toast("Could not delete"));});return;}
   if(t.dataset.revoke){const m=accessInfo&&accessInfo.members.find(x=>x.id===t.dataset.revoke);
     askConfirm("Remove "+(m&&m.name||"this person")+"'s access?","Remove",()=>{fsdb.doc("stores/"+SID+"/members/"+t.dataset.revoke).delete().then(()=>{accessInfo.members=accessInfo.members.filter(x=>x.id!==t.dataset.revoke);toast("Access removed");render();}).catch(()=>toast("Could not remove"));});return;}
   if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","dsrImport","exportCsv","backupDl"].includes(t.id)))return;
-  if(t.dataset.tab){if(t.dataset.tab==="staff"&&ui.tab==="staff")ui.staffPage="root";go(t.dataset.tab);return;}
+  if(t.dataset.tab){if(t.dataset.tab==="daily")delete photoCache[ui.day];if(t.dataset.tab==="staff"&&ui.tab==="staff")ui.staffPage="root";go(t.dataset.tab);return;}
   if(t.dataset.go){go(t.dataset.go);return;}
   if(t.dataset.month&&t.dataset.stay){setCur(t.dataset.month);render();window.scrollTo(0,0);return;}
   if(t.dataset.month){setCur(t.dataset.month);if(ui.tab==="months")ui.tab="home";render();window.scrollTo(0,0);return;}
@@ -1600,8 +1601,8 @@ document.addEventListener("click",e=>{
     case "x24Cancel":ui.x24=null;render();break;
     case "dsrImport":doDsrImport();break;
     case "sohImport":if(ui.x24&&ui.x24.soh){saveSoh(ui.x24.soh);ui.x24=null;ui.tab="months";ui.report="mix";toast("SOH imported ✓");render();window.scrollTo(0,0);}break;
-    case "prevD":ui.day=addDays(ui.day,-1);render();break;
-    case "nextD":ui.day=addDays(ui.day,1);render();break;
+    case "prevD":ui.day=addDays(ui.day,-1);delete photoCache[ui.day];render();break;
+    case "nextD":ui.day=addDays(ui.day,1);delete photoCache[ui.day];render();break;
     case "saveLate":{const v=document.getElementById("lateAfter").value;state.settings=Object.assign({},state.settings,{lateAfter:v||"10:15"});persist("Late time saved");render();break;}
     case "vmAdd":{const i=document.getElementById("vmTitle");const title=i.value.trim();if(!title){i.focus();return;}
       const d=dayCache[ui.day.slice(0,7)];if(!d)return;
@@ -1615,7 +1616,7 @@ document.addEventListener("change",e=>{
   if(!canEdit()&&el.id!=="dayPick")return;
   if(el.id==="backupFile"&&el.files&&el.files[0]){backupRestore(el.files[0]);el.value="";return;}
   if(el.id==="x24File"&&el.files&&el.files[0]){handleX24File(el.files[0]);return;}
-  if(el.id==="dayPick"&&el.value){ui.day=el.value;render();return;}
+  if(el.id==="dayPick"&&el.value){ui.day=el.value;delete photoCache[ui.day];render();return;}
   if(el.dataset.a){const row=el.closest(".arow");if(!row)return;
     const patch={};patch[el.dataset.a]=el.value;
     if(el.dataset.a==="status"&&el.value){patch.in="";patch.out="";}
@@ -1631,7 +1632,7 @@ document.addEventListener("keydown",e=>{
 
 /* ---------- start ---------- */
 ui.month=monthOfDate(now);
-try{const md=localStorage.getItem("store-perf-mode");if(md==="week"||md==="day"||md==="month"||md==="ytd")ui.mode=md;}catch(e){}
+try{const md=localStorage.getItem("store-perf-mode");if(md==="week"||md==="month"||md==="ytd")ui.mode=md;}catch(e){}
 const local=loadLocal(); if(local) state=normalize(local);
 setTimeout(()=>{if(!col&&!ui.gate)migrateFiscal();},1500);
 render();

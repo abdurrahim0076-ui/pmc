@@ -272,7 +272,7 @@ const LS_KEY = "store-perf-v1";
 const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const MN_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-let state = {storeName:"Levi's PMC", staff:[], months:{}, settings:{lateAfter:"10:15"}};
+let state = {storeName:"Levi's PMC", staff:[], months:{}, settings:{lateAfter:"10:15"}, incentives:{}};
 let docRef = null, col = null;
 const dayCache = {};
 const LS_DAY = "store-perf-day-";
@@ -455,7 +455,8 @@ function normalize(d){
           staff: Array.isArray(d.staff)?d.staff:[],
           months: d.months&&typeof d.months==="object"?d.months:{},
           settings: d.settings&&typeof d.settings==="object"?d.settings:{lateAfter:"10:15"},
-          staffAlias: d.staffAlias&&typeof d.staffAlias==="object"?d.staffAlias:{}};
+          staffAlias: d.staffAlias&&typeof d.staffAlias==="object"?d.staffAlias:{},
+          incentives: d.incentives&&typeof d.incentives==="object"?d.incentives:{}};
 }
 
 /* ---------- roles & shared store (Firebase) ---------- */
@@ -1081,11 +1082,65 @@ function viewStaff(){
   if(pg==="perf") return viewStaffPerf();
   if(pg==="person"&&state.staff.some(s=>s.id===ui.staffId)) return viewPerson();
   if(pg==="team"&&canEdit()) return viewTeam();
+  if(pg==="inc") return viewIncentive();
   const active=state.staff.filter(s=>s.active!==false).length;
   return `<div class="folders">
     <button class="folder" data-spage="perf"><span class="ficon" aria-hidden="true">📁</span><span class="ftxt"><b>Staff performance</b><small>${active} staff · ranking, KPIs, history, sale mix</small></span><span class="chev" aria-hidden="true">›</span></button>
+    <button class="folder" data-spage="inc"><span class="ficon" aria-hidden="true">💰</span><span class="ftxt"><b>Incentives</b><small>Monthly scheme · Men's/Women's Tops & Bottoms · staff payout</small></span><span class="chev" aria-hidden="true">›</span></button>
     ${canEdit()?"":"<!--"}<button class="folder" data-spage="team"><span class="ficon" aria-hidden="true">👥</span><span class="ftxt"><b>Manage team</b><small>Add, rename or remove staff · staff access · settings</small></span><span class="chev" aria-hidden="true">›</span></button>${canEdit()?"":"-->"}
   </div>`;
+}
+/* ---------- Incentives (monthly scheme by category) ---------- */
+const INC_CATS=[["MENS BOTTOMS","Men's Bottoms"],["MENS TOPS","Men's Tops"],["WOMENS TOPS","Women's Tops"],["WOMENS BOTTOMS","Women's Bottoms"]];
+function incMonth(){const k=cur();return isWeek(k)?monthOfDate(weekRange(k)[0]):isDay(k)?monthOfDate(dOf(k)):k;}
+function staffMonthTarget(id,fm){const r=state.months[fm];const mt=num(r?.staff?.[id]?.target);if(mt>0)return mt;
+  const fy=fyOf(fm),c=weekCache[fy]||{},[a,b]=fmWeeks(fm);let t=0;for(let i=a;i<=b;i++)t+=num(c[weekKey(fy,i)]?.staff?.[id]?.target);return t;}
+function calcIncentive(fm){
+  const sc=(state.incentives||{})[fm];const t=mixFor(fm,false);if(t===null)return null;
+  const rows=staffWithData(monthKeys(fyOf(fm))).map(s=>{
+    const o=(t.s&&t.s[s.id])||{};const a=aggStaff(s.id,[fm]);const tgt=staffMonthTarget(s.id,fm);const ach=tgt>0?a.sales/tgt:NaN;
+    const minA=num(sc?.minAch);const ok=!minA||(isFinite(ach)&&ach*100>=minA);
+    let amt=0;const cat={};
+    INC_CATS.forEach(([k])=>{const q=(o[k]||[0,0])[0],v=(o[k]||[0,0])[1];const r=sc?.cats?.[k];let x=0;
+      if(r&&num(r.rate)>0)x=r.type==="pct"?v*num(r.rate)/100:q*num(r.rate);cat[k]={q,v,x};amt+=x;});
+    const bonus=(sc&&num(sc.bonus)>0&&isFinite(ach)&&ach>=1)?num(sc.bonus):0;
+    const total=ok?Math.round(amt+bonus):0;
+    return {s,cat,sales:a.sales,tgt,ach,ok,earned:Math.round(amt+bonus),total};
+  }).filter(r=>r.sales>0||r.tgt>0).sort((x,y)=>y.total-x.total||y.sales-x.sales);
+  return {rows,days:t.days};
+}
+function viewIncentive(){
+  const fm=incMonth(),sc=(state.incentives||{})[fm]||{cats:{}};const prev=stepKey(fm,-1);
+  let h=backBtn("root","Staff")+`<div class="hero" style="padding:16px 20px"><div class="lbl">💰 Incentive · ${esc(mLong(fm))}</div>
+    <div class="of" style="margin-top:4px">${esc((()=>{const [s,e]=fmRange(fm),f=d=>d.getDate()+" "+MN[d.getMonth()];const [a,b]=fmWeeks(fm);return f(s)+" – "+f(e)+" · W"+a+"–W"+b;})())}</div></div>`;
+  // scheme
+  const has=INC_CATS.some(([k])=>num(sc.cats?.[k]?.rate)>0)||num(sc.bonus)>0;
+  if(canEdit()){
+    h+=`<section class="block"><h2>Scheme for ${esc(MN[parseKey(fm).m-1])}</h2>
+      <div class="tscroll"><table><thead><tr><th>Category</th><th>Type</th><th>Rate</th></tr></thead><tbody>${INC_CATS.map(([k,l])=>{const r=sc.cats?.[k]||{};
+        return `<tr><td>${esc(l)}</td><td><select data-inct="${k}"><option value="unit" ${r.type!=="pct"?"selected":""}>₹ per piece</option><option value="pct" ${r.type==="pct"?"selected":""}>% of sales</option></select></td>
+          <td><input class="n" data-incr="${k}" inputmode="decimal" value="${num(r.rate)||""}" placeholder="0" style="width:90px"></td></tr>`;}).join("")}</tbody></table></div>
+      <div class="fgrid" style="margin-top:10px">
+        <div><label class="f" for="incMin">Qualify if target ach. ≥ (%)</label><input class="n" id="incMin" inputmode="decimal" value="${num(sc.minAch)||""}" placeholder="0 = everyone"></div>
+        <div><label class="f" for="incBonus">Bonus at 100% target (₹)</label><input class="n" id="incBonus" inputmode="decimal" value="${num(sc.bonus)||""}" placeholder="0"></div></div>
+      <label class="f" for="incNote" style="margin-top:10px">Note (optional)</label><input type="text" id="incNote" value="${esc(sc.note||"")}" placeholder="e.g. Diwali scheme">
+      <div class="actions"><button class="btn primary" id="incSave" style="flex:1">Save scheme</button>${(state.incentives||{})[prev]?`<button class="btn" id="incCopy">Copy ${esc(MN[parseKey(prev).m-1])} scheme</button>`:""}</div></section>`;
+  }else if(has){
+    h+=`<section class="block"><h2>This month's scheme</h2><ul class="rank">${INC_CATS.filter(([k])=>num(sc.cats?.[k]?.rate)>0).map(([k,l])=>{const r=sc.cats[k];return `<li><div class="who"><b>${esc(l)}</b></div><div class="amt"><b>${r.type==="pct"?num(r.rate)+"%":"₹"+num(r.rate)+" / pc"}</b></div></li>`;}).join("")}</ul>
+      ${num(sc.minAch)?`<p class="hint">Qualify at ${num(sc.minAch)}% of your target.</p>`:""}${num(sc.bonus)?`<p class="hint">Bonus ₹${full(sc.bonus)} at 100% target.</p>`:""}${sc.note?`<p class="hint">${esc(sc.note)}</p>`:""}</section>`;
+  }
+  if(!has) return h+`<section class="block"><div class="empty">${canEdit()?"Set this month's scheme above to see each staff member's incentive.":"No incentive scheme for this month yet."}</div></section>`;
+  const res=calcIncentive(fm);
+  if(!res) return h+`<div class="empty">Loading…</div>`;
+  if(!res.rows.length||!res.days) return h+`<section class="block"><div class="empty">No staff sales for this month yet. Import X24 to calculate incentives.</div></section>`;
+  const tot=res.rows.reduce((s,r)=>s+r.total,0);
+  h+=`<section class="block"><h2>Staff incentive · ₹${full(tot)} total</h2><div class="tscroll"><table><thead><tr><th>Staff</th>${INC_CATS.map(([k,l])=>`<th style="white-space:normal">${esc(l)}</th>`).join("")}<th>Ach</th><th>Incentive</th></tr></thead><tbody>`+
+    res.rows.map(r=>`<tr><td>${esc(r.s.name)}</td>${INC_CATS.map(([k])=>{const c=r.cat[k];return `<td>${c.q?full(c.q)+" pc":"–"}${c.x?`<br><small class="muted">₹${full(Math.round(c.x))}</small>`:""}</td>`;}).join("")}
+      <td class="${isFinite(r.ach)?(r.ach>=1?"up":"down"):"muted"}">${isFinite(r.ach)?pct(r.ach):"–"}</td>
+      <td><b>₹${full(r.total)}</b>${!r.ok&&r.earned?`<br><small class="down">not qualified (₹${full(r.earned)})</small>`:""}</td></tr>`).join("")+
+    `<tr class="total"><td>Total</td>${INC_CATS.map(([k])=>`<td>${full(res.rows.reduce((s,r)=>s+r.cat[k].q,0))} pc</td>`).join("")}<td></td><td>₹${full(tot)}</td></tr></tbody></table></div>
+    <p class="hint">From X24 sales in ${esc(mLong(fm))} (${res.days} days so far). Pieces and sales are net of returns. Achievement uses the staff member's month target, or their weekly targets added up.</p></section>`;
+  return h;
 }
 function backBtn(to,label){return `<button class="back" data-spage="${to}">‹ ${esc(label)}</button>`;}
 function viewStaffPerf(){
@@ -1141,6 +1196,10 @@ function viewPerson(){
       cats.map(c=>`<tr><td>${esc(catLabel(c))}</td><td>${full(o[c][0])}</td><td>${tq?pct(o[c][0]/tq):"–"}</td><td class="muted">${sq&&t.c[c]?pct(t.c[c][0]/sq):"–"}</td><td>${inr(o[c][1])}</td></tr>`).join("")+
       `<tr class="total"><td>Total</td><td>${full(tq)}</td><td>100%</td><td></td><td>${inr(tv)}</td></tr></tbody></table></div><p class="hint">Compare their con% with the store's to see which categories they sell more or less of.</p></section>`;}
 
+  // incentive for this month
+  {const fm=incMonth(),sc=(state.incentives||{})[fm];if(sc){const res=calcIncentive(fm);const r=res&&res.rows.find(x=>x.s.id===s.id);
+    if(r) h+=`<section class="block"><h2>💰 ${esc(MN_FULL[parseKey(fm).m-1])} incentive</h2><div class="grid">${INC_CATS.map(([k,l])=>`<div class="kv"><span>${esc(l)}</span><b>${full(r.cat[k].q)} pc</b>${r.cat[k].x?`<small class="muted">₹${full(Math.round(r.cat[k].x))}</small>`:""}</div>`).join("")}
+      <div class="kv"><span>Incentive</span><b class="${r.ok?"up":"down"}">₹${full(r.total)}</b></div></div>${!r.ok?`<p class="hint down">Not qualified yet: needs ${num(sc.minAch)}% of target (now ${isFinite(r.ach)?pct(r.ach):"no target"}).</p>`:""}</section>`;}}
   // history
   const hk=ui.mode==="day"?monthDays(k):periodKeys(fyOf(k));
   const hist=hk.map(x=>({x,a:aggStaff(s.id,[x])})).filter(o=>o.a.sales>0||o.a.target>0);
@@ -1221,7 +1280,7 @@ function weeksCovering(s,e){const out=[];let wk=weekOfDate(s);for(let i=0;i<60;i
 function mixFor(k,ytd){
   const [s,e]=periodDates(k,ytd);const wks=weeksCovering(s,e);
   const missing=wks.filter(w=>!mixCache[w]);
-  if(missing.length){Promise.all(missing.map(loadMix)).then(()=>{if(ui.tab==="months"&&ui.report==="mix")render();});return null;}
+  if(missing.length){Promise.all(missing.map(loadMix)).then(()=>{if((ui.tab==="months"&&ui.report==="mix")||ui.tab==="staff")render();});return null;}
   const si=isoOf(s),ei=isoOf(e);const t={c:{},b:{},f:{},s:{},days:0};
   const add=(o,key,a)=>{const x=o[key]||(o[key]=[0,0]);x[0]+=a[0];x[1]+=a[1];};
   wks.forEach(w=>{const days=mixCache[w].days;Object.keys(days).forEach(dt=>{if(dt<si||dt>ei)return;const d=days[dt];t.days++;
@@ -1570,7 +1629,7 @@ document.addEventListener("click",e=>{
   if(t.id==="phDel"){const pid=t.dataset.pid;askConfirm("Delete this photo?","Delete",()=>{fsdb.doc("stores/"+SID+"/vmphotos/"+pid).delete().then(()=>{photoCache[ui.day]=(photoCache[ui.day]||[]).filter(x=>x.id!==pid);document.getElementById("photoBox").hidden=true;toast("Photo deleted");render();}).catch(()=>toast("Could not delete"));});return;}
   if(t.dataset.revoke){const m=accessInfo&&accessInfo.members.find(x=>x.id===t.dataset.revoke);
     askConfirm("Remove "+(m&&m.name||"this person")+"'s access?","Remove",()=>{fsdb.doc("stores/"+SID+"/members/"+t.dataset.revoke).delete().then(()=>{accessInfo.members=accessInfo.members.filter(x=>x.id!==t.dataset.revoke);toast("Access removed");render();}).catch(()=>toast("Could not remove"));});return;}
-  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","dsrImport","saveMT","exportCsv","backupDl"].includes(t.id)))return;
+  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","dsrImport","saveMT","incSave","incCopy","exportCsv","backupDl"].includes(t.id)))return;
   if(t.dataset.tab){if(t.dataset.tab==="daily")delete photoCache[ui.day];if(t.dataset.tab==="staff"&&ui.tab==="staff")ui.staffPage="root";go(t.dataset.tab);return;}
   if(t.dataset.go){go(t.dataset.go);return;}
   if(t.dataset.month&&t.dataset.stay){setCur(t.dataset.month);render();window.scrollTo(0,0);return;}
@@ -1606,6 +1665,11 @@ document.addEventListener("click",e=>{
     case "clearMonth":askConfirm("Clear all "+mLong(cur())+" data?","Clear",()=>{delRec(cur());render();});break;
     case "cYes":{const f=pendingConfirm;closeConfirm();if(f)f();break;}
     case "cNo":closeConfirm();break;
+    case "incSave":case "incCopy":{const fm=incMonth();let sc;
+      if(t.id==="incCopy"){sc=JSON.parse(JSON.stringify((state.incentives||{})[stepKey(fm,-1)]||{cats:{}}));}
+      else{sc={cats:{},minAch:num(document.getElementById("incMin").value),bonus:num(document.getElementById("incBonus").value),note:document.getElementById("incNote").value.trim()};
+        INC_CATS.forEach(([k])=>{const r=num(document.querySelector(`[data-incr="${k}"]`).value);const ty=document.querySelector(`[data-inct="${k}"]`).value;if(r>0)sc.cats[k]={type:ty,rate:r};});}
+      state.incentives=Object.assign({},state.incentives,{[fm]:sc});persist(t.id==="incCopy"?"Scheme copied":"Scheme saved");render();break;}
     case "saveMT":{document.querySelectorAll("[data-mt]").forEach(i=>{const fm=i.dataset.mt,v=num(i.value);const r=state.months[fm];
         if(v>0)state.months[fm]={...(r||{}),target:v};else if(r){const c={...r};delete c.target;if(Object.keys(c).length)state.months[fm]=c;else delete state.months[fm];}});
       persist("Monthly targets saved");ui.tab="home";render();window.scrollTo(0,0);break;}

@@ -179,6 +179,10 @@ textarea{width:100%;font:inherit;font-size:14px;padding:10px;border-radius:10px;
 .daybar input{flex:1;text-align:center;font-weight:600}
 .daytitle{text-align:center;font-family:"Barlow Condensed",Barlow,sans-serif;font-size:20px;font-weight:600;margin:-6px 0 12px}
 .arow{border-top:1px solid var(--line);padding:12px 0}
+.phgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.phitem{border:1px solid var(--line);border-radius:10px;padding:0;overflow:hidden;background:var(--soft);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.phitem img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.phitem span{display:block;padding:6px;font-size:12px;line-height:1.3}.phitem small{color:var(--muted)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
 .tile{border:1px solid var(--line);border-radius:12px;padding:12px 8px;min-height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:inherit;cursor:pointer;background:var(--soft);color:var(--ink);text-align:center}
 .tile b{font-weight:600;font-size:15px;line-height:1.2;word-break:break-word}
@@ -235,6 +239,7 @@ select{font:inherit;font-size:15px;padding:9px 8px;border-radius:10px;border:1px
     <div class="status" id="status"></div>
   </header>
   <div id="periodWrap"><div class="seg" id="modeSeg" role="group" aria-label="View by">
+    <button data-mode="ytd" aria-pressed="false">YTD</button>
     <button data-mode="month" aria-pressed="true">Monthly</button>
     <button data-mode="week" aria-pressed="false">Weekly</button>
     <button data-mode="day" aria-pressed="false">Daily</button></div>
@@ -254,6 +259,8 @@ select{font:inherit;font-size:15px;padding:9px 8px;border-radius:10px;border:1px
   <button data-tab="months"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Report</button>
 </div></nav>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="overlay" id="photoBox" hidden><div class="dialog" style="max-width:560px;padding:12px"><img alt="VM photo" style="width:100%;border-radius:10px;display:block"><p style="margin:10px 0"></p>
+  <div class="actions" style="margin:0"><button class="btn danger" id="phDel">Delete</button><button class="btn" id="phClose" style="flex:1">Close</button></div></div></div>
 <div class="overlay" id="confirmBox" hidden><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="cMsg"><p id="cMsg"></p>
   <div class="actions" style="margin:0"><button class="btn danger" id="cYes" style="flex:1">Yes</button><button class="btn" id="cNo" style="flex:1">Cancel</button></div></div></div>
 
@@ -291,7 +298,7 @@ function fyStart(fy){const d=new Date(fy-1,10,30);return new Date(fy-1,10,30-d.g
 function weeksIn(fy){return Math.round((fyStart(fy+1)-fyStart(fy))/(7*864e5));}
 function weekKeys(fy){const a=[],w=weeksIn(fy);for(let n=1;n<=w;n++)a.push(weekKey(fy,n));return a;}
 function dayKeys(fy){const out=[];const s=fyStart(fy),e=fyStart(fy+1);for(let d=new Date(s);d<e;d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1))out.push(isoOf(d));return out;}
-function periodKeys(fy){return ui.mode==="week"?weekKeys(fy):ui.mode==="day"?dayKeys(fy):monthKeys(fy);}
+function periodKeys(fy){return (ui.mode==="week"||ui.mode==="ytd")?weekKeys(fy):ui.mode==="day"?dayKeys(fy):monthKeys(fy);}
 /* Levi's fiscal months: 5-4-4 weeks each quarter (Dec, Mar, Jun, Sep = 5 weeks). A 53rd week goes to November. */
 const FM_WEEKS=[5,4,4,5,4,4,5,4,4,5,4,4];
 function fmIndex(k){const {m}=parseKey(k);return m===12?0:m;}
@@ -311,7 +318,10 @@ function prevYearKey(k){if(isDay(k))return dayAdd(k,-364);if(isWeek(k))return we
 function mShort(k){if(isDay(k)){const d=dOf(k);return d.getDate()+" "+MN[d.getMonth()];}if(isWeek(k))return "W"+weekNo(k);const {m}=parseKey(k);return MN[m-1];}
 function mLong(k){if(isDay(k)){const d=dOf(k);return WD[d.getDay()]+", "+d.getDate()+" "+MN[d.getMonth()]+" "+d.getFullYear();}if(isWeek(k))return "Week "+weekNo(k)+" ("+rangeText(k)+")";const {y,m}=parseKey(k);return MN_FULL[m-1]+" "+y;}
 function stepKey(k,d){if(isDay(k))return dayAdd(k,d);if(isWeek(k)){let fy=fyOf(k),n=weekNo(k)+d;if(n<1){fy--;n=weeksIn(fy);}else if(n>weeksIn(fy)){fy++;n=1;}return weekKey(fy,n);}return addMonths(k,d);}
-function cur(){return ui.mode==="week"?ui.week:ui.mode==="day"?ui.dday:ui.month;}
+function cur(){return (ui.mode==="week"||ui.mode==="ytd")?ui.week:ui.mode==="day"?ui.dday:ui.month;}
+function isYtd(){return ui.mode==="ytd";}
+function selKeys(){return isYtd()?ytdKeys(ui.week):[cur()];}
+function ytdLabel(){const fy=fyOf(ui.week);return "YTD · Week 1 – Week "+weekNo(ui.week);}
 function setCur(k){if(isDay(k))ui.dday=k;else if(isWeek(k))ui.week=k;else ui.month=k;}
 function rec(k){if(isDay(k)){const c=x24Cache[k.slice(0,7)];return c?c.days[k]:undefined;}if(isWeek(k)){const c=weekCache[fyOf(k)];return c?c[k]:undefined;}return state.months[k]||monthFromWeeks(k);}
 /* a fiscal month with no month entry is built from its weeks (fiscal months are whole weeks) */
@@ -439,7 +449,7 @@ function normalize(d){
 }
 
 /* ---------- roles & shared store (Firebase) ---------- */
-let role="admin";            // admin | staff
+let role="admin",myName="Manager";            // admin | staff
 function canEdit(){return role==="admin";}
 let fbAuth=null,fsdb=null,FBC=null;
 const SID="pmc";
@@ -497,7 +507,7 @@ async function connectFirebase(){
     if(u&&!u.isAnonymous&&u.email&&u.email.toLowerCase()===admin){role="admin";}
     else if(u&&u.isAnonymous){
       const m=await fsdb.doc("stores/"+SID+"/members/"+u.uid).get().catch(()=>null);
-      if(m&&m.exists)role="staff";else{ui.gate="join";render();return;}
+      if(m&&m.exists){role="staff";myName=(m.data()&&m.data().name)||"Staff";}else{ui.gate="join";render();return;}
     }else{if(u&&!u.isAnonymous)ui.gateWrong=u.email;ui.gate="join";render();return;}
     ui.gate=null;col=fbCol();localStorage.removeItem("store-perf-v1");
     await afterCol();
@@ -512,7 +522,7 @@ async function joinStaff(){
     if(u&&!u.isAnonymous){await fbAuth.signOut();u=null;}
     if(!u)u=(await fbAuth.signInAnonymously()).user;
     await fsdb.doc("stores/"+SID+"/members/"+u.uid).set({name,pin,joinedAt:new Date().toISOString()});
-    role="staff";ui.gate=null;ui.gateErr="";col=fbCol();await afterCol();
+    role="staff";myName=name;ui.gate=null;ui.gateErr="";col=fbCol();await afterCol();
   }catch(e){ui.gateErr=/permission/i.test(String(e.code||e.message))?"Wrong PIN. Ask your manager for the store PIN.":"Could not join: "+(e.message||e);render();}
 }
 function adminLogin(){const p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:"select_account"});
@@ -592,7 +602,7 @@ function header(){
   const fy=fyOf(cur());
   document.getElementById("fyLabel").textContent=fyName(fy)+"";
   const k=cur();
-  document.getElementById("monthLabel").innerHTML=isDay(k)?(esc(mLong(k))+"<small>"+esc(mShort(weekOfDate(dOf(k))))+" · "+esc(fyName(fy))+"</small>"):isWeek(k)?("Week "+weekNo(k)+"<small>"+esc(rangeText(k))+" · "+esc(fyName(fy))+"</small>"):(esc(mLong(k))+"<small>"+esc((()=>{const [s,e]=fmRange(k),f=d=>d.getDate()+" "+MN[d.getMonth()];const [a,b]=fmWeeks(k);return f(s)+" – "+f(e)+" · W"+a+"–W"+b;})())+" · "+esc(fyName(fy))+"</small>");
+  document.getElementById("monthLabel").innerHTML=isYtd()?(esc(ytdLabel())+"<small>"+esc(shortDate(isoOf(fyStart(fy))))+" – "+esc(shortDate(isoOf(weekRange(k)[1])))+" · "+esc(fyName(fy))+"</small>"):isDay(k)?(esc(mLong(k))+"<small>"+esc(mShort(weekOfDate(dOf(k))))+" · "+esc(fyName(fy))+"</small>"):isWeek(k)?("Week "+weekNo(k)+"<small>"+esc(rangeText(k))+" · "+esc(fyName(fy))+"</small>"):(esc(mLong(k))+"<small>"+esc((()=>{const [s,e]=fmRange(k),f=d=>d.getDate()+" "+MN[d.getMonth()];const [a,b]=fmWeeks(k);return f(s)+" – "+f(e)+" · W"+a+"–W"+b;})())+" · "+esc(fyName(fy))+"</small>");
   document.querySelectorAll("#modeSeg button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mode===ui.mode)));
   document.querySelector('.tabbar [data-tab="add"]').hidden=!canEdit();
   document.querySelectorAll(".tabbar button").forEach(b=>{
@@ -601,26 +611,26 @@ function header(){
 }
 
 function viewHome(){
-  const k=cur(), m=aggStore([k]), y=aggStore(ytdKeys(k));
-  const has=!!rec(k);
+  const k=cur(), m=aggStore(selKeys()), y=aggStore(ytdKeys(k));
+  const has=isYtd()?m.sales>0:!!rec(k);
   const fill=Math.max(0,Math.min(1,isFinite(m.ach)?m.ach:0));
   let h="";
   if(!has){
-    h+=`<div class="hero"><div class="lbl">${esc(mLong(k))}</div><div class="big">No sales yet</div>
+    h+=`<div class="hero"><div class="lbl">${esc(isYtd()?ytdLabel():mLong(k))}</div><div class="big">No sales yet</div>
       <div class="of">Add this month's numbers to see KPIs and L2L.</div>
       <div class="actions"${canEdit()?"":" hidden"}><button class="btn" data-go="add" style="background:var(--thread);border-color:var(--thread);color:#1a1a1a">Add ${esc(mShort(k))} sales</button></div></div>`;
   }else{
     h+=`<div class="hero">
-      <div class="lbl">${esc(mLong(k))} sales</div>
+      <div class="lbl">${esc(isYtd()?ytdLabel():mLong(k))} sales</div>
       <div class="big">${inr(m.sales)}</div>
       <div class="of">${m.target?"Target "+inr(m.target):"Add a target in the Sales tab"}</div>
       <div class="bar"><i style="width:${(fill*100).toFixed(1)}%"></i></div>
       <div class="row">
         <div><b>${pct(m.ach)}</b>Achievement</div>
-        <div><b>${signPct(m.l2l)}</b>L2L vs ${esc(mShort(k))} LY</div>
+        <div><b>${signPct(m.l2l)}</b>L2L vs ${esc(isYtd()?"YTD":mShort(k))} LY</div>
         <div><b>${!m.target?"–":m.target>m.sales?inr(m.target-m.sales):"Done"}</b>${!m.target?"No target yet":m.target>m.sales?"To go":"Target"}</div>
       </div></div>`;
-    h+=`<section class="block"><h2>Store KPIs</h2><div class="grid">
+    if(!isYtd()) h+=`<section class="block"><h2>Store KPIs</h2><div class="grid">
       <div class="kv"><span>ATV</span><b>${isFinite(m.atv)?inr(m.atv):"–"}</b></div>
       <div class="kv"><span>UPT</span><b>${isFinite(m.upt)?m.upt.toFixed(2):"–"}</b></div>
       <div class="kv"><span>ASP</span><b>${isFinite(m.asp)?inr(m.asp):"–"}</b></div>
@@ -629,14 +639,22 @@ function viewHome(){
       <div class="kv"><span>Footfall</span><b>${m.footfall?full(m.footfall):"–"}</b></div>
     </div></section>`;
   }
-  h+=`<section class="block"><h2>Year to date</h2><div class="grid">
+  h+=`<section class="block"><h2>📈 YTD performance</h2><div class="grid">
     <div class="kv"><span>YTD sales</span><b>${inr(y.sales)}</b></div>
-    <div class="kv"><span>YTD target</span><b>${inr(y.target)}</b></div>
+    <div class="kv"><span>YTD target</span><b>${y.target?inr(y.target):"–"}</b></div>
     <div class="kv"><span>YTD ach.</span><b>${pct(y.ach)}</b></div>
     <div class="kv"><span>YTD L2L</span><b class="${cls(y.l2l)}">${signPct(y.l2l)}</b></div>
-    <div class="kv"><span>YTD ATV</span><b>${isFinite(y.atv)?inr(y.atv):"–"}</b></div>
-    <div class="kv"><span>YTD UPT</span><b>${isFinite(y.upt)?y.upt.toFixed(2):"–"}</b></div>
+    <div class="kv"><span>Bills</span><b>${full(y.bills)}</b></div>
+    <div class="kv"><span>Units</span><b>${full(y.units)}</b></div>
+    <div class="kv"><span>Walk-ins</span><b>${y.footfall?full(y.footfall):"–"}</b></div>
+    <div class="kv"><span>Conversion</span><b>${pct(y.conv,1)}</b></div>
+    <div class="kv"><span>ATV</span><b>${isFinite(y.atv)?inr(y.atv):"–"}</b></div>
+    <div class="kv"><span>UPT</span><b>${isFinite(y.upt)?y.upt.toFixed(2):"–"}</b></div>
+    <div class="kv"><span>ASP</span><b>${isFinite(y.asp)?inr(y.asp):"–"}</b></div>
+    <div class="kv"><span>${(ui.mode==="week"||isYtd())?"Avg / week":ui.mode==="day"?"Avg / day":"Avg / month"}</span><b>${(()=>{const n=ytdKeys(k).filter(x=>num(rec(x)?.sales)>0).length;return n?inr(y.sales/n):"–";})()}</b></div>
   </div><p class="hint">${isDay(k)?"From "+esc(shortDate(isoOf(fyStart(fyOf(k)))))+" to "+esc(mShort(k)):isWeek(k)?"Week 1 to Week "+weekNo(k):"December to "+esc(MN_FULL[parseKey(k).m-1])}. L2L counts only ${isDay(k)?"days":isWeek(k)?"weeks":"months"} that have last year's sales too.</p></section>`;
+  {const yk=ytdKeys(k);const ys=staffWithData(yk).map(s=>({s,a:aggStaff(s.id,yk)})).filter(x=>x.a.sales>0).sort((p,q)=>q.a.sales-p.a.sales).slice(0,5);
+   if(ys.length) h+=`<section class="block"><h2>YTD top staff</h2><ul class="rank">`+ys.map((x,i)=>`<li><span class="pos">${i+1}</span><div class="who"><b>${esc(x.s.name)}</b><small>ATV ${isFinite(x.a.atv)?inr(x.a.atv):"–"} · UPT ${isFinite(x.a.upt)?x.a.upt.toFixed(2):"–"}</small></div><div class="amt"><b>${inr(x.a.sales)}</b><small class="${isFinite(x.a.ach)?(x.a.ach>=1?"up":"down"):"muted"}">${isFinite(x.a.ach)?pct(x.a.ach)+" ach.":""}</small></div></li>`).join("")+`</ul><p class="hint">Staff YTD comes from X24 imports.</p></section>`;}
 
   // chart
   const months=chartKeys(k);
@@ -650,7 +668,7 @@ function viewHome(){
 
   // top staff
   const list=staffWithData([k]).map(s=>({s,a:aggStaff(s.id,[k])})).filter(x=>x.a.sales>0).sort((a,b)=>b.a.sales-a.a.sales).slice(0,3);
-  if(list.length){
+  if(list.length&&!isYtd()){
     h+=`<section class="block"><h2>Top staff · ${esc(mShort(k))}</h2><ul class="rank">`+
       list.map((x,i)=>`<li><span class="pos">${i+1}</span><div class="who"><b>${esc(x.s.name)}</b><small>ATV ${isFinite(x.a.atv)?inr(x.a.atv):"–"} · UPT ${isFinite(x.a.upt)?x.a.upt.toFixed(2):"–"}</small></div>
       <div class="amt"><b>${inr(x.a.sales)}</b><small class="${isFinite(x.a.ach)?(x.a.ach>=1?"up":"down"):"muted"}">${pct(x.a.ach)} of target</small></div></li>`).join("")+
@@ -1004,6 +1022,7 @@ async function doImport(){
 }
 
 function viewAdd(){
+  if(isYtd()) return viewImport()+`<section class="block"><h2>Enter numbers</h2><p class="hint" style="margin:0">YTD is the total of your weeks. To type sales or targets, choose <b>Monthly</b>, <b>Weekly</b> or <b>Daily</b> at the top.</p></section>`;
   const k=cur(), m=rec(k)||{};
   const lyAuto=num(rec(prevYearKey(k))?.sales);
   const team=state.staff.filter(s=>s.active!==false || m.staff?.[s.id]);
@@ -1053,11 +1072,11 @@ function viewStaff(){
 }
 function backBtn(to,label){return `<button class="back" data-spage="${to}">‹ ${esc(label)}</button>`;}
 function viewStaffPerf(){
-  const k=cur(), keys=ui.staffView==="ytd"?ytdKeys(k):[k];
+  const k=cur(), keys=(ui.staffView==="ytd"||isYtd())?ytdKeys(k):[k];
   const totalSales=aggStore(keys).sales;
   const rows=staffWithData(keys).map(s=>({s,a:aggStaff(s.id,keys)})).sort((a,b)=>b.a.sales-a.a.sales);
   const max=Math.max(1,...rows.map(r=>r.a.sales));
-  let h=backBtn("root","Staff")+`<div class="seg" role="group" aria-label="Period">
+  let h=backBtn("root","Staff")+`<div class="seg" role="group" aria-label="Period" ${isYtd()?"hidden":""}>
     <button data-sv="month" aria-pressed="${ui.staffView!=="ytd"}">${esc(mShort(k))} only</button>
     <button data-sv="ytd" aria-pressed="${ui.staffView==="ytd"}">YTD</button></div>
     <section class="block"><h2>📁 Staff performance</h2>`;
@@ -1073,13 +1092,13 @@ function viewStaffPerf(){
   return h+`</section>`;
 }
 function viewPerson(){
-  const s=state.staff.find(x=>x.id===ui.staffId),k=cur(),ytd=ui.staffView==="ytd";
+  const s=state.staff.find(x=>x.id===ui.staffId),k=cur(),ytd=ui.staffView==="ytd"||isYtd();
   const keys=ytd?ytdKeys(k):[k];
   const a=aggStaff(s.id,keys),y=aggStaff(s.id,ytdKeys(k)),store=aggStore(keys);
   const ranked=staffWithData(keys).map(x=>({id:x.id,v:aggStaff(x.id,keys).sales})).sort((p,q)=>q.v-p.v);
   const rank=ranked.findIndex(x=>x.id===s.id)+1;
   const fmt=v=>isFinite(v)?inr(v):"–";
-  let h=backBtn("perf","Staff performance")+`<div class="seg" role="group" aria-label="Period">
+  let h=backBtn("perf","Staff performance")+`<div class="seg" role="group" aria-label="Period" ${isYtd()?"hidden":""}>
     <button data-sv="month" aria-pressed="${!ytd}">${esc(mShort(k))} only</button><button data-sv="ytd" aria-pressed="${ytd}">YTD</button></div>
   <div class="hero"><div class="lbl">${esc(s.role||"Staff")}${s.active===false?" · left":""} · ${esc(ytd?"YTD":mLong(k))}</div>
     <div class="big" style="font-size:34px">${esc(s.name)}</div>
@@ -1195,8 +1214,8 @@ function mixFor(k,ytd){
 }
 function catLabel(c){return titleCase(String(c).replace(/^MENS /i,"Men's ").replace(/^WOMENS /i,"Women's "));}
 function viewMix(){
-  const k=cur(),ytd=ui.mixYtd,t=mixFor(k,ytd);
-  let h=`<div class="seg" role="group" aria-label="Period"><button data-mixp="0" aria-pressed="${!ytd}">${esc(mShort(k))} only</button><button data-mixp="1" aria-pressed="${!!ytd}">YTD</button></div>`;
+  const k=cur(),ytd=ui.mixYtd||isYtd(),t=mixFor(k,ytd);
+  let h=`<div class="seg" role="group" aria-label="Period" ${isYtd()?"hidden":""}><button data-mixp="0" aria-pressed="${!ytd}">${esc(mShort(k))} only</button><button data-mixp="1" aria-pressed="${!!ytd}">YTD</button></div>`;
   if(!t) return h+`<div class="empty">Loading sale mix…</div>`;
   if(!t.days) return h+`<section class="block"><h2>Sale mix</h2><div class="empty">No X24 data for ${esc(ytd?"this year":mLong(k))} yet. Import an X24 report in the Sales tab to see category, brick and fit con%.</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Import X24</button></div>`:""}</section>`;
   if(!sohLoaded){loadSoh().then(()=>{if(ui.tab==="months"&&ui.report==="mix")render();});}
@@ -1352,6 +1371,7 @@ function viewDaily(){
     <div style="margin-top:12px">${todays.length?todays.map(t=>taskLi(t,false)).join(""):`<div class="empty">No VM tasks for this day yet.</div>`}</div>`;
   if(pending.length) h+=`<h2 style="margin-top:14px">Still pending this month</h2><div>${pending.map(t=>taskLi(t,true)).join("")}</div>`;
   if(mTot) h+=`<p class="hint" style="margin-top:12px">${esc(MN_FULL[Number(mk.slice(5))-1])}: ${mDone} of ${mTot} VM tasks finished</p><div class="progress"><i style="width:${(mDone/mTot*100).toFixed(1)}%"></i></div>`;
+  h+=viewVmPhotos(iso,[...todays,...pending]);
   h+=`</section>`;
 
   // month attendance register (boxes)
@@ -1369,6 +1389,55 @@ function viewDaily(){
       `</tbody></table></div><p class="hint"><span class="box st-P">P</span> Present &nbsp; <span class="box st-L">L</span> Leave &nbsp; <span class="box st-WO">W</span> Week off. Scroll sideways for all dates.</p></section>`;
   }
   return h;
+}
+/* ---------- VM photos (staff + admin can add) ---------- */
+const photoCache={},photoLoading={};
+function canPhoto(){return !!fsdb&&(role==="admin"||role==="staff");}
+function loadPhotos(iso){
+  if(photoCache[iso]||photoLoading[iso]||!fsdb)return;
+  photoLoading[iso]=true;
+  fsdb.collection("stores/"+SID+"/vmphotos").where("date","==",iso).get()
+    .then(q=>{photoCache[iso]=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.at).localeCompare(String(b.at)));})
+    .catch(e=>{photoCache[iso]=[];photoCache[iso].err=e.message||String(e);})
+    .finally(()=>{delete photoLoading[iso];if(ui.tab==="daily")render();});
+}
+function viewVmPhotos(iso,tasks){
+  if(!fsdb) return "";
+  const list=photoCache[iso];if(!list)loadPhotos(iso);
+  let h=`<div class="vmph"><h2 style="margin-top:16px">📷 VM photos</h2>`;
+  if(canPhoto()) h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <select id="phTask" aria-label="VM task for this photo" style="flex:1;min-width:150px"><option value="">General VM photo</option>${tasks.map(t=>`<option value="${t.id}">${esc(t.title)}${t.date!==iso?" ("+esc(shortDate(t.date))+")":""}</option>`).join("")}</select>
+      <label class="btn primary" style="flex:0 0 auto">${ui.phBusy?"Uploading…":"+ Add photo"}<input type="file" id="vmPhotoFile" accept="image/*" capture="environment" hidden ${ui.phBusy?"disabled":""}></label></div>`;
+  if(!list) h+=`<div class="empty">Loading photos…</div>`;
+  else if(list.err) h+=`<p class="hint down">Photos need the new database rules. Ask the manager to update them.</p>`;
+  else if(!list.length) h+=`<div class="empty">No VM photos for this day yet.</div>`;
+  else h+=`<div class="phgrid">`+list.map(p=>`<button class="phitem" data-photo="${esc(p.id)}" aria-label="Open photo by ${esc(p.name)}"><img src="${p.img}" alt="VM photo ${esc(p.taskTitle||"")}" loading="lazy"><span>${esc(p.taskTitle||"VM")}<br><small>${esc(p.name||"")} · ${esc(t12(String(p.at||"").slice(11,16)))}</small></span></button>`).join("")+`</div>`;
+  return h+`</div>`;
+}
+function compressImage(file){
+  return new Promise((res,rej)=>{const url=URL.createObjectURL(file);const img=new Image();
+    img.onload=()=>{let q=0.72,max=1100;const go=()=>{const sc=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+        c.getContext("2d").drawImage(img,0,0,c.width,c.height);const d=c.toDataURL("image/jpeg",q);
+        if(d.length>700000&&max>500){max=Math.round(max*0.8);q=Math.max(0.5,q-0.08);return go();}URL.revokeObjectURL(url);res(d);};go();};
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("Could not read this photo"));};img.src=url;});
+}
+async function uploadVmPhoto(file){
+  if(!canPhoto())return;const iso=ui.day,mk=iso.slice(0,7);
+  const tid=(document.getElementById("phTask")||{}).value||"";const task=(dayCache[mk]?.vm||[]).find(t=>t.id===tid);
+  ui.phBusy=true;render();
+  try{const img=await compressImage(file);const now=new Date();
+    const rec={date:iso,taskId:tid,taskTitle:task?task.title:"",by:fbAuth.currentUser.uid,name:myName,at:isoOf(now)+"T"+nowHM(),img};
+    const ref=await fsdb.collection("stores/"+SID+"/vmphotos").add(rec);
+    (photoCache[iso]=photoCache[iso]||[]).push({id:ref.id,...rec});toast("Photo added ✓");
+  }catch(e){toast(/permission/i.test(String(e.code||e.message))?"Not allowed. Update the database rules.":"Upload failed: "+(e.message||e));}
+  ui.phBusy=false;render();
+}
+function openPhoto(id){
+  const p=(photoCache[ui.day]||[]).find(x=>x.id===id);if(!p)return;
+  const o=document.getElementById("photoBox");o.querySelector("img").src=p.img;
+  o.querySelector("p").textContent=(p.taskTitle||"VM photo")+" · "+(p.name||"")+" · "+shortDate(p.date)+" "+t12(String(p.at||"").slice(11,16));
+  const del=o.querySelector("#phDel");del.hidden=!(role==="admin"||(fbAuth&&fbAuth.currentUser&&p.by===fbAuth.currentUser.uid));del.dataset.pid=id;
+  o.hidden=false;
 }
 function ensureDay(){
   const mk=ui.day.slice(0,7);
@@ -1478,6 +1547,9 @@ document.addEventListener("click",e=>{
     case "shareLink":{const l=staffLink();const msg="Levi's PMC store app: open this link, then add it to your home screen. Ask me for the store PIN.\n"+l;
       if(navigator.share)navigator.share({title:"Levi's PMC Store",text:msg}).catch(()=>{});else window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");return;}
   }
+  if(t.dataset.photo){openPhoto(t.dataset.photo);return;}
+  if(t.id==="phClose"){document.getElementById("photoBox").hidden=true;return;}
+  if(t.id==="phDel"){const pid=t.dataset.pid;askConfirm("Delete this photo?","Delete",()=>{fsdb.doc("stores/"+SID+"/vmphotos/"+pid).delete().then(()=>{photoCache[ui.day]=(photoCache[ui.day]||[]).filter(x=>x.id!==pid);document.getElementById("photoBox").hidden=true;toast("Photo deleted");render();}).catch(()=>toast("Could not delete"));});return;}
   if(t.dataset.revoke){const m=accessInfo&&accessInfo.members.find(x=>x.id===t.dataset.revoke);
     askConfirm("Remove "+(m&&m.name||"this person")+"'s access?","Remove",()=>{fsdb.doc("stores/"+SID+"/members/"+t.dataset.revoke).delete().then(()=>{accessInfo.members=accessInfo.members.filter(x=>x.id!==t.dataset.revoke);toast("Access removed");render();}).catch(()=>toast("Could not remove"));});return;}
   if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","dsrImport","exportCsv","backupDl"].includes(t.id)))return;
@@ -1539,6 +1611,7 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("change",e=>{
   const el=e.target;
+  if(el.id==="vmPhotoFile"&&el.files&&el.files[0]){uploadVmPhoto(el.files[0]);el.value="";return;}
   if(!canEdit()&&el.id!=="dayPick")return;
   if(el.id==="backupFile"&&el.files&&el.files[0]){backupRestore(el.files[0]);el.value="";return;}
   if(el.id==="x24File"&&el.files&&el.files[0]){handleX24File(el.files[0]);return;}
@@ -1558,7 +1631,7 @@ document.addEventListener("keydown",e=>{
 
 /* ---------- start ---------- */
 ui.month=monthOfDate(now);
-try{const md=localStorage.getItem("store-perf-mode");if(md==="week"||md==="day"||md==="month")ui.mode=md;}catch(e){}
+try{const md=localStorage.getItem("store-perf-mode");if(md==="week"||md==="day"||md==="month"||md==="ytd")ui.mode=md;}catch(e){}
 const local=loadLocal(); if(local) state=normalize(local);
 setTimeout(()=>{if(!col&&!ui.gate)migrateFiscal();},1500);
 render();

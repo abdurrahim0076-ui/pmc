@@ -265,7 +265,7 @@ select{font:inherit;font-size:15px;padding:9px 8px;border-radius:10px;border:1px
   <div class="actions" style="margin:0"><button class="btn danger" id="cYes" style="flex:1">Yes</button><button class="btn" id="cNo" style="flex:1">Cancel</button></div></div></div>
 
 <script>
-window.addEventListener("error",function(e){try{var v=document.getElementById("view");if(v&&!v.dataset.err){v.dataset.err="1";v.insertAdjacentHTML("afterbegin",'<div style="background:#B23A3A;color:#fff;padding:12px;border-radius:10px;margin-bottom:12px;font-size:14px">Something went wrong: '+String(e.message||e).replace(/</g,"&lt;")+'<br>Take a screenshot and send it to fix.</div>');}}catch(_){}});
+window.addEventListener("error",function(e){if(!e||/^Script error\.?$/i.test(String(e.message||""))||(e.filename&&e.filename.indexOf(location.origin)!==0))return;try{var v=document.getElementById("view");if(v&&!v.dataset.err){v.dataset.err="1";v.insertAdjacentHTML("afterbegin",'<div style="background:#B23A3A;color:#fff;padding:12px;border-radius:10px;margin-bottom:12px;font-size:14px">Something went wrong: '+String(e.message||e).replace(/</g,"&lt;")+'<br>Take a screenshot and send it to fix.</div>');}}catch(_){}});
 window.addEventListener("unhandledrejection",function(e){try{console.warn(e.reason);}catch(_){}});
 (function(){
 const LS_KEY = "store-perf-v1";
@@ -389,7 +389,7 @@ function lyFor(k){
 function derive(t){
   return {
     ...t,
-    ach: t.target>0? t.sales/t.target : NaN,
+    ach: t.target>0? (t.salesT||0)/t.target : NaN,
     atv: t.bills>0? t.sales/t.bills : NaN,
     upt: t.bills>0? t.units/t.bills : NaN,
     asp: t.units>0? t.sales/t.units : NaN,
@@ -398,21 +398,21 @@ function derive(t){
   };
 }
 function aggStore(keys){
-  const t={sales:0,target:0,bills:0,units:0,footfall:0,ly:0,salesMatched:0,lyMatched:0};
+  const t={sales:0,target:0,salesT:0,bills:0,units:0,footfall:0,ly:0,salesMatched:0,lyMatched:0};
   keys.forEach(k=>{
     const m=rec(k); if(!m) return;
     const s=num(m.sales), ly=lyFor(k);
-    t.sales+=s; t.target+=num(m.target); t.bills+=num(m.bills); t.units+=num(m.units); t.footfall+=num(m.footfall);
+    t.sales+=s; t.target+=num(m.target); if(num(m.target)>0)t.salesT+=s; t.bills+=num(m.bills); t.units+=num(m.units); t.footfall+=num(m.footfall);
     t.ly+=ly;
     if(s>0&&ly>0){t.salesMatched+=s;t.lyMatched+=ly;}
   });
   return derive(t);
 }
 function aggStaff(id,keys){
-  const t={sales:0,target:0,bills:0,units:0,footfall:0,salesMatched:0,lyMatched:0};
+  const t={sales:0,target:0,salesT:0,bills:0,units:0,footfall:0,salesMatched:0,lyMatched:0};
   keys.forEach(k=>{
     const r=rec(k)?.staff?.[id]; if(!r) return;
-    t.sales+=num(r.sales); t.target+=num(r.target); t.bills+=num(r.bills); t.units+=num(r.units);
+    t.sales+=num(r.sales); t.target+=num(r.target); if(num(r.target)>0)t.salesT+=num(r.sales); t.bills+=num(r.bills); t.units+=num(r.units);
   });
   return derive(t);
 }
@@ -623,12 +623,12 @@ function viewHome(){
     h+=`<div class="hero">
       <div class="lbl">${esc(isYtd()?ytdLabel():mLong(k))} sales</div>
       <div class="big">${inr(m.sales)}</div>
-      <div class="of">${m.target?"Target "+inr(m.target):"Add a target in the Sales tab"}</div>
+      <div class="of">${m.target?"Target "+inr(m.target)+(m.salesT<m.sales-0.5?" · ach. counts only "+(isYtd()?"weeks":"periods")+" with a target":""):"Add a target in the Sales tab"}</div>
       <div class="bar"><i style="width:${(fill*100).toFixed(1)}%"></i></div>
       <div class="row">
         <div><b>${pct(m.ach)}</b>Achievement</div>
         <div><b>${signPct(m.l2l)}</b>L2L vs ${esc(isYtd()?"YTD":mShort(k))} LY</div>
-        <div><b>${!m.target?"–":m.target>m.sales?inr(m.target-m.sales):"Done"}</b>${!m.target?"No target yet":m.target>m.sales?"To go":"Target"}</div>
+        <div><b>${!m.target?"–":m.target>m.salesT?inr(m.target-m.salesT):"Done"}</b>${!m.target?"No target yet":m.target>m.salesT?"To go":"Target"}</div>
       </div></div>`;
     if(!isYtd()) h+=`<section class="block"><h2>Store KPIs</h2><div class="grid">
       <div class="kv"><span>ATV</span><b>${isFinite(m.atv)?inr(m.atv):"–"}</b></div>

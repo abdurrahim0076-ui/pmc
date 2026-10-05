@@ -1064,7 +1064,8 @@ function viewAdd(){
   const team=state.staff.filter(s=>s.active!==false || m.staff?.[s.id]);
   const v=x=>x===undefined||x===null||x===""?"":esc(x);
   let h=viewImport()+`<section class="block"><h2>${esc(mLong(k))} — store</h2><div class="fgrid">
-    <div><label class="f" for="f_target">Target (₹)</label><input class="n" id="f_target" inputmode="decimal" value="${v(m.target)}"></div>
+    <div><label class="f" for="f_target">Target (₹)</label><input class="n" id="f_target" inputmode="decimal" value="${v(m.target)}">${(()=>{const a=state.staff.filter(s=>s.active!==false),t=a.reduce((x,s)=>x+num(s.pct),0),miss=a.filter(s=>!num(s.pct)).length;
+      return t?`<small class="${Math.abs(t-100)<0.05&&!miss?"muted":"down"}" style="display:block;margin-top:4px;font-size:12px">Staff targets fill by split % (${Math.round(t*10)/10}%${miss?", "+miss+" without %":""})</small>`:"";})()}</div>
     <div><label class="f" for="f_sales">Sales (₹)</label><input class="n" id="f_sales" inputmode="decimal" value="${v(m.sales)}"></div>
     <div><label class="f" for="f_bills">Bills</label><input class="n" id="f_bills" inputmode="numeric" value="${v(m.bills)}"></div>
     <div><label class="f" for="f_units">Units sold</label><input class="n" id="f_units" inputmode="numeric" value="${v(m.units)}"></div>
@@ -1073,6 +1074,16 @@ function viewAdd(){
   </div>
   <p class="hint">${lyAuto>0?`Last year's ${esc(mShort(k))} is already in the app, so L2L uses it automatically.`:`Enter last year's ${esc(mShort(k))} sales to get L2L.`}</p></section>`;
 
+  if(team.length&&canEdit()) h+=`<section class="block"><h2>🎯 Quick staff targets</h2>
+    <p class="hint" style="margin:0 0 10px">Fill every staff target in one tap, then adjust anyone and press Save.</p>
+    <label class="f" for="qtTotal">Total to share (₹)</label>
+    <input class="n" id="qtTotal" inputmode="decimal" placeholder="Store target" value="${num(m.target)||""}">
+    <div class="actions">
+      <button class="btn small primary" data-qt="equal">Split equally</button>
+      <button class="btn small" data-qt="share">Split by past sales</button>
+      <button class="btn small" data-qt="copy">Copy ${esc(mShort(stepKey(k,-1)))}</button>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px"><input type="checkbox" id="qtRound" checked> Round to nearest ₹1,000</label></section>`;
   h+=`<section class="block"><h2>Staff numbers</h2>`;
   if(!team.length){
     h+=`<div class="empty">Add your team in the Staff tab first, then enter each person's sales here.</div><div class="actions"><button class="btn small" data-go="staff">Add staff</button></div>`;
@@ -1288,6 +1299,13 @@ function viewTeam(){
     `<li><div class="who"><b>${esc(s.name)}</b><small>${esc(s.role||"No role set")}</small></div>
       <button class="btn small" data-rename="${s.id}">Edit</button><button class="btn small danger" data-remove="${s.id}">Remove</button></li>`).join("")+`</ul>`;
   h+=`<p class="hint">Removing someone hides them from new entries and attendance. Their past sales stay in the reports.</p></section>`;
+  if(act.length){const tot=act.reduce((s,x)=>s+num(x.pct),0);
+    h+=`<section class="block"><h2>🎯 Target split %</h2>
+      <p class="hint" style="margin:0 0 10px">Set each person's share once. When you type the store target in the Sales tab, staff targets fill in by these %.</p>
+      <ul class="rank">${act.map(s=>`<li><div class="who"><b>${esc(s.name)}</b><small>${esc(s.role||"")}</small></div>
+        <div style="display:flex;align-items:center;gap:6px"><input class="n" data-pct="${s.id}" inputmode="decimal" value="${num(s.pct)||""}" placeholder="0" style="width:80px;text-align:right"><span>%</span></div></li>`).join("")}</ul>
+      <p id="pctTotal" style="margin:10px 0 0;font-weight:600" class="${Math.abs(tot-100)<0.05?"up":"down"}">${pctTotalText(tot)}</p>
+      <div class="actions"><button class="btn small primary" id="pctSave" style="flex:1">Save %</button><button class="btn small" id="pctSuggest">Suggest from past sales</button><button class="btn small" id="pctEqual">Equal</button></div></section>`;}
   if(left.length) h+=`<section class="block"><h2>Removed staff</h2><ul class="rank">`+left.map(s=>`<li><div class="who"><b>${esc(s.name)}</b><small>${esc(s.role||"")}</small></div><button class="btn small" data-restore="${s.id}">Restore</button></li>`).join("")+`</ul></section>`;
   h+=viewAccess();
   if(STANDALONE) h+=`<section class="block"><h2>Backup</h2>
@@ -1654,6 +1672,33 @@ function saveMonth(){
   putRec(k,out,mShort(k)+" numbers saved");
   ui.tab="home";render();window.scrollTo(0,0);
 }
+function pctTotalText(t){const r=Math.round(t*10)/10;return Math.abs(t-100)<0.05?"Total 100% ✓":t<100?"Total "+r+"% — add "+Math.round((100-t)*10)/10+"% more":"Total "+r+"% — "+Math.round((t-100)*10)/10+"% too much";}
+function updPctTotal(){const t=[...document.querySelectorAll("[data-pct]")].reduce((s,i)=>s+num(i.value),0);const el=document.getElementById("pctTotal");if(el){el.textContent=pctTotalText(t);el.className=Math.abs(t-100)<0.05?"up":"down";}}
+function setPctInputs(map){document.querySelectorAll("[data-pct]").forEach(i=>{i.value=map[i.dataset.pct]||"";});updPctTotal();}
+function applyPctTargets(){
+  const total=num((document.getElementById("f_target")||{}).value);const act=state.staff.filter(s=>s.active!==false&&num(s.pct)>0);if(!act.length)return;
+  act.forEach(s=>{const i=document.querySelector(`.srow[data-sid="${s.id}"] [data-k="target"]`);if(i)i.value=total?Math.round(total*num(s.pct)/100/1000)*1000:"";});
+}
+function quickTargets(mode){
+  const k=cur(),rows=[...document.querySelectorAll(".srow")];if(!rows.length)return;
+  const ids=rows.map(r=>r.dataset.sid);
+  const rnd=document.getElementById("qtRound").checked?(v=>Math.round(v/1000)*1000):(v=>Math.round(v));
+  const setT=(id,v)=>{const i=document.querySelector(`.srow[data-sid="${id}"] [data-k="target"]`);if(i)i.value=v>0?v:"";};
+  if(mode==="copy"){const p=rec(stepKey(k,-1));if(!p||!p.staff){toast("No targets in "+mShort(stepKey(k,-1)));return;}
+    let n=0;ids.forEach(id=>{const v=num(p.staff[id]?.target);if(v){setT(id,v);n++;}});
+    if(num(p.target)&&!num(document.getElementById("f_target").value))document.getElementById("f_target").value=num(p.target);
+    toast(n?"Copied "+n+" targets — check and Save":"No staff targets in "+mShort(stepKey(k,-1)));return;}
+  const total=num(document.getElementById("qtTotal").value)||num(document.getElementById("f_target").value);
+  if(!total){toast("Enter the total to share first");document.getElementById("qtTotal").focus();return;}
+  let share={};
+  if(mode==="share"){const prevKeys=ytdKeys(stepKey(k,-1));let sum=0;ids.forEach(id=>{const v=aggStaff(id,prevKeys).sales;share[id]=v;sum+=v;});
+    const nz=ids.filter(id=>share[id]>0);if(!nz.length){toast("No past staff sales yet — splitting equally");mode="equal";}
+    else{const avg=sum/nz.length;ids.forEach(id=>{if(!share[id])share[id]=avg;});sum=ids.reduce((s,id)=>s+share[id],0);ids.forEach(id=>share[id]/=sum);}}
+  if(mode==="equal")ids.forEach(id=>share[id]=1/ids.length);
+  ids.forEach(id=>setT(id,rnd(total*share[id])));
+  if(!num(document.getElementById("f_target").value))document.getElementById("f_target").value=total;
+  toast("Targets filled — check and Save");
+}
 function fillTotals(){
   let s=0,b=0,u=0,t=0;
   document.querySelectorAll(".srow").forEach(row=>{
@@ -1701,7 +1746,7 @@ document.addEventListener("click",e=>{
   if(t.id==="phDel"){const pid=t.dataset.pid;askConfirm("Delete this photo?","Delete",()=>{fsdb.doc("stores/"+SID+"/vmphotos/"+pid).delete().then(()=>{photoCache[ui.day]=(photoCache[ui.day]||[]).filter(x=>x.id!==pid);document.getElementById("photoBox").hidden=true;toast("Photo deleted");render();}).catch(()=>toast("Could not delete"));});return;}
   if(t.dataset.revoke){const m=accessInfo&&accessInfo.members.find(x=>x.id===t.dataset.revoke);
     askConfirm("Remove "+(m&&m.name||"this person")+"'s access?","Remove",()=>{fsdb.doc("stores/"+SID+"/members/"+t.dataset.revoke).delete().then(()=>{accessInfo.members=accessInfo.members.filter(x=>x.id!==t.dataset.revoke);toast("Access removed");render();}).catch(()=>toast("Could not remove"));});return;}
-  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","dsrImport","saveMT","incSave","incCopy","exportCsv","backupDl"].includes(t.id)))return;
+  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","dsrImport","saveMT","incSave","incCopy","pctSave","pctSuggest","pctEqual","exportCsv","backupDl"].includes(t.id)))return;
   if(t.dataset.tab){if(t.dataset.tab==="daily")delete photoCache[ui.day];if(t.dataset.tab==="staff"&&ui.tab==="staff")ui.staffPage="root";go(t.dataset.tab);return;}
   if(t.dataset.go){go(t.dataset.go);return;}
   if(t.dataset.month&&t.dataset.stay){setCur(t.dataset.month);render();window.scrollTo(0,0);return;}
@@ -1719,6 +1764,7 @@ document.addEventListener("click",e=>{
     const nd=new Date(+mk.slice(0,4),+mk.slice(5),0).getDate();
     for(let dd=1;dd<=nd;dd++){const iso=mk+"-"+pad2(dd);if(iso>today)break;if(!attStatus(d.att[iso]?.[ui.staffId])){(d.att[iso]=d.att[iso]||{})[ui.staffId]={status:"P"};}}
     persistDay(mk,"Marked present");render();return;}
+  if(t.dataset.qt&&canEdit()){quickTargets(t.dataset.qt);return;}
   if(t.dataset.tile&&canEdit()){const iso=ui.day,d=dayCache[iso.slice(0,7)];const cur=attStatus(d?.att[iso]?.[t.dataset.tile]);
     const next={"":"P",P:"L",L:"WO",WO:""}[cur];setAttStatus(t.dataset.tile,next);return;}
   if(t.dataset.att&&canEdit()){const iso=ui.day,d=dayCache[iso.slice(0,7)];const cur=attStatus(d?.att[iso]?.[t.dataset.sid]);
@@ -1743,6 +1789,15 @@ document.addEventListener("click",e=>{
     case "clearMonth":askConfirm("Clear all "+mLong(cur())+" data?","Clear",()=>{delRec(cur());render();});break;
     case "cYes":{const f=pendingConfirm;closeConfirm();if(f)f();break;}
     case "cNo":closeConfirm();break;
+    case "pctSave":{document.querySelectorAll("[data-pct]").forEach(i=>{const s=state.staff.find(x=>x.id===i.dataset.pct);if(s)s.pct=num(i.value);});
+      const t=state.staff.filter(s=>s.active!==false).reduce((x,s)=>x+num(s.pct),0);persist(Math.abs(t-100)<0.05?"Split % saved":"Saved — total is "+Math.round(t*10)/10+"%");render();break;}
+    case "pctEqual":{const ids=[...document.querySelectorAll("[data-pct]")].map(i=>i.dataset.pct);const e=Math.floor(1000/ids.length)/10;const m={};ids.forEach((id,j)=>m[id]=j===ids.length-1?Math.round((100-e*(ids.length-1))*10)/10:e);setPctInputs(m);break;}
+    case "pctSuggest":{const ids=[...document.querySelectorAll("[data-pct]")].map(i=>i.dataset.pct);const keys=ytdKeys(isYtd()||ui.mode==="week"?ui.week:weekOfDate(new Date()));
+      const sales={};let sum=0;ids.forEach(id=>{sales[id]=aggStaff(id,keys).sales;sum+=sales[id];});
+      if(!sum){toast("No staff sales yet — upload X24 first");break;}
+      const nz=ids.filter(id=>sales[id]>0),avg=sum/nz.length;ids.forEach(id=>{if(!sales[id])sales[id]=avg;});sum=ids.reduce((s,id)=>s+sales[id],0);
+      const m={};let acc=0;ids.forEach((id,j)=>{if(j<ids.length-1){m[id]=Math.round(sales[id]/sum*1000)/10;acc+=m[id];}else m[id]=Math.round((100-acc)*10)/10;});
+      setPctInputs(m);toast("Suggested from sales — check and Save %");break;}
     case "incSave":case "incCopy":{const fm=incMonth();let sc;
       if(t.id==="incCopy"){sc=JSON.parse(JSON.stringify((state.incentives||{})[stepKey(fm,-1)]||{cats:{}}));}
       else{sc={cats:{},minAch:num(document.getElementById("incMin").value),bonus:num(document.getElementById("incBonus").value),note:document.getElementById("incNote").value.trim()};
@@ -1786,6 +1841,11 @@ document.addEventListener("change",e=>{
   if(el.dataset.vmdone){const mk=ui.day.slice(0,7),d=dayCache[mk];const task=d?.vm.find(x=>x.id===el.dataset.vmdone);if(!task)return;
     task.done=el.checked;if(el.checked){task.doneAt=nowHM();task.doneOn=todayISO();}else{delete task.doneAt;delete task.doneOn;}
     persistDay(mk,el.checked?"VM work finished ✓":"Marked pending");render();}
+});
+document.addEventListener("input",e=>{
+  const el=e.target;if(!canEdit())return;
+  if(el.id==="f_target")applyPctTargets();
+  if(el.dataset&&el.dataset.pct!==undefined)updPctTotal();
 });
 document.addEventListener("keydown",e=>{
   if(e.key==="Enter"&&e.target.id==="vmTitle"){e.preventDefault();document.getElementById("vmAdd").click();return;}

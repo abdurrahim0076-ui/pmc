@@ -192,6 +192,13 @@ textarea{width:100%;font:inherit;font-size:14px;padding:10px;border-radius:10px;
 .cal.st-L{background:var(--bad);border-color:var(--bad);color:#fff}
 .cal.st-WO{background:var(--denim-2);border-color:var(--denim-2);color:#fff}
 .cal.today{outline:2px solid var(--thread);outline-offset:1px}
+.attstrip{margin-top:12px;display:grid;gap:8px}
+.attstrip>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(255,255,255,.08);border-radius:10px;padding:8px 10px}
+.attstrip span{font-size:12px;opacity:.85;min-width:92px}
+.attstrip b{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:20px;min-width:26px;text-align:center;border-radius:6px;padding:0 6px}
+.attstrip b.p{background:var(--good)}.attstrip b.l{background:var(--bad)}.attstrip b.w{background:var(--denim-2)}
+.attstrip i{font-style:normal;font-size:12px;opacity:.9;margin-right:4px}
+.avatar{flex:0 0 56px;width:56px;height:56px;border-radius:50%;background:var(--thread);color:#1a1a1a;display:grid;place-items:center;font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:22px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
 .tile{border:1px solid var(--line);border-radius:12px;padding:12px 8px;min-height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:inherit;cursor:pointer;background:var(--soft);color:var(--ink);text-align:center}
 .tile b{font-weight:600;font-size:15px;line-height:1.2;word-break:break-word}
@@ -1181,9 +1188,22 @@ function viewPerson(){
   const fmt=v=>isFinite(v)?inr(v):"–";
   let h=backBtn("perf","Staff performance")+`<div class="seg" role="group" aria-label="Period" ${isYtd()?"hidden":""}>
     <button data-sv="month" aria-pressed="${!ytd}">${esc(mShort(k))} only</button><button data-sv="ytd" aria-pressed="${ytd}">YTD</button></div>
-  <div class="hero"><div class="lbl">${esc(s.role||"Staff")}${s.active===false?" · left":""} · ${esc(ytd?"YTD":mLong(k))}</div>
-    <div class="big" style="font-size:34px">${esc(s.name)}</div>
-    <div class="row"><div><b>${inr(a.sales)}</b>Sales</div><div><b>${pct(a.ach)}</b>Achievement</div><div><b>${rank?"#"+rank+" of "+ranked.length:"–"}</b>Rank</div></div></div>
+  ${(()=>{const ini=s.name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+    const amk=calMonthOf(k),ad=dayCache[amk];let P=0,L=0,W=0;
+    if(ad)Object.keys(ad.att).forEach(x=>{const st=attStatus(ad.att[x][s.id]);if(st==="P")P++;else if(st==="L")L++;else if(st==="WO")W++;});
+    const ifm=incMonth(),isc=(state.incentives||{})[ifm];let inc=null;if(isc){const res=calcIncentive(ifm);const r=res&&res.rows.find(x=>x.s.id===s.id);if(r)inc=r.total;}
+    const realRank=a.sales>0&&rank;
+    return `<div class="hero"><div style="display:flex;align-items:center;gap:14px">
+      <div class="avatar" aria-hidden="true">${esc(ini)}</div>
+      <div style="min-width:0"><div class="lbl">${esc(s.role||"Staff")}${s.active===false?" · left":""} · ${esc(ytd?"YTD":mLong(k))}</div>
+      <div class="big" style="font-size:32px;margin:2px 0 0">${esc(s.name)}</div></div></div>
+      <div class="row" style="margin-top:14px"><div><b>${inr(a.sales)}</b>Sales</div><div><b>${pct(a.ach)}</b>Achievement</div><div><b>${realRank?"#"+rank+" of "+ranked.filter(x=>x.v>0).length:"–"}</b>Rank</div></div>
+      <div class="row" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.18)">
+        <div><b>${isFinite(a.atv)?inr(a.atv):"–"}</b>ATV</div><div><b>${isFinite(a.upt)?a.upt.toFixed(2):"–"}</b>UPT</div>
+        ${inc!=null?`<div><b>₹${full(inc)}</b>Incentive</div>`:""}</div>
+      ${(()=>{const yt=attYear(s.id,k);return `<div class="attstrip">
+        <div><span>${esc(MN[+amk.slice(5)-1])} total</span><b class="p">${ad?P:"–"}</b><i>Present</i><b class="l">${ad?L:"–"}</b><i>Leave</i><b class="w">${ad?W:"–"}</b><i>Week off</i></div>
+        <div><span>FY ${fyOf(k)} total</span><b class="p">${yt?yt.P:"…"}</b><i>Present</i><b class="l">${yt?yt.L:"…"}</b><i>Leave</i><b class="w">${yt?yt.W:"…"}</b><i>Week off</i></div></div>`;})()}</div>`;})()}
   <section class="block"><h2>KPIs</h2><div class="grid">
     <div class="kv"><span>Target</span><b>${a.target?inr(a.target):"–"}</b></div>
     <div class="kv"><span>Bills</span><b>${full(a.bills)}</b></div>
@@ -1475,12 +1495,14 @@ function viewDaily(){
     const y=+mk.slice(0,4),m=+mk.slice(5),nd=new Date(y,m,0).getDate();
     const cols=[];for(let i=1;i<=nd;i++)cols.push(mk+"-"+pad2(i));
     const rows=state.staff.filter(s=>s.active!==false||days.some(x=>d.att[x]?.[s.id]));
-    const SH={P:"P",L:"L",WO:"W","":""};
+    const SH={P:"P",L:"L",WO:"W","":""};const regT={p:0,l:0,w:0};
     h+=`<section class="block"><h2>${esc(MN_FULL[m-1])} attendance</h2><div class="tscroll"><table class="reg">
       <thead><tr><th>Staff</th>${cols.map(c=>{const dd=dOf(c);return `<th class="${dd.getDay()===0?"sun":""}${c===iso?" today":""}">${dd.getDate()}<br><small>${WD[dd.getDay()].charAt(0)}</small></th>`;}).join("")}<th>P</th><th>L</th><th>W</th></tr></thead><tbody>`+
       rows.map(s=>{let p=0,l=0,w=0;const cells=cols.map(c=>{const st=c<=iso?attStatus(d.att[c]?.[s.id]):"";if(st==="P")p++;else if(st==="L")l++;else if(st==="WO")w++;
           return `<td><span class="box st-${st||"none"}${c===iso?" today":""}">${SH[st]}</span></td>`;}).join("");
+        regT.p+=p;regT.l+=l;regT.w+=w;
         return `<tr><td>${esc(s.name)}</td>${cells}<td><b>${p}</b></td><td class="${l?"down":""}"><b>${l}</b></td><td><b>${w}</b></td></tr>`;}).join("")+
+      `<tr class="total"><td>Total</td>${cols.map(c=>{let n=0;rows.forEach(s=>{if(c<=iso&&attStatus(d.att[c]?.[s.id])==="P")n++;});return `<td><small>${c<=iso&&n?n:""}</small></td>`;}).join("")}<td>${regT.p}</td><td>${regT.l}</td><td>${regT.w}</td></tr>`+
       `</tbody></table></div><p class="hint"><span class="box st-P">P</span> Present &nbsp; <span class="box st-L">L</span> Leave &nbsp; <span class="box st-WO">W</span> Week off. Scroll sideways for all dates.</p></section>`;
   }
   return h;
@@ -1537,6 +1559,15 @@ function openPhoto(id){
 function ensureDay(){
   const mk=ui.day.slice(0,7);
   if(!dayCache[mk]) loadDay(mk).then(()=>{if(ui.tab==="daily")render();});
+}
+function attYear(sid,k){
+  const fy=fyOf(k),s=fyStart(fy),today=todayISO();const mks=[];
+  for(let d=new Date(s.getFullYear(),s.getMonth(),1);isoOf(d)<=today;d=new Date(d.getFullYear(),d.getMonth()+1,1))mks.push(isoOf(d).slice(0,7));
+  const miss=mks.filter(mk=>!dayCache[mk]);
+  if(miss.length){Promise.all(miss.map(loadDay)).then(()=>{if(ui.tab==="staff"&&ui.staffPage==="person")render();});return null;}
+  const si=isoOf(s);let P=0,L=0,W=0;
+  mks.forEach(mk=>Object.keys(dayCache[mk].att).forEach(x=>{if(x<si||x>today)return;const st=attStatus(dayCache[mk].att[x][sid]);if(st==="P")P++;else if(st==="L")L++;else if(st==="WO")W++;}));
+  return {P,L,W};
 }
 function setAttStatus(sid,st,isoArg){
   const iso=isoArg||ui.day,mk=iso.slice(0,7),d=dayCache[mk];if(!d)return;

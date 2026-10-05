@@ -119,7 +119,7 @@ input:focus-visible,button:focus-visible,select:focus-visible,summary:focus-visi
 .srow{border-top:1px solid var(--line);padding:12px 0}
 .srow:first-of-type{border-top:0;padding-top:2px}
 .srow .name{font-weight:600;margin-bottom:8px}
-.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.sgrid{display:grid;grid-template-columns:.75fr 1.25fr 1.25fr .85fr .85fr;gap:6px}
 .sgrid input{padding:9px 7px;font-size:15px}
 .sgrid label.f{font-size:11px;margin-bottom:2px}
 .btn{font:inherit;font-weight:600;border-radius:10px;padding:11px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
@@ -1075,11 +1075,11 @@ function viewAdd(){
   <p class="hint">${lyAuto>0?`Last year's ${esc(mShort(k))} is already in the app, so L2L uses it automatically.`:`Enter last year's ${esc(mShort(k))} sales to get L2L.`}</p></section>`;
 
   if(team.length&&canEdit()) h+=`<section class="block"><h2>🎯 Quick staff targets</h2>
-    <p class="hint" style="margin:0 0 10px">Fill every staff target in one tap, then adjust anyone and press Save.</p>
+    <p class="hint" style="margin:0 0 10px">Split by %: type each person's % in the Staff numbers below. Targets fill as you type and the % is remembered for next time.</p>
     <label class="f" for="qtTotal">Total to share (₹)</label>
     <input class="n" id="qtTotal" inputmode="decimal" placeholder="Store target" value="${num(m.target)||""}">
     <div class="actions">
-      <button class="btn small primary" data-qt="equal">Split equally</button>
+      <button class="btn small primary" data-qt="pct">Split by %</button>
       <button class="btn small" data-qt="share">Split by past sales</button>
       <button class="btn small" data-qt="copy">Copy ${esc(mShort(stepKey(k,-1)))}</button>
     </div>
@@ -1091,11 +1091,13 @@ function viewAdd(){
     h+=team.map(s=>{const r=m.staff?.[s.id]||{};return `<div class="srow" data-sid="${s.id}">
       <div class="name">${esc(s.name)}</div>
       <div class="sgrid">
+        <div><label class="f">%</label><input class="n" data-spct="${s.id}" inputmode="decimal" value="${num(s.pct)||""}" placeholder="0"></div>
         <div><label class="f">Target</label><input class="n" data-k="target" inputmode="decimal" value="${v(r.target)}"></div>
         <div><label class="f">Sales</label><input class="n" data-k="sales" inputmode="decimal" value="${v(r.sales)}"></div>
         <div><label class="f">Bills</label><input class="n" data-k="bills" inputmode="numeric" value="${v(r.bills)}"></div>
         <div><label class="f">Units</label><input class="n" data-k="units" inputmode="numeric" value="${v(r.units)}"></div>
       </div></div>`;}).join("");
+    {const tp=team.reduce((x,s)=>x+num(s.pct),0);h+=`<p id="rowPctTotal" style="margin:10px 0 0;font-weight:600" class="${Math.abs(tp-100)<0.05?"up":tp?"down":"muted"}">${tp?pctTotalText(tp):"Type each person's % to split the store target"}</p>`;}
     h+=`<div class="actions"><button class="btn small" id="fillTotals">Fill store totals from staff</button></div>`;
   }
   h+=`</section>`;
@@ -1660,6 +1662,7 @@ function askConfirm(msg,yes,fn){pendingConfirm=fn;const o=document.getElementByI
 function closeConfirm(){document.getElementById("confirmBox").hidden=true;pendingConfirm=null;}
 function go(tab){if(tab==="add"&&!canEdit())tab="home";ui.tab=tab;render();window.scrollTo(0,0);}
 function saveMonth(){
+  {let ch=false;document.querySelectorAll("[data-spct]").forEach(i=>{const s=state.staff.find(x=>x.id===i.dataset.spct);if(s&&num(s.pct)!==num(i.value)){s.pct=num(i.value);ch=true;}});if(ch&&!isMonthKey(cur()))persist("Split % saved");}
   const k=cur(), val=id=>document.getElementById(id).value.trim();
   const out={target:num(val("f_target")),sales:num(val("f_sales")),bills:num(val("f_bills")),units:num(val("f_units")),footfall:num(val("f_footfall")),staff:{}};
   const lyEl=document.getElementById("f_ly"); if(!lyEl.disabled) out.lySales=num(lyEl.value);
@@ -1675,11 +1678,19 @@ function saveMonth(){
 function pctTotalText(t){const r=Math.round(t*10)/10;return Math.abs(t-100)<0.05?"Total 100% ✓":t<100?"Total "+r+"% — add "+Math.round((100-t)*10)/10+"% more":"Total "+r+"% — "+Math.round((t-100)*10)/10+"% too much";}
 function updPctTotal(){const t=[...document.querySelectorAll("[data-pct]")].reduce((s,i)=>s+num(i.value),0);const el=document.getElementById("pctTotal");if(el){el.textContent=pctTotalText(t);el.className=Math.abs(t-100)<0.05?"up":"down";}}
 function setPctInputs(map){document.querySelectorAll("[data-pct]").forEach(i=>{i.value=map[i.dataset.pct]||"";});updPctTotal();}
-function applyPctTargets(){
-  const total=num((document.getElementById("f_target")||{}).value);const act=state.staff.filter(s=>s.active!==false&&num(s.pct)>0);if(!act.length)return;
-  act.forEach(s=>{const i=document.querySelector(`.srow[data-sid="${s.id}"] [data-k="target"]`);if(i)i.value=total?Math.round(total*num(s.pct)/100/1000)*1000:"";});
+function applyPctTargets(onlyId){
+  const total=num((document.getElementById("f_target")||{}).value)||num((document.getElementById("qtTotal")||{}).value);
+  let tp=0;
+  document.querySelectorAll(".srow").forEach(row=>{const pi=row.querySelector("[data-spct]");const p=pi?num(pi.value):0;tp+=p;
+    if(onlyId&&row.dataset.sid!==onlyId)return;const ti=row.querySelector('[data-k="target"]');if(ti&&p>0&&total)ti.value=Math.round(total*p/100/1000)*1000;});
+  const el=document.getElementById("rowPctTotal");if(el){el.textContent=tp?pctTotalText(tp):"Type each person's % to split the store target";el.className=Math.abs(tp-100)<0.05?"up":tp?"down":"muted";}
+  return {total,tp};
 }
+function isMonthKey(k){return !isWeek(k)&&!isDay(k);}
 function quickTargets(mode){
+  if(mode==="pct"){const ft=document.getElementById("f_target"),qt=document.getElementById("qtTotal");if(!num(ft.value)&&num(qt.value))ft.value=num(qt.value);
+    const r=applyPctTargets();if(!r.total){toast("Enter the store target first");qt.focus();return;}if(!r.tp){toast("Type each person's % in Staff numbers below");return;}
+    toast(Math.abs(r.tp-100)<0.05?"Targets split by % — check and Save":"Split done, but total % is "+Math.round(r.tp*10)/10);return;}
   const k=cur(),rows=[...document.querySelectorAll(".srow")];if(!rows.length)return;
   const ids=rows.map(r=>r.dataset.sid);
   const rnd=document.getElementById("qtRound").checked?(v=>Math.round(v/1000)*1000):(v=>Math.round(v));
@@ -1844,7 +1855,8 @@ document.addEventListener("change",e=>{
 });
 document.addEventListener("input",e=>{
   const el=e.target;if(!canEdit())return;
-  if(el.id==="f_target")applyPctTargets();
+  if(el.id==="f_target"||el.id==="qtTotal")applyPctTargets();
+  if(el.dataset&&el.dataset.spct!==undefined)applyPctTargets(el.dataset.spct);
   if(el.dataset&&el.dataset.pct!==undefined)updPctTotal();
 });
 document.addEventListener("keydown",e=>{

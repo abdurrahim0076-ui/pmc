@@ -192,6 +192,8 @@ textarea{width:100%;font:inherit;font-size:14px;padding:10px;border-radius:10px;
 .cal.st-L{background:var(--bad);border-color:var(--bad);color:#fff}
 .cal.st-WO{background:var(--denim-2);border-color:var(--denim-2);color:#fff}
 .cal.today{outline:2px solid var(--thread);outline-offset:1px}
+.hero .row b.pill{display:inline-block;min-width:34px;text-align:center;border-radius:6px;padding:0 6px}
+.hero .row b.pill.p{background:var(--good)}.hero .row b.pill.l{background:var(--bad)}.hero .row b.pill.w{background:var(--denim-2)}
 .attstrip{margin-top:12px;display:grid;gap:8px}
 .attstrip>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(255,255,255,.08);border-radius:10px;padding:8px 10px}
 .attstrip span{font-size:12px;opacity:.85;min-width:92px}
@@ -1125,6 +1127,20 @@ function calcIncentive(fm){
   }).filter(r=>r.sales>0||r.tgt>0).sort((x,y)=>y.total-x.total||y.sales-x.sales);
   return {rows,days:t.days};
 }
+/* staff incentive for the selected period: month = that month's scheme (with its qualify rule),
+   week = that month's rates on the week's pieces, YTD = sum of each month so far */
+function staffIncentive(sid,k,ytd){
+  const all=state.incentives||{};
+  if(ytd){const fy=fyOf(k),upto=isWeek(k)?monthOfDate(weekRange(k)[0]):k;let v=0,any=false,loading=false;
+    for(const fm of monthKeys(fy)){if(fm>upto)break;if(!all[fm])continue;any=true;
+      const res=calcIncentive(fm);if(!res){loading=true;continue;}const r=res.rows.find(x=>x.s.id===sid);if(r)v+=r.total;}
+    return any?{v,loading}:null;}
+  if(isWeek(k)){const fm=monthOfDate(weekRange(k)[0]),sc=all[fm];if(!sc)return null;const t=mixFor(k,false);if(!t)return {v:0,loading:true};
+    const o=(t.s&&t.s[sid])||{};let v=0;INC_CATS.forEach(([c])=>{const a=o[c]||[0,0],r=sc.cats?.[c];if(r&&num(r.rate)>0)v+=r.type==="pct"?a[1]*num(r.rate)/100:a[0]*num(r.rate);});
+    return {v:Math.round(v),note:num(sc.minAch)?"earned; paid if month target ≥ "+num(sc.minAch)+"%":"earned this week"};}
+  const sc=all[k];if(!sc)return null;const res=calcIncentive(k);if(!res)return {v:0,loading:true};const r=res.rows.find(x=>x.s.id===sid);
+  return {v:r?r.total:0,note:r&&!r.ok&&r.earned?"not qualified yet (₹"+full(r.earned)+")":""};
+}
 function viewIncentive(){
   const fm=incMonth(),sc=(state.incentives||{})[fm]||{cats:{}};const prev=stepKey(fm,-1);
   let h=backBtn("root","Staff")+`<div class="hero" style="padding:16px 20px"><div class="lbl">💰 Incentive · ${esc(mLong(fm))}</div>
@@ -1189,9 +1205,9 @@ function viewPerson(){
   let h=backBtn("perf","Staff performance")+`<div class="seg" role="group" aria-label="Period" ${isYtd()?"hidden":""}>
     <button data-sv="month" aria-pressed="${!ytd}">${esc(mShort(k))} only</button><button data-sv="ytd" aria-pressed="${ytd}">YTD</button></div>
   ${(()=>{const ini=s.name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
-    const amk=calMonthOf(k),ad=dayCache[amk];let P=0,L=0,W=0;
-    if(ad)Object.keys(ad.att).forEach(x=>{const st=attStatus(ad.att[x][s.id]);if(st==="P")P++;else if(st==="L")L++;else if(st==="WO")W++;});
-    const ifm=incMonth(),isc=(state.incentives||{})[ifm];let inc=null;if(isc){const res=calcIncentive(ifm);const r=res&&res.rows.find(x=>x.s.id===s.id);if(r)inc=r.total;}
+    const [ps,pe]=periodDates(k,ytd);const ar=attRange(s.id,ps,pe);const ad=!!ar;const P=ar?ar.P:0,L=ar?ar.L:0,W=ar?ar.W:0;
+    const plbl=ytd?"YTD":isWeek(k)?mShort(k):MN[parseKey(k).m-1];
+    const inc=staffIncentive(s.id,k,ytd);
     const realRank=a.sales>0&&rank;
     return `<div class="hero"><div style="display:flex;align-items:center;gap:14px">
       <div class="avatar" aria-hidden="true">${esc(ini)}</div>
@@ -1200,10 +1216,8 @@ function viewPerson(){
       <div class="row" style="margin-top:14px"><div><b>${inr(a.sales)}</b>Sales</div><div><b>${pct(a.ach)}</b>Achievement</div><div><b>${realRank?"#"+rank+" of "+ranked.filter(x=>x.v>0).length:"–"}</b>Rank</div></div>
       <div class="row" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.18)">
         <div><b>${isFinite(a.atv)?inr(a.atv):"–"}</b>ATV</div><div><b>${isFinite(a.upt)?a.upt.toFixed(2):"–"}</b>UPT</div>
-        ${inc!=null?`<div><b>₹${full(inc)}</b>Incentive</div>`:""}</div>
-      ${(()=>{const yt=attYear(s.id,k);return `<div class="attstrip">
-        <div><span>${esc(MN[+amk.slice(5)-1])} total</span><b class="p">${ad?P:"–"}</b><i>Present</i><b class="l">${ad?L:"–"}</b><i>Leave</i><b class="w">${ad?W:"–"}</b><i>Week off</i></div>
-        <div><span>FY ${fyOf(k)} total</span><b class="p">${yt?yt.P:"…"}</b><i>Present</i><b class="l">${yt?yt.L:"…"}</b><i>Leave</i><b class="w">${yt?yt.W:"…"}</b><i>Week off</i></div></div>`;})()}</div>`;})()}
+        <div><b class="pill p">${ad?P:"…"}</b>Present · ${esc(plbl)}</div><div><b class="pill l">${ad?L:"…"}</b>Leave</div><div><b class="pill w">${ad?W:"…"}</b>Week off</div>
+        ${inc?`<div><b>${inc.loading?"…":"₹"+full(inc.v)}</b>Incentive · ${esc(ytd?"YTD":isWeek(k)?mShort(k):MN[parseKey(k).m-1])}${inc.note?`<br><small style="opacity:.8">${esc(inc.note)}</small>`:""}</div>`:""}</div></div>`;})()}
   <section class="block"><h2>KPIs</h2><div class="grid">
     <div class="kv"><span>Target</span><b>${a.target?inr(a.target):"–"}</b></div>
     <div class="kv"><span>Bills</span><b>${full(a.bills)}</b></div>
@@ -1243,9 +1257,8 @@ function viewPerson(){
     let p=0,lv=0,wo=0;
     Object.keys(d.att).forEach(x=>{const st=attStatus(d.att[x][s.id]);if(st==="P")p++;else if(st==="L")lv++;else if(st==="WO")wo++;});
     const vm=d.vm.filter(x=>x.sid===s.id),vd=vm.filter(x=>x.done).length;
-    h+=`<section class="block"><h2>${esc(MN_FULL[+mk.slice(5)-1])} attendance & VM</h2><div class="grid">
-      <div class="kv"><span>Present</span><b>${p}</b></div><div class="kv"><span>Leave</span><b class="${lv?"down":""}">${lv}</b></div><div class="kv"><span>Week off</span><b>${wo}</b></div>
-      <div class="kv"><span>VM tasks done</span><b>${vd}/${vm.length}</b></div></div>
+    h+=`<section class="block"><h2>${esc(MN_FULL[+mk.slice(5)-1])} VM work</h2><div class="grid">
+      <div class="kv"><span>VM tasks done</span><b>${vd}/${vm.length}</b></div><div class="kv"><span>VM pending</span><b class="${vm.length-vd?"down":""}">${vm.length-vd}</b></div></div>
       ${vm.filter(x=>!x.done).length?`<p class="hint">Pending VM: ${vm.filter(x=>!x.done).map(x=>esc(x.title)+" ("+esc(shortDate(x.date))+")").join(", ")}</p>`:""}</section>`;
     // month calendar: tap a day to mark
     const y=+mk.slice(0,4),m=+mk.slice(5),nd=new Date(y,m,0).getDate(),first=(new Date(y,m-1,1).getDay()+6)%7,today=todayISO();
@@ -1559,6 +1572,15 @@ function openPhoto(id){
 function ensureDay(){
   const mk=ui.day.slice(0,7);
   if(!dayCache[mk]) loadDay(mk).then(()=>{if(ui.tab==="daily")render();});
+}
+function attRange(sid,s,e){
+  const today=todayISO(),si=isoOf(s),ei=isoOf(e)<today?isoOf(e):today;const mks=[];
+  for(let d=new Date(s.getFullYear(),s.getMonth(),1);isoOf(d).slice(0,7)<=ei.slice(0,7);d=new Date(d.getFullYear(),d.getMonth()+1,1))mks.push(isoOf(d).slice(0,7));
+  const miss=mks.filter(mk=>!dayCache[mk]);
+  if(miss.length){Promise.all(miss.map(loadDay)).then(()=>{if(ui.tab==="staff"&&ui.staffPage==="person")render();});return null;}
+  let P=0,L=0,W=0;
+  mks.forEach(mk=>Object.keys(dayCache[mk].att).forEach(x=>{if(x<si||x>ei)return;const st=attStatus(dayCache[mk].att[x][sid]);if(st==="P")P++;else if(st==="L")L++;else if(st==="WO")W++;}));
+  return {P,L,W};
 }
 function attYear(sid,k){
   const fy=fyOf(k),s=fyStart(fy),today=todayISO();const mks=[];

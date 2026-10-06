@@ -1352,7 +1352,7 @@ function weeksCovering(s,e){const out=[];let wk=weekOfDate(s);for(let i=0;i<60;i
 function mixFor(k,ytd){
   const [s,e]=periodDates(k,ytd);const wks=weeksCovering(s,e);
   const missing=wks.filter(w=>!mixCache[w]);
-  if(missing.length){Promise.all(missing.map(loadMix)).then(()=>{if((ui.tab==="months"&&ui.report==="mix")||ui.tab==="staff")render();});return null;}
+  if(missing.length){Promise.all(missing.map(loadMix)).then(()=>{if((ui.tab==="months"&&(ui.report==="mix"||ui.report==="st"))||ui.tab==="staff")render();});return null;}
   const si=isoOf(s),ei=isoOf(e);const t={c:{},b:{},f:{},s:{},days:0};
   const add=(o,key,a)=>{const x=o[key]||(o[key]=[0,0]);x[0]+=a[0];x[1]+=a[1];};
   wks.forEach(w=>{const days=mixCache[w].days;Object.keys(days).forEach(dt=>{if(dt<si||dt>ei)return;const d=days[dt];t.days++;
@@ -1416,7 +1416,34 @@ function viewMix(){
 }
 function viewReport(){
   const r=ui.report||"kpi";
-  return `<div class="seg" role="group" aria-label="Report"><button data-rep="kpi" aria-pressed="${r==="kpi"}">KPI table</button><button data-rep="mix" aria-pressed="${r==="mix"}">Sale mix con%</button></div>`+(r==="mix"?viewMix():viewMonths());
+  return `<div class="seg" role="group" aria-label="Report"><button data-rep="kpi" aria-pressed="${r==="kpi"}">KPI table</button><button data-rep="mix" aria-pressed="${r==="mix"}">Sale mix</button><button data-rep="st" aria-pressed="${r==="st"}">Brick ST%</button></div>`+(r==="mix"?viewMix():r==="st"?viewST():viewMonths());
+}
+/* Brick sell-through: Sold / (Sold + SOH) */
+function viewST(){
+  const k=cur(),ytd=isYtd(),t=mixFor(k,ytd);
+  if(!sohLoaded){loadSoh().then(()=>{if(ui.tab==="months"&&ui.report==="st")render();});}
+  const S=sohData;
+  if(!t) return `<div class="empty">Loading…</div>`;
+  if(!S) return `<section class="block"><h2>Brick ST%</h2><div class="empty">Import an X30 on-hand report in the Sales tab to see sell-through.</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Import X30</button></div>`:""}</section>`;
+  if(!t.days) return `<section class="block"><h2>Brick ST%</h2><div class="empty">No X24 sales for ${esc(ytd?"this year":mLong(k))} yet.</div></section>`;
+  const cf=ui.stCat||"";
+  const cats=[...new Set([...Object.keys(t.c),...Object.keys(S.c)])].sort();
+  const keys=[...new Set([...Object.keys(t.b),...Object.keys(S.b)])];
+  let rows=keys.map(key=>{const [cat,...b]=key.split("|");const sold=(t.b[key]||[0])[0],soh=(S.b[key]||[0])[0];return {cat,name:b.join("|"),sold,soh};})
+    .filter(r=>r.sold+r.soh>0&&(!cf||r.cat===cf));
+  rows.forEach(r=>r.st=r.sold>0||r.soh>0?Math.max(0,r.sold)/(Math.max(0,r.sold)+Math.max(0,r.soh)):0);
+  rows.sort((a,b)=>b.st-a.st||b.sold-a.sold);
+  const ts=rows.reduce((x,r)=>x+Math.max(0,r.sold),0),th=rows.reduce((x,r)=>x+Math.max(0,r.soh),0);
+  const avg=ts+th?ts/(ts+th):0;const col=v=>avg&&v>=avg*1.5?"up":avg&&v<=avg*0.5?"down":"";
+  let h=`<section class="block"><h2>Brick ST% · ${esc(ytd?ytdLabel():mLong(k))}</h2>
+    <div class="chips" style="margin-top:0"><button data-stc="" style="${!cf?"background:var(--soft)":""}">All</button>${cats.map(c=>`<button data-stc="${esc(c)}" style="${cf===c?"background:var(--soft)":""}">${esc(catLabel(c))}</button>`).join("")}</div>
+    <div class="grid" style="margin-bottom:10px"><div class="kv"><span>Sold</span><b>${full(ts)}</b></div><div class="kv"><span>SOH</span><b>${full(th)}</b></div><div class="kv"><span>${cf?esc(catLabel(cf)):"Store"} ST%</span><b>${ts+th?pct(ts/(ts+th),1):"–"}</b></div></div>
+    <div class="tscroll"><table><thead><tr><th>Brick</th><th>Sold</th><th>SOH</th><th>ST%</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td style="white-space:normal;min-width:130px">${esc(r.name)}${cf?"":`<br><small class="muted">${esc(catLabel(r.cat))}</small>`}<div class="minibar"><i style="width:${(r.st*100).toFixed(1)}%;background:${col(r.st)==="up"?"var(--good)":col(r.st)==="down"?"var(--bad)":"var(--denim-2)"}"></i></div></td>
+      <td>${full(r.sold)}</td><td>${full(r.soh)}</td><td class="${col(r.st)}"><b>${pct(r.st,1)}</b></td></tr>`).join("")+
+    `<tr class="total"><td>Total</td><td>${full(ts)}</td><td>${full(th)}</td><td>${ts+th?pct(ts/(ts+th),1):"–"}</td></tr></tbody></table></div>
+    <p class="hint">ST% = Sold ÷ (Sold + SOH). Sold from X24 for ${esc(ytd?"the year so far":mLong(k))}; SOH from the X30 of ${esc(shortDate(S.date))}. 🟢 1.5× the average ST% or more (selling fast) · 🔴 half the average or less (slow). Pick Monthly or YTD at the top for a longer view.</p></section>`;
+  return h;
 }
 
 function viewMonths(){
@@ -1763,6 +1790,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.month&&t.dataset.stay){setCur(t.dataset.month);render();window.scrollTo(0,0);return;}
   if(t.dataset.month){setCur(t.dataset.month);if(ui.tab==="months")ui.tab="home";render();window.scrollTo(0,0);return;}
   if(t.dataset.rep){ui.report=t.dataset.rep;render();return;}
+  if(t.dataset.stc!==undefined){ui.stCat=t.dataset.stc;render();return;}
   if(t.dataset.mixp!==undefined){ui.mixYtd=t.dataset.mixp==="1";render();return;}
   if(t.dataset.mixl){ui.mixLevel=t.dataset.mixl;render();return;}
   if(t.dataset.mixc!==undefined){ui.mixCat=t.dataset.mixc;render();return;}

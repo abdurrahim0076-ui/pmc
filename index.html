@@ -1349,8 +1349,9 @@ function periodDates(k,ytd){
   return [s,e];
 }
 function weeksCovering(s,e){const out=[];let wk=weekOfDate(s);for(let i=0;i<60;i++){out.push(wk);const [ws,we]=weekRange(wk);if(we>=e)break;wk=stepKey(wk,1);}return out;}
-function mixFor(k,ytd){
-  const [s,e]=periodDates(k,ytd);const wks=weeksCovering(s,e);
+function mixFor(k,ytd){const [s,e]=periodDates(k,ytd);return mixBetween(s,e);}
+function mixBetween(s,e){
+  const wks=weeksCovering(s,e);
   const missing=wks.filter(w=>!mixCache[w]);
   if(missing.length){Promise.all(missing.map(loadMix)).then(()=>{if((ui.tab==="months"&&(ui.report==="mix"||ui.report==="st"))||ui.tab==="staff")render();});return null;}
   const si=isoOf(s),ei=isoOf(e);const t={c:{},b:{},f:{},s:{},days:0};
@@ -1418,14 +1419,21 @@ function viewReport(){
   const r=ui.report||"kpi";
   return `<div class="seg" role="group" aria-label="Report"><button data-rep="kpi" aria-pressed="${r==="kpi"}">KPI table</button><button data-rep="mix" aria-pressed="${r==="mix"}">Sale mix</button><button data-rep="st" aria-pressed="${r==="st"}">Brick ST%</button></div>`+(r==="mix"?viewMix():r==="st"?viewST():viewMonths());
 }
-/* Brick sell-through: Sold / (Sold + SOH) */
+/* Brick sell-through by season: H1 = Dec–May (W1–W26), H2 = Jun–Nov (W27–end) */
+function seasonRange(fy,hh){const s=hh==="H1"?fyStart(fy):weekRange(weekKey(fy,27))[0];const e=hh==="H1"?weekRange(weekKey(fy,26))[1]:weekRange(weekKey(fy,weeksIn(fy)))[1];return [s,e];}
 function viewST(){
-  const k=cur(),ytd=isYtd(),t=mixFor(k,ytd);
+  const nowWk=weekOfDate(new Date()),fy=Number(nowWk.slice(0,4));
+  const hh=ui.stSeason||(weekNo(nowWk)<=26?"H1":"H2");
+  const [ss,se]=seasonRange(fy,hh);const today=new Date();const upto=se<today?se:today;
+  const k=cur(),ytd=false,t=today<ss?{c:{},b:{},f:{},s:{},days:0}:mixBetween(ss,upto);
+  const wFrom=hh==="H1"?1:27,wTo=today<ss?wFrom:Math.min(weekNo(weekOfDate(upto)),hh==="H1"?26:weeksIn(fy));
+  const sLabel=`${hh} · ${hh==="H1"?"Dec – May":"Jun – Nov"} · W${wFrom}–W${wTo}${upto<se?" so far":""}`;
+  const seasonBtns=`<div class="seg" role="group" aria-label="Season"><button data-sts="H1" aria-pressed="${hh==="H1"}">H1 Dec–May</button><button data-sts="H2" aria-pressed="${hh==="H2"}">H2 Jun–Nov</button></div>`;
   if(!sohLoaded){loadSoh().then(()=>{if(ui.tab==="months"&&ui.report==="st")render();});}
   const S=sohData;
-  if(!t) return `<div class="empty">Loading…</div>`;
-  if(!S) return `<section class="block"><h2>Brick ST%</h2><div class="empty">Import an X30 on-hand report in the Sales tab to see sell-through.</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Import X30</button></div>`:""}</section>`;
-  if(!t.days) return `<section class="block"><h2>Brick ST%</h2><div class="empty">No X24 sales for ${esc(ytd?"this year":mLong(k))} yet.</div></section>`;
+  if(!t) return seasonBtns+`<div class="empty">Loading…</div>`;
+  if(!S) return seasonBtns+`<section class="block"><h2>Brick ST%</h2><div class="empty">Import an X30 on-hand report in the Sales tab to see sell-through.</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Import X30</button></div>`:""}</section>`;
+  if(!t.days) return seasonBtns+`<section class="block"><h2>Brick ST% · ${esc(sLabel)}</h2><div class="empty">No X24 sales in this season yet. Upload X24 from ${esc(shortDate(isoOf(ss)))} to today.</div></section>`;
   const cf=ui.stCat||"";
   const cats=[...new Set([...Object.keys(t.c),...Object.keys(S.c)])].sort();
   const keys=[...new Set([...Object.keys(t.b),...Object.keys(S.b)])];
@@ -1435,14 +1443,14 @@ function viewST(){
   rows.sort((a,b)=>b.st-a.st||b.sold-a.sold);
   const ts=rows.reduce((x,r)=>x+Math.max(0,r.sold),0),th=rows.reduce((x,r)=>x+Math.max(0,r.soh),0);
   const avg=ts+th?ts/(ts+th):0;const col=v=>avg&&v>=avg*1.5?"up":avg&&v<=avg*0.5?"down":"";
-  let h=`<section class="block"><h2>Brick ST% · ${esc(ytd?ytdLabel():mLong(k))}</h2>
+  let h=seasonBtns+`<section class="block"><h2>Brick ST% · ${esc(sLabel)}</h2>
     <div class="chips" style="margin-top:0"><button data-stc="" style="${!cf?"background:var(--soft)":""}">All</button>${cats.map(c=>`<button data-stc="${esc(c)}" style="${cf===c?"background:var(--soft)":""}">${esc(catLabel(c))}</button>`).join("")}</div>
     <div class="grid" style="margin-bottom:10px"><div class="kv"><span>Sold</span><b>${full(ts)}</b></div><div class="kv"><span>SOH</span><b>${full(th)}</b></div><div class="kv"><span>${cf?esc(catLabel(cf)):"Store"} ST%</span><b>${ts+th?pct(ts/(ts+th),1):"–"}</b></div></div>
     <div class="tscroll"><table><thead><tr><th>Brick</th><th>Sold</th><th>SOH</th><th>ST%</th></tr></thead><tbody>`+
     rows.map(r=>`<tr><td style="white-space:normal;min-width:130px">${esc(r.name)}${cf?"":`<br><small class="muted">${esc(catLabel(r.cat))}</small>`}<div class="minibar"><i style="width:${(r.st*100).toFixed(1)}%;background:${col(r.st)==="up"?"var(--good)":col(r.st)==="down"?"var(--bad)":"var(--denim-2)"}"></i></div></td>
       <td>${full(r.sold)}</td><td>${full(r.soh)}</td><td class="${col(r.st)}"><b>${pct(r.st,1)}</b></td></tr>`).join("")+
     `<tr class="total"><td>Total</td><td>${full(ts)}</td><td>${full(th)}</td><td>${ts+th?pct(ts/(ts+th),1):"–"}</td></tr></tbody></table></div>
-    <p class="hint">ST% = Sold ÷ (Sold + SOH). Sold from X24 for ${esc(ytd?"the year so far":mLong(k))}; SOH from the X30 of ${esc(shortDate(S.date))}. 🟢 1.5× the average ST% or more (selling fast) · 🔴 half the average or less (slow). Pick Monthly or YTD at the top for a longer view.</p></section>`;
+    <p class="hint">ST% = Sold ÷ (Sold + SOH). Sold from X24 since ${esc(shortDate(isoOf(ss)))} (${t.days} days with sales data); SOH from the X30 of ${esc(shortDate(S.date))}. Season resets on ${hh==="H1"?"1 Jun":"1 Dec"}. 🟢 1.5× the average ST% or more (selling fast) · 🔴 half the average or less (slow). </p></section>`;
   return h;
 }
 
@@ -1791,6 +1799,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.month){setCur(t.dataset.month);if(ui.tab==="months")ui.tab="home";render();window.scrollTo(0,0);return;}
   if(t.dataset.rep){ui.report=t.dataset.rep;render();return;}
   if(t.dataset.stc!==undefined){ui.stCat=t.dataset.stc;render();return;}
+  if(t.dataset.sts){ui.stSeason=t.dataset.sts;render();return;}
   if(t.dataset.mixp!==undefined){ui.mixYtd=t.dataset.mixp==="1";render();return;}
   if(t.dataset.mixl){ui.mixLevel=t.dataset.mixl;render();return;}
   if(t.dataset.mixc!==undefined){ui.mixCat=t.dataset.mixc;render();return;}

@@ -1416,8 +1416,8 @@ function viewMix(){
   return h;
 }
 function viewReport(){
-  const r=ui.report||"kpi";
-  return `<div class="seg" role="group" aria-label="Report"><button data-rep="kpi" aria-pressed="${r==="kpi"}">KPI table</button><button data-rep="mix" aria-pressed="${r==="mix"}">Sale mix</button><button data-rep="st" aria-pressed="${r==="st"}">Brick ST%</button></div>`+(r==="mix"?viewMix():r==="st"?viewST():viewMonths());
+  const r=(ui.report==="st"?"kpi":ui.report)||"kpi";
+  return `<div class="seg" role="group" aria-label="Report"><button data-rep="kpi" aria-pressed="${r==="kpi"}">KPI table</button><button data-rep="mix" aria-pressed="${r==="mix"}">Sale mix</button></div>`+(r==="mix"?viewMix():viewMonths());
 }
 /* Brick sell-through by season: H1 = Dec–May (W1–W26), H2 = Jun–Nov (W27–end) */
 function seasonRange(fy,hh){const s=hh==="H1"?fyStart(fy):weekRange(weekKey(fy,27))[0];const e=hh==="H1"?weekRange(weekKey(fy,26))[1]:weekRange(weekKey(fy,weeksIn(fy)))[1];return [s,e];}

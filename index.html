@@ -419,9 +419,9 @@ function uid(){return "s"+Math.random().toString(36).slice(2,9);}
 /* ---------- metrics ---------- */
 function lyAuto(k){
   if(!isWeek(k)&&!isDay(k)){
-    const fy=fyOf(k),[a,b]=fmWeeks(k);let t=0,ok=true;
-    for(let n=a;n<=b;n++){const r=rec(lyWeek(weekKey(fy,n)));if(!r||!(num(r.sales)>0)){ok=false;break;}t+=num(r.sales);}
-    if(ok&&t>0) return t;
+    const fy=fyOf(k),[a,b]=fmWeeks(k);let t=0;
+    for(let n=a;n<=b;n++){const r=rec(lyWeek(weekKey(fy,n)));if(r)t+=num(r.sales);}
+    if(t>0) return t;
   }
   const p=rec(prevYearKey(k));
   return p&&num(p.sales)>0?num(p.sales):0;

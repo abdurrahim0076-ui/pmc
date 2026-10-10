@@ -243,6 +243,21 @@ select{font:inherit;font-size:15px;padding:9px 8px;border-radius:10px;border:1px
 .task .x{border:0;background:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px}
 .progress{height:8px;background:var(--soft);border-radius:5px;overflow:hidden;margin:6px 0 2px}
 .progress i{display:block;height:100%;background:var(--good)}
+.stgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (min-width:480px){.stgrid{grid-template-columns:repeat(3,1fr)}}
+.stcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.stimg{position:relative;aspect-ratio:2/3;background:#F4F5F7;display:grid;place-items:center}
+.stimg img{width:100%;height:100%;object-fit:contain;display:block}
+.stimg span{font-size:12px;color:#8A93A6}
+.strank{position:absolute;left:6px;top:6px;min-width:24px;height:24px;padding:0 6px;border-radius:12px;background:var(--denim);color:var(--on-denim);display:grid;place-items:center;font-size:12px;font-weight:700}
+.stpill{position:absolute;right:6px;top:6px;font-style:normal;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;color:#fff;background:var(--muted)}
+.stpill.fast{background:var(--good)}.stpill.avg{background:#B7832A}.stpill.miss{background:var(--bad)}
+.stbody{padding:8px 10px 10px}
+.stpct{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:26px;font-weight:700;line-height:1;color:var(--denim-2)}
+.stpct small{font-family:Barlow,sans-serif;font-size:11px;font-weight:600;color:var(--muted);margin-left:4px}
+.stsale{font-size:12px;color:var(--muted);margin:4px 0 6px}.stsale b{color:var(--ink);font-weight:600}
+.stpc{font-weight:700;font-size:14px;letter-spacing:.2px}
+.stmeta{font-size:12px;color:var(--muted);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 @media (max-width:370px){.grid{grid-template-columns:repeat(2,1fr)} .hero .big{font-size:40px}}
 </style>
@@ -274,6 +289,7 @@ select{font:inherit;font-size:15px;padding:9px 8px;border-radius:10px;border:1px
   <button data-tab="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Sales</button>
   <button data-tab="daily"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Daily</button>
   <button data-tab="staff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.8c1.6.8 2.7 2.6 3 5.2"/></svg>Staff</button>
+  <button data-tab="st"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>ST%</button>
   <button data-tab="months"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Report</button>
 </div></nav>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -521,7 +537,7 @@ async function afterCol(){
   for(const fy in weekCache) delete weekCache[fy];
   for(const mk in x24Cache) delete x24Cache[mk];
   for(const wk in mixCache) delete mixCache[wk];
-  sohLoaded=false;sohData=null;
+  sohLoaded=false;sohData=null;stLoaded=false;stRep=null;
   render();
 }
 async function connectFirebase(){
@@ -932,6 +948,7 @@ async function handleX24File(file){
     const wb=XLSX.read(buf,{type:"array",cellDates:true});
     if(isDsrBook(XLSX,wb)){const dsr=parseDsr(XLSX,wb);ui.x24={type:"dsr",file:file.name,dsr};
       const ms=[...new Set(Object.keys(dsr).map(d=>d.slice(0,7)))];await Promise.all(ms.map(loadX24));render();return;}
+    if(isStBook(XLSX,wb)){const st=parseStRep(XLSX,wb);ui.x24={type:"st",file:file.name,st};render();return;}
     if(isSohBook(XLSX,wb)){const soh=parseX30(XLSX,wb);ui.x24={type:"soh",file:file.name,soh};render();return;}
     const parsed=parseX24(XLSX,wb);
     const dates=Object.keys(parsed.days).sort();
@@ -946,7 +963,7 @@ function viewImport(){
   const x=ui.x24;
   let h=`<section class="block"><h2>Import report</h2>`;
   if(!x){
-    h+=`<p class="hint" style="margin:0 0 10px">Pick an X24 Sales Transactions file (sales, staff, sale mix), an X30 On-hand Inventory file (SOH) or your YTD DSR file (daily sales and walk-ins). The app knows which one it is.</p>
+    h+=`<p class="hint" style="margin:0 0 10px">Pick an X24 Sales Transactions file (sales, staff, sale mix), an X30 On-hand Inventory file (SOH), the Week ST report (ST% with photos) or your YTD DSR file (daily sales and walk-ins). The app knows which one it is.</p>
       <label class="btn primary" style="display:block;text-align:center">Choose report file<input type="file" id="x24File" accept=".xlsx,.xls,.csv" hidden></label>`;
   }else if(x.loading){h+=`<div class="empty">Reading the report…</div>`;}
   else if(x.type==="dsr"){
@@ -970,6 +987,13 @@ function viewImport(){
       }</tbody></table></div>
       <p class="hint">This replaces the previous SOH. Sale mix will show SOH con%, gap and weeks of cover next to sales.</p>
       <div class="actions"><button class="btn primary" id="sohImport" style="flex:1">Import SOH</button><button class="btn" id="x24Cancel">Cancel</button></div>`;}
+  else if(x.type==="st"){const L=x.st.rows.map(stObj).filter(r=>r.sale+r.soh>0),T=stTotals(L);
+    h+=`<p style="margin:0 0 8px"><b>Week ST report</b> <span class="muted">· ${esc(x.st.store||"Store")} · ${esc(shortDate(x.st.date))} · ${L.length} PC9 with stock or sale</span></p>
+      <div class="grid" style="margin-bottom:10px">
+        <div class="kv"><span>Store ST%</span><b>${pct(T.st,1)}</b></div><div class="kv"><span>Sale</span><b>${full(T.sale)}</b></div><div class="kv"><span>SOH</span><b>${full(T.soh)}</b></div>
+        <div class="kv"><span>Fast</span><b class="up">${T.F}</b></div><div class="kv"><span>Avg</span><b style="color:var(--thread)">${T.A}</b></div><div class="kv"><span>Miss</span><b class="down">${T.M}</b></div></div>
+      <p class="hint">This replaces the previous ST report. Everyone sees it in the ST% tab, with product photos.</p>
+      <div class="actions"><button class="btn primary" id="stImport" style="flex:1">Import ST report</button><button class="btn" id="x24Cancel">Cancel</button></div>`;}
   else if(x.error){h+=`<p class="down" style="margin:0 0 10px">${esc(x.error)}</p><div class="actions"><button class="btn small" id="x24Cancel">Try another file</button></div>`;}
   else{
     const first=x.dates[0],last=x.dates[x.dates.length-1];
@@ -1454,6 +1478,129 @@ function viewST(){
   return h;
 }
 
+/* ---------- Week ST report (Levi's ST% report) + PC9 photos ---------- */
+let stRep=null,stLoaded=false;
+const LS_ST="store-perf-strep";
+async function loadStRep(){
+  if(stLoaded) return stRep;
+  let d=null;
+  try{const r=localStorage.getItem(LS_ST);if(r)d=JSON.parse(r);}catch(e){}
+  if(col){try{const s=await col.doc("strep").get();if(s.exists)d=JSON.parse(JSON.stringify(s.data()));}catch(e){}}
+  stRep=d&&d.json?d:null;if(stRep){try{stRep.rows=JSON.parse(stRep.json);}catch(e){stRep=null;}}
+  stLoaded=true;return stRep;
+}
+function saveStRep(d){
+  if(!canEdit())return;
+  const doc={date:d.date,store:d.store||"",file:d.file||"",json:JSON.stringify(d.rows)};
+  stRep=Object.assign({},doc,{rows:d.rows});stLoaded=true;
+  try{localStorage.setItem(LS_ST,JSON.stringify(doc));}catch(e){}
+  if(col) col.doc("strep").set(doc).then(()=>setStatus("Synced")).catch(()=>setStatus("Saved on this device only"));
+}
+function isStBook(XLSX,wb){
+  for(const n of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null});
+    for(let i=0;i<Math.min(25,rows.length);i++){const hd=(rows[i]||[]).map(normHdr);if(hd.includes("PC9")&&hd.includes("SHELF LIFE")&&hd.includes("SALE")&&hd.includes("SOH"))return true;}}
+  return false;
+}
+function parseStRep(XLSX,wb){
+  for(const n of wb.SheetNames){
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null});
+    for(let i=0;i<Math.min(25,rows.length);i++){
+      const hd=(rows[i]||[]).map(normHdr);
+      if(!(hd.includes("PC9")&&hd.includes("SHELF LIFE")&&hd.includes("SALE")&&hd.includes("SOH")))continue;
+      const c={gc:hd.indexOf("GC"),pc9:hd.indexOf("PC9"),brick:hd.indexOf("BRICK"),fit:hd.indexOf("FIT"),story:hd.indexOf("STORY"),mrp:hd.indexOf("MRP"),
+        rec:hd.indexOf("REC IN"),sl:hd.indexOf("SHELF LIFE"),stat:hd.indexOf("PC9 STATUS"),ros:hd.indexOf("ROS"),reg:hd.indexOf("ST%"),soh:hd.indexOf("SOH"),sale:hd.indexOf("SALE")};
+      let date=null,store="";
+      for(let r=0;r<i;r++){const row=rows[r]||[];
+        if(String(row[0]??"").trim().toUpperCase()==="STORE"){const v=row.filter(x=>x!=null&&String(x).trim()!=="");if(v.length>1)store=String(v[v.length-1]).trim();}
+        if(!date)for(const x of row){if(x&&Object.prototype.toString.call(x)==="[object Date]"){date=normDate(x);break;}}}
+      const out=[];
+      for(let r=i+1;r<rows.length;r++){
+        const row=rows[r];if(!row)continue;
+        const pc=String(row[c.pc9]??"").trim().toUpperCase();if(!/^[0-9A-Z]{5}-[0-9A-Z]{4}$/.test(pc))continue;
+        const g=v=>c[v]>=0?row[c[v]]:null;
+        const st=String(g("stat")??"").trim();
+        out.push([pc,String(g("gc")??"").trim().toUpperCase(),String(g("brick")??"").trim(),String(g("fit")??"").trim(),String(g("story")??"").trim(),
+          num(g("mrp")),normDate(g("rec"))||"",num(g("sl")),/^(fast|avg|miss)$/i.test(st)?st.charAt(0).toUpperCase()+st.slice(1).toLowerCase():"",
+          Math.round(num(g("ros"))*10)/10,Math.round(num(g("reg"))*1000)/1000,num(g("soh")),num(g("sale"))]);
+      }
+      if(!out.length) throw new Error("No PC9 rows found in this ST report.");
+      return {date:date||todayISO(),store,rows:out};
+    }
+  }
+  throw new Error("This doesn't look like the Week ST report. It needs PC9, SHELF LIFE, SOH and SALE columns.");
+}
+/* row → object */
+function stObj(a){const soh=Math.max(0,a[11]),sale=Math.max(0,a[12]);return {pc:a[0],gc:a[1],brick:a[2],fit:a[3],story:a[4],mrp:a[5],rec:a[6],sl:a[7],stat:a[8],ros:a[9],reg:a[10],soh,sale,st:sale+soh>0?sale/(sale+soh):NaN};}
+function stTotals(list){const s=list.reduce((x,r)=>x+r.sale,0),h=list.reduce((x,r)=>x+r.soh,0);return {sale:s,soh:h,st:s+h?s/(s+h):NaN,F:list.filter(r=>r.stat==="Fast").length,A:list.filter(r=>r.stat==="Avg").length,M:list.filter(r=>r.stat==="Miss").length};}
+const GC_NAMES={MB:"Men's Bottoms",MT:"Men's Tops",WB:"Women's Bottoms",WT:"Women's Tops"};
+/* photos: pc9_images.json sits next to index.html on GitHub */
+let pcImgs=null,pcImgState="idle";
+function loadPcImgs(){
+  if(pcImgState!=="idle")return;
+  pcImgState="loading";
+  fetch("pc9_images.json",{cache:"default"}).then(r=>{if(!r.ok)throw 0;return r.json();})
+    .then(j=>{pcImgs=(j&&j.img)||{};pcImgs.__fmt=(j&&j.fmt)||"webp";pcImgState="ready";if(ui.tab==="st")render();})
+    .catch(()=>{pcImgs={};pcImgState="missing";if(ui.tab==="st")render();});
+}
+function pcImg(pc){if(!pcImgs||!pcImgs[pc])return "";return "data:image/"+(pcImgs.__fmt==="jpg"?"jpeg":pcImgs.__fmt)+";base64,"+pcImgs[pc];}
+function stCard(r,i){
+  const img=pcImg(r.pc);const sc=r.stat==="Fast"?"fast":r.stat==="Avg"?"avg":r.stat==="Miss"?"miss":"";
+  return `<div class="stcard"><div class="stimg">${img?`<img src="${img}" alt="${esc(r.pc)}" loading="lazy">`:`<span>No photo</span>`}
+      <b class="strank">${i+1}</b>${r.stat?`<em class="stpill ${sc}">${esc(r.stat)}</em>`:""}</div>
+    <div class="stbody"><div class="stpct num">${pct(r.st,1)}<small>ST%</small></div>
+      <div class="stsale">Sale <b>${full(r.sale)}</b> · SOH <b>${full(r.soh)}</b></div>
+      <div class="stpc">${esc(r.pc)}</div>
+      <div class="stmeta">${esc([r.brick,r.fit].filter(Boolean).join(" · "))}</div>
+      <div class="stmeta">${r.mrp?"₹"+full(r.mrp)+" · ":""}${r.sl?full(r.sl)+" days":""}</div></div></div>`;
+}
+function viewStRep(){
+  if(!stLoaded){loadStRep().then(()=>{if(ui.tab==="st")render();});return `<div class="empty">Loading ST report…</div>`;}
+  if(!stRep) return `<section class="block"><h2>ST%</h2><div class="empty">No ST report yet. ${canEdit()?"Upload the Week ST report (Excel) in the Sales tab.":"Ask the manager to upload the Week ST report."}</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Upload ST report</button></div>`:""}</section>`;
+  loadPcImgs();
+  const all=stRep.rows.map(stObj).filter(r=>r.sale+r.soh>0);
+  const gcs=[...new Set(all.map(r=>r.gc).filter(Boolean))].sort((a,b)=>Object.keys(GC_NAMES).indexOf(a)-Object.keys(GC_NAMES).indexOf(b));
+  const g=ui.stGc||"",view=ui.stView||"top",T=stTotals(g?all.filter(r=>r.gc===g):all);
+  const gcBtns=`<div class="chips" style="margin:0 0 10px"><button data-stgc="" style="${!g?"background:var(--soft)":""}">All</button>${gcs.map(c=>`<button data-stgc="${esc(c)}" style="${g===c?"background:var(--soft)":""}">${esc(GC_NAMES[c]||c)}</button>`).join("")}</div>`;
+  let h=`<section class="block"><h2>ST% · ${esc(stRep.store||"Store")} <span class="badge">${esc(shortDate(stRep.date))}</span></h2>${gcBtns}
+    <div class="grid"><div class="kv"><span>${g?esc(GC_NAMES[g]||g):"Store"} ST%</span><b>${pct(T.st,1)}</b></div><div class="kv"><span>Sale</span><b>${full(T.sale)}</b></div><div class="kv"><span>SOH</span><b>${full(T.soh)}</b></div>
+    <div class="kv"><span>Fast</span><b class="up">${T.F}</b></div><div class="kv"><span>Avg</span><b style="color:var(--thread)">${T.A}</b></div><div class="kv"><span>Miss</span><b class="down">${T.M}</b></div></div>
+    <p class="hint">ST% = Sale ÷ (Sale + SOH), sale since the style came in (REC IN). Fast / Avg / Miss status as in the Levi's report.</p></section>
+    <div class="seg" role="group" aria-label="ST view"><button data-stview="top" aria-pressed="${view==="top"}">Top ST%</button><button data-stview="rep" aria-pressed="${view==="rep"}">Replenish</button><button data-stview="miss" aria-pressed="${view==="miss"}">Miss</button><button data-stview="tbl" aria-pressed="${view==="tbl"}">Brick / Fit</button></div>`;
+  let list=g?all.filter(r=>r.gc===g):all.slice();
+  if(view==="tbl"){
+    const lvl=ui.stLvl||"brick";
+    const grp={};list.forEach(r=>{const k=(g?"":r.gc+"|")+(lvl==="brick"?r.brick:r.fit||"Other");(grp[k]=grp[k]||[]).push(r);});
+    const rows=Object.keys(grp).map(k=>{const p=k.split("|");return {gc:g?"":p[0],name:g?k:p.slice(1).join("|"),...stTotals(grp[k]),n:grp[k].length};}).sort((a,b)=>(b.st||0)-(a.st||0));
+    const avg=T.st,cl=v=>v>=avg*1.25?"up":v<=avg*0.75?"down":"";
+    h+=`<section class="block"><div class="seg" role="group" aria-label="Level"><button data-stlvl="brick" aria-pressed="${lvl==="brick"}">Brick</button><button data-stlvl="fit" aria-pressed="${lvl==="fit"}">Fit</button></div>
+      <div class="tscroll"><table><thead><tr><th>${lvl==="brick"?"Brick":"Fit"}</th><th>Sale</th><th>SOH</th><th>ST%</th><th>PC9</th><th>F / A / M</th></tr></thead><tbody>`+
+      rows.map(r=>`<tr><td style="white-space:normal;min-width:120px">${esc(r.name)}${r.gc?`<br><small class="muted">${esc(GC_NAMES[r.gc]||r.gc)}</small>`:""}<div class="minibar"><i style="width:${((r.st||0)*100).toFixed(1)}%"></i></div></td>
+        <td>${full(r.sale)}</td><td>${full(r.soh)}</td><td class="${cl(r.st)}"><b>${pct(r.st,1)}</b></td><td>${r.n}</td><td><span class="up">${r.F}</span> / <span style="color:var(--thread)">${r.A}</span> / <span class="down">${r.M}</span></td></tr>`).join("")+
+      `<tr class="total"><td>Total</td><td>${full(T.sale)}</td><td>${full(T.soh)}</td><td>${pct(T.st,1)}</td><td>${list.length}</td><td>${T.F} / ${T.A} / ${T.M}</td></tr></tbody></table></div>
+      <p class="hint">🟢 ST% a quarter above the ${g?esc(GC_NAMES[g]||g):"store"} average or more · 🔴 a quarter below or less. F / A / M = number of Fast / Avg / Miss PC9s.</p></section>`;
+    return h;
+  }
+  let note="";
+  if(view==="top"){const s=ui.stStat||"";list=list.filter(r=>r.sale>=5);if(s)list=list.filter(r=>r.stat===s);list.sort((a,b)=>(b.st||0)-(a.st||0)||b.sale-a.sale);
+    note="Highest store ST% first, PC9 with sale 5 or more.";}
+  else if(view==="rep"){list=list.filter(r=>r.stat==="Fast"&&r.soh<=10);list.sort((a,b)=>b.sale-a.sale||a.soh-b.soh);
+    note="Fast status and SOH 10 or less, best sellers first: raise an indent / IST before key sizes break.";}
+  else{list=list.filter(r=>r.stat==="Miss"&&r.sl>=60&&r.soh>0);list.sort((a,b)=>b.soh-a.soh||(a.st||0)-(b.st||0));
+    note="Miss status, 60+ days in store, stock still on hand (most stock first): move to a better VM spot, push on the floor, or plan IST out / markdown.";}
+  const imgsOk=pcImgState==="ready",photoOnly=ui.stPhoto!==false&&imgsOk;
+  const before=list.length;if(photoOnly)list=list.filter(r=>pcImg(r.pc));const hidden=before-list.length;
+  const N=ui.stN||20,shown=N==="all"?list:list.slice(0,N);
+  h+=`<div class="chips" style="margin:0 0 8px">${view==="top"?["","Fast","Avg","Miss"].map(s=>`<button data-ststat="${s}" style="${(ui.stStat||"")===s?"background:var(--soft)":""}">${s||"All status"}</button>`).join(""):""}
+    ${[10,20,50,"all"].map(n=>`<button data-stn="${n}" style="${N===n?"background:var(--soft)":""}">${n==="all"?"All":"Top "+n}</button>`).join("")}
+    ${imgsOk?`<button data-stphoto="1" style="${photoOnly?"background:var(--soft)":""}">${photoOnly?"✓ ":""}With photo only</button>`:""}</div>`;
+  if(pcImgState==="loading") h+=`<p class="hint" style="margin:0 0 8px">Loading photos…</p>`;
+  if(pcImgState==="missing") h+=`<p class="hint" style="margin:0 0 8px">Photos not found. Upload <b>pc9_images.json</b> to GitHub next to index.html.</p>`;
+  if(!shown.length) return h+`<section class="block"><div class="empty">No PC9 in this list${g?" for "+esc(GC_NAMES[g]||g):""}.</div></section>`;
+  h+=`<div class="stgrid">${shown.map(stCard).join("")}</div>
+    <p class="hint" style="margin:10px 2px 0">${note} Showing ${shown.length} of ${list.length}.${hidden?" "+hidden+" PC9 without a photo hidden.":""}</p>`;
+  return h;
+}
+
 function viewMonths(){
   const fy=fyOf(cur()), keys=ui.mode==="day"?monthDays(cur()):periodKeys(fy);
   const rows=keys.map(k=>({k,a:aggStore([k]),has:!!rec(k)}));
@@ -1671,7 +1818,8 @@ function render(){
   document.querySelector("header.top").style.display=gated?"none":"";
   if(gated){document.getElementById("periodWrap").style.display="none";v.innerHTML=viewGate();return;}
   header();
-  document.getElementById("periodWrap").style.display = ui.tab==="daily"?"none":"";
+  document.getElementById("periodWrap").style.display = (ui.tab==="daily"||ui.tab==="st")?"none":"";
+  if(ui.tab==="st"){v.innerHTML=viewStRep();return;}
   if(ui.tab==="daily") ensureDay();
   else if(!weeksReady()){ensureWeeks();v.innerHTML='<div class="empty">Loading…</div>';return;}
   v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily(): viewReport();
@@ -1792,12 +1940,18 @@ document.addEventListener("click",e=>{
   if(t.id==="phDel"){const pid=t.dataset.pid;askConfirm("Delete this photo?","Delete",()=>{fsdb.doc("stores/"+SID+"/vmphotos/"+pid).delete().then(()=>{photoCache[ui.day]=(photoCache[ui.day]||[]).filter(x=>x.id!==pid);document.getElementById("photoBox").hidden=true;toast("Photo deleted");render();}).catch(()=>toast("Could not delete"));});return;}
   if(t.dataset.revoke){const m=accessInfo&&accessInfo.members.find(x=>x.id===t.dataset.revoke);
     askConfirm("Remove "+(m&&m.name||"this person")+"'s access?","Remove",()=>{fsdb.doc("stores/"+SID+"/members/"+t.dataset.revoke).delete().then(()=>{accessInfo.members=accessInfo.members.filter(x=>x.id!==t.dataset.revoke);toast("Access removed");render();}).catch(()=>toast("Could not remove"));});return;}
-  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","dsrImport","saveMT","incSave","incCopy","pctSave","pctSuggest","pctEqual","exportCsv","backupDl"].includes(t.id)))return;
+  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","stImport","dsrImport","saveMT","incSave","incCopy","pctSave","pctSuggest","pctEqual","exportCsv","backupDl"].includes(t.id)))return;
   if(t.dataset.tab){if(t.dataset.tab==="daily")delete photoCache[ui.day];if(t.dataset.tab==="staff"&&ui.tab==="staff")ui.staffPage="root";go(t.dataset.tab);return;}
   if(t.dataset.go){go(t.dataset.go);return;}
   if(t.dataset.month&&t.dataset.stay){setCur(t.dataset.month);render();window.scrollTo(0,0);return;}
   if(t.dataset.month){setCur(t.dataset.month);if(ui.tab==="months")ui.tab="home";render();window.scrollTo(0,0);return;}
   if(t.dataset.rep){ui.report=t.dataset.rep;render();return;}
+  if(t.dataset.stview){ui.stView=t.dataset.stview;render();return;}
+  if(t.dataset.stgc!==undefined){ui.stGc=t.dataset.stgc;render();return;}
+  if(t.dataset.ststat!==undefined){ui.stStat=t.dataset.ststat;render();return;}
+  if(t.dataset.stn){ui.stN=t.dataset.stn==="all"?"all":Number(t.dataset.stn);render();return;}
+  if(t.dataset.stphoto){ui.stPhoto=ui.stPhoto===false;render();return;}
+  if(t.dataset.stlvl){ui.stLvl=t.dataset.stlvl;render();return;}
   if(t.dataset.stc!==undefined){ui.stCat=t.dataset.stc;render();return;}
   if(t.dataset.sts){ui.stSeason=t.dataset.sts;render();return;}
   if(t.dataset.mixp!==undefined){ui.mixYtd=t.dataset.mixp==="1";render();return;}
@@ -1865,6 +2019,7 @@ document.addEventListener("click",e=>{
     case "x24Import":doImport();break;
     case "x24Cancel":ui.x24=null;render();break;
     case "dsrImport":doDsrImport();break;
+    case "stImport":if(ui.x24&&ui.x24.st){saveStRep({...ui.x24.st,file:ui.x24.file});ui.x24=null;ui.tab="st";ui.stView="top";toast("ST report imported ✓");render();window.scrollTo(0,0);}break;
     case "sohImport":if(ui.x24&&ui.x24.soh){saveSoh(ui.x24.soh);ui.x24=null;ui.tab="months";ui.report="mix";toast("SOH imported ✓");render();window.scrollTo(0,0);}break;
     case "prevD":ui.day=addDays(ui.day,-1);delete photoCache[ui.day];render();break;
     case "nextD":ui.day=addDays(ui.day,1);delete photoCache[ui.day];render();break;

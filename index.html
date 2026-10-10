@@ -1098,14 +1098,15 @@ async function removeFutureSales(){
     if(ch)persistX24(mk);}
   let wk=weekOfDate(now);
   for(let i=0;i<70;i++){const m=await loadMix(wk);let ch=false;Object.keys(m.days||{}).forEach(dt=>{if(dt>today){delete m.days[dt];ch=true;}});if(ch)persistMix(wk);wk=stepKey(wk,1);}
+  const isFutureWk=w=>isoOf(weekRange(w)[0])>today;
   const keepOnly=r=>{const k={};["target","lySales"].forEach(f=>{if(r&&num(r[f]))k[f]=r[f];});return Object.keys(k).length?k:null;};
   for(const w of wks){const fy=fyOf(w);await loadWeeks(fy);const [s]=weekRange(w),objs=[];
     for(let i=0;i<7;i++){const dt=isoOf(new Date(s.getFullYear(),s.getMonth(),s.getDate()+i));if(dt>today)break;const c=await loadX24(dt.slice(0,7));if(c.days[dt])objs.push(c.days[dt]);}
     const r=(weekCache[fy]||{})[w];
-    if(objs.length){if(!r||r.source)mergeInto(w,sumDays(objs),"Fixed");}
-    else if(r&&r.source){const k=keepOnly(r);if(k)weekCache[fy][w]=k;else delete weekCache[fy][w];persistWeeks(fy,"Fixed");}}
+    if(objs.length){mergeInto(w,sumDays(objs),"Fixed");}
+    else if(r&&(r.source||isFutureWk(w))){const k=keepOnly(r);if(k)weekCache[fy][w]=k;else delete weekCache[fy][w];persistWeeks(fy,"Fixed");}}
   for(const fm of fms){const [s,e]=fmRange(fm);const objs=await dayObjsBetween(s,e);const r=state.months[fm];
-    if(objs.length){if(!r||r.source||r.fromWeeks)mergeInto(fm,sumDays(objs),"Fixed");}
+    if(objs.length){mergeInto(fm,sumDays(objs),"Fixed");}
     else if(r&&(r.source||r.fromWeeks)){const k=keepOnly(r);if(k)state.months[fm]=k;else delete state.months[fm];persist("Fixed");}}
   render();const msg=n?"Removed "+n+" future days ("+inr(amt)+") ✓":"No future-dated sales found ✓";setTimeout(()=>toast(msg),2500);
 }

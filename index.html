@@ -348,7 +348,9 @@ function chartKeys(k){return isDay(k)?monthDays(k):periodKeys(fyOf(k));}
 function weekRange(k){const fy=fyOf(k),n=weekNo(k),st=fyStart(fy);const s=new Date(st.getFullYear(),st.getMonth(),st.getDate()+(n-1)*7);const e=new Date(s.getFullYear(),s.getMonth(),s.getDate()+6);return [s,e];}
 function weekOfDate(d){const day=new Date(d.getFullYear(),d.getMonth(),d.getDate());let fy=d.getFullYear();if(day<fyStart(fy))fy--;if(day>=fyStart(fy+1))fy++;const days=Math.round((day-fyStart(fy))/864e5);return weekKey(fy,Math.floor(days/7)+1);}
 function rangeText(k){const [s,e]=weekRange(k);const f=d=>d.getDate()+" "+MN[d.getMonth()];return f(s)+" – "+f(e);}
-function prevYearKey(k){if(isDay(k))return dayAdd(k,-364);if(isWeek(k))return weekKey(fyOf(k)-1,Math.min(weekNo(k),weeksIn(fyOf(k)-1)));const {y,m}=parseKey(k);return keyOf(y-1,m);}
+/* LY = same days 364 days back (same weekday), like the DSR. A 53-week year (FY2025) shifts week numbers, so weeks are matched by date, not by number. */
+function lyWeek(k){const [s]=weekRange(k);return weekOfDate(new Date(s.getFullYear(),s.getMonth(),s.getDate()-364));}
+function prevYearKey(k){if(isDay(k))return dayAdd(k,-364);if(isWeek(k))return lyWeek(k);const {y,m}=parseKey(k);return keyOf(y-1,m);}
 function mShort(k){if(isDay(k)){const d=dOf(k);return d.getDate()+" "+MN[d.getMonth()];}if(isWeek(k))return "W"+weekNo(k);const {m}=parseKey(k);return MN[m-1];}
 function mLong(k){if(isDay(k)){const d=dOf(k);return WD[d.getDay()]+", "+d.getDate()+" "+MN[d.getMonth()]+" "+d.getFullYear();}if(isWeek(k))return "Week "+weekNo(k)+" ("+rangeText(k)+")";const {y,m}=parseKey(k);return MN_FULL[m-1]+" "+y;}
 function stepKey(k,d){if(isDay(k))return dayAdd(k,d);if(isWeek(k)){let fy=fyOf(k),n=weekNo(k)+d;if(n<1){fy--;n=weeksIn(fy);}else if(n>weeksIn(fy)){fy++;n=1;}return weekKey(fy,n);}return addMonths(k,d);}
@@ -415,9 +417,18 @@ function cls(x){return !isFinite(x)?"":(x>=0?"up":"down");}
 function uid(){return "s"+Math.random().toString(36).slice(2,9);}
 
 /* ---------- metrics ---------- */
-function lyFor(k){
+function lyAuto(k){
+  if(!isWeek(k)&&!isDay(k)){
+    const fy=fyOf(k),[a,b]=fmWeeks(k);let t=0,ok=true;
+    for(let n=a;n<=b;n++){const r=rec(lyWeek(weekKey(fy,n)));if(!r||!(num(r.sales)>0)){ok=false;break;}t+=num(r.sales);}
+    if(ok&&t>0) return t;
+  }
   const p=rec(prevYearKey(k));
-  if(p&&num(p.sales)>0) return num(p.sales);
+  return p&&num(p.sales)>0?num(p.sales):0;
+}
+function lyAuto_(k){return lyAuto(k);}
+function lyFor(k){
+  const a=lyAuto(k);if(a>0) return a;
   const m=rec(k); return m?num(m.lySales):0;
 }
 function derive(t){
@@ -1084,7 +1095,7 @@ function viewAdd(){
       <tr class="total"><td>Total</td><td></td><td id="mtTotal">${inr(monthKeys(fy).reduce((s,fm)=>s+num(state.months[fm]?.target),0))}</td></tr></tbody></table></div>
       <div class="actions"><button class="btn primary" id="saveMT" style="flex:1">Save monthly targets</button></div></section>`;}
   const k=cur(), m=rec(k)||{};
-  const lyAuto=num(rec(prevYearKey(k))?.sales);
+  const lyAuto=lyAuto_(k);
   const team=state.staff.filter(s=>s.active!==false || m.staff?.[s.id]);
   const v=x=>x===undefined||x===null||x===""?"":esc(x);
   let h=viewImport()+`<section class="block"><h2>${esc(mLong(k))} — store</h2><div class="fgrid">

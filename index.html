@@ -834,7 +834,7 @@ function parseX24(XLSX,wb){
       const days={};let lines=0,skippedNP=0;
       for(let r=i+1;r<rows.length;r++){
         const row=rows[r];if(!row)continue;
-        const date=normDate(row[c.date]);if(!date)continue;
+        const date=normDate(row[c.date]);if(!date||date>todayISO())continue;
         if(c.cat>=0){const cu=String(row[c.cat]??"").trim().toUpperCase();if(cu==="NP"||cu.indexOf("ACCESS")>-1){skippedNP++;continue;}}
         const qty=num(row[c.qty]),amt=num(row[c.amt]),tn=String(row[c.tn]??"");
         const d=days[date]||(days[date]={sales:0,units:0,tq:{},staff:{},mix:{c:{},b:{},f:{},s:{}}});
@@ -939,7 +939,7 @@ function parseDsr(XLSX,wb){
           const row=rows[r]||[];
           const lbl=String(row[c-3]??"").toUpperCase();
           if(/TOTAL|^MONTH|^WEEK$/.test(lbl.trim()))break;
-          const dt=normDate(row[c-1]);if(!dt)continue;
+          const dt=normDate(row[c-1]);if(!dt||dt>todayISO())continue;
           const au=num(row[c]),ar=num(row[c+1]);if(!au&&!ar)continue;
           const cat=(k,u,v)=>[num(row[u]),Math.round(num(row[v]))];
           days[dt]={sales:Math.round(ar*100)/100,units:au,bills:num(row[c+2]),footfall:num(row[c+3]),
@@ -1068,7 +1068,9 @@ function viewLy(){
       <p class="hint">${x.skipped?x.skipped+" days of this year in the file are left out. ":""}Only LY is saved: staff, team and this year's numbers are not touched. Dates already in LY are replaced, nothing is counted twice.</p>
       <div class="actions"><button class="btn primary" id="lyImport" style="flex:1">Import ${ds.length} LY days</button><button class="btn" id="lyCancel">Cancel</button></div></section>`;}
   return h+`<p class="hint" style="margin:0 0 10px">Upload last year's X24 Sales Transactions (or a DSR). L2L compares the same days 364 days back (same weekday), like your DSR. For the running week or month, LY counts only up to the last day with this year's sales.</p>
-    <div class="actions"><label class="btn primary" style="flex:1;text-align:center">Upload LY report<input type="file" id="lyFile" accept=".xlsx,.xls,.csv" hidden></label>${ks.length?`<button class="btn danger" id="lyClear">Clear LY</button>`:""}</div></section>`;
+    <div class="actions"><label class="btn primary" style="flex:1;text-align:center">Upload LY report<input type="file" id="lyFile" accept=".xlsx,.xls,.csv" hidden></label>${ks.length?`<button class="btn danger" id="lyClear">Clear LY</button>`:""}</div></section>
+    <section class="block"><h2>🧹 Data check</h2><p class="hint" style="margin:0 0 10px">Removes sales saved on dates after today (for example from an old DSR import) and recalculates those weeks and months. Targets and LY are kept.</p>
+    <div class="actions" style="margin:0"><button class="btn small" id="futFix">Remove future sales</button></div></section>`;
 }
 async function handleLyFile(file){
   ui.ly={loading:true};render();
@@ -1086,6 +1088,26 @@ async function handleLyFile(file){
     ui.ly={kind,file:file.name,days,skipped,cutoff};
   }catch(e){ui.ly={error:e.message||"Could not read this file."};}
   render();
+}
+/* one-tap fix: sales saved on dates after today (e.g. a DSR's LY column landing on this year's dates) */
+async function removeFutureSales(){
+  const btn=document.getElementById("futFix");if(btn)btn.disabled=true;toast("Checking…");
+  const today=todayISO(),now=new Date();let n=0,amt=0;const wks=new Set([weekOfDate(now)]),fms=new Set([monthOfDate(now)]);
+  for(let i=0;i<15;i++){const mk=isoOf(new Date(now.getFullYear(),now.getMonth()+i,1)).slice(0,7);const c=await loadX24(mk);let ch=false;
+    Object.keys(c.days).forEach(dt=>{if(dt>today){amt+=num(c.days[dt].sales);n++;wks.add(weekOfDate(dOf(dt)));fms.add(monthOfDate(dOf(dt)));delete c.days[dt];ch=true;}});
+    if(ch)persistX24(mk);}
+  let wk=weekOfDate(now);
+  for(let i=0;i<70;i++){const m=await loadMix(wk);let ch=false;Object.keys(m.days||{}).forEach(dt=>{if(dt>today){delete m.days[dt];ch=true;}});if(ch)persistMix(wk);wk=stepKey(wk,1);}
+  const keepOnly=r=>{const k={};["target","lySales"].forEach(f=>{if(r&&num(r[f]))k[f]=r[f];});return Object.keys(k).length?k:null;};
+  for(const w of wks){const fy=fyOf(w);await loadWeeks(fy);const [s]=weekRange(w),objs=[];
+    for(let i=0;i<7;i++){const dt=isoOf(new Date(s.getFullYear(),s.getMonth(),s.getDate()+i));if(dt>today)break;const c=await loadX24(dt.slice(0,7));if(c.days[dt])objs.push(c.days[dt]);}
+    const r=(weekCache[fy]||{})[w];
+    if(objs.length){if(!r||r.source)mergeInto(w,sumDays(objs),"Fixed");}
+    else if(r&&r.source){const k=keepOnly(r);if(k)weekCache[fy][w]=k;else delete weekCache[fy][w];persistWeeks(fy,"Fixed");}}
+  for(const fm of fms){const [s,e]=fmRange(fm);const objs=await dayObjsBetween(s,e);const r=state.months[fm];
+    if(objs.length){if(!r||r.source||r.fromWeeks)mergeInto(fm,sumDays(objs),"Fixed");}
+    else if(r&&(r.source||r.fromWeeks)){const k=keepOnly(r);if(k)state.months[fm]=k;else delete state.months[fm];persist("Fixed");}}
+  render();const msg=n?"Removed "+n+" future days ("+inr(amt)+") ✓":"No future-dated sales found ✓";setTimeout(()=>toast(msg),2500);
 }
 function sumDays(dayObjs){
   const t={sales:0,units:0,bills:0,footfall:0,staff:{}};
@@ -2018,7 +2040,7 @@ document.addEventListener("click",e=>{
   if(t.id==="phDel"){const pid=t.dataset.pid;askConfirm("Delete this photo?","Delete",()=>{fsdb.doc("stores/"+SID+"/vmphotos/"+pid).delete().then(()=>{photoCache[ui.day]=(photoCache[ui.day]||[]).filter(x=>x.id!==pid);document.getElementById("photoBox").hidden=true;toast("Photo deleted");render();}).catch(()=>toast("Could not delete"));});return;}
   if(t.dataset.revoke){const m=accessInfo&&accessInfo.members.find(x=>x.id===t.dataset.revoke);
     askConfirm("Remove "+(m&&m.name||"this person")+"'s access?","Remove",()=>{fsdb.doc("stores/"+SID+"/members/"+t.dataset.revoke).delete().then(()=>{accessInfo.members=accessInfo.members.filter(x=>x.id!==t.dataset.revoke);toast("Access removed");render();}).catch(()=>toast("Could not remove"));});return;}
-  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","stImport","dsrImport","lyImport","lyClear","saveMT","incSave","incCopy","pctSave","pctSuggest","pctEqual","exportCsv","backupDl"].includes(t.id)))return;
+  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","stImport","dsrImport","lyImport","lyClear","futFix","saveMT","incSave","incCopy","pctSave","pctSuggest","pctEqual","exportCsv","backupDl"].includes(t.id)))return;
   if(t.dataset.tab){if(t.dataset.tab==="daily")delete photoCache[ui.day];if(t.dataset.tab==="staff"&&ui.tab==="staff")ui.staffPage="root";go(t.dataset.tab);return;}
   if(t.dataset.go){go(t.dataset.go);return;}
   if(t.dataset.month&&t.dataset.stay){setCur(t.dataset.month);render();window.scrollTo(0,0);return;}
@@ -2098,6 +2120,7 @@ document.addEventListener("click",e=>{
     case "x24Cancel":ui.x24=null;render();break;
     case "dsrImport":doDsrImport();break;
     case "lyCancel":ui.ly=null;render();break;
+    case "futFix":askConfirm("Remove all sales saved on dates after today?","Remove",()=>{removeFutureSales();});break;
     case "lyImport":if(ui.ly&&ui.ly.days){const n=Object.keys(ui.ly.days).length;Object.assign(lyStore.days,ui.ly.days);ui.ly=null;saveLy("LY imported: "+n+" days ✓");render();}break;
     case "lyClear":askConfirm("Clear all uploaded LY sales?","Clear",()=>{lyStore={days:{}};saveLy("LY cleared");render();});break;
     case "stImport":if(ui.x24&&ui.x24.st){saveStRep({...ui.x24.st,file:ui.x24.file});ui.x24=null;ui.tab="st";ui.stView="top";toast("ST report imported ✓");render();window.scrollTo(0,0);}break;

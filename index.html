@@ -258,6 +258,22 @@ select{font:inherit;font-size:15px;padding:9px 8px;border-radius:10px;border:1px
 .stsale{font-size:12px;color:var(--muted);margin:4px 0 6px}.stsale b{color:var(--ink);font-weight:600}
 .stpc{font-weight:700;font-size:14px;letter-spacing:.2px}
 .stmeta{font-size:12px;color:var(--muted);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stcats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:0 0 12px}
+.stcat{border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:8px 2px 7px;text-align:center;font:inherit;color:var(--ink);cursor:pointer;min-width:0}
+.stcat span{display:block;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.3px}
+.stcat b{display:block;font-family:"Barlow Condensed",Barlow,sans-serif;font-size:19px;font-weight:700;line-height:1.15}
+.stcat[aria-pressed="true"]{background:var(--denim);border-color:var(--denim);color:var(--on-denim)}
+.stcat[aria-pressed="true"] span{color:var(--on-denim);opacity:.85}
+.stcat[aria-pressed="true"] b{color:var(--on-denim)!important}
+details.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;-webkit-tap-highlight-color:transparent}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary h2{margin:0;flex:1;min-width:0}
+details.fold>summary .fmeta{font-size:13px;color:var(--muted);text-align:right}
+details.fold>summary .farrow{flex:0 0 28px;height:28px;border-radius:50%;background:var(--soft);display:grid;place-items:center;color:var(--ink);font-size:12px;transition:transform .2s}
+details.fold[open]>summary .farrow{transform:rotate(180deg)}
+details.fold[open]>summary{margin-bottom:10px}
+details.fold.sub>summary{padding:8px 10px;border-radius:10px;background:var(--soft);font-weight:600;font-size:14px}
+details.fold.sub>summary .farrow{background:var(--surface)}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 @media (max-width:370px){.grid{grid-template-columns:repeat(2,1fr)} .hero .big{font-size:40px}}
 </style>
@@ -738,8 +754,9 @@ function viewHome(){
     <div class="kv"><span>AVU</span><b>${isFinite(y.asp)?inr(y.asp):"–"}</b></div>
     <div class="kv"><span>${(ui.mode==="week"||isYtd())?"Avg / week":ui.mode==="day"?"Avg / day":"Avg / month"}</span><b>${(()=>{const n=ytdKeys(k).filter(x=>num(rec(x)?.sales)>0).length;return n?inr(y.sales/n):"–";})()}</b></div>
   </div><p class="hint">${isDay(k)?"From "+esc(shortDate(isoOf(fyStart(fyOf(k)))))+" to "+esc(mShort(k)):isWeek(k)?"Week 1 to Week "+weekNo(k):"December to "+esc(MN_FULL[parseKey(k).m-1])}. L2L counts only ${isDay(k)?"days":isWeek(k)?"weeks":"months"} that have last year's sales too.</p></section>`;
-  {const yk=ytdKeys(k);const ys=staffWithData(yk).map(s=>({s,a:aggStaff(s.id,yk)})).filter(x=>x.a.sales>0).sort((p,q)=>q.a.sales-p.a.sales).slice(0,5);
-   if(ys.length) h+=`<section class="block"><h2>YTD top staff</h2><ul class="rank">`+ys.map((x,i)=>`<li><span class="pos">${i+1}</span><div class="who"><b>${esc(x.s.name)}</b><small>ATV ${isFinite(x.a.atv)?inr(x.a.atv):"–"} · UPT ${isFinite(x.a.upt)?x.a.upt.toFixed(2):"–"}</small></div><div class="amt"><b>${inr(x.a.sales)}</b><small class="${isFinite(x.a.ach)?(x.a.ach>=1?"up":"down"):"muted"}">${isFinite(x.a.ach)?pct(x.a.ach)+" ach.":""}</small></div></li>`).join("")+`</ul><p class="hint">Staff YTD comes from X24 imports.</p></section>`;}
+  {const yk=ytdKeys(k);const ys=staffWithData(yk).map(s=>({s,a:aggStaff(s.id,yk)})).filter(x=>x.a.sales>0).sort((p,q)=>q.a.sales-p.a.sales);
+   const liF=(x,i)=>`<li><span class="pos">${i+1}</span><div class="who"><b>${esc(x.s.name)}</b><small>ATV ${isFinite(x.a.atv)?inr(x.a.atv):"–"} · UPT ${isFinite(x.a.upt)?x.a.upt.toFixed(2):"–"}</small></div><div class="amt"><b>${inr(x.a.sales)}</b><small class="${isFinite(x.a.ach)?(x.a.ach>=1?"up":"down"):"muted"}">${isFinite(x.a.ach)?pct(x.a.ach)+" ach.":""}</small></div></li>`;
+   if(ys.length) h+=`<section class="block"><h2>YTD top staff</h2><ul class="rank">`+ys.slice(0,3).map(liF).join("")+`</ul>`+(ys.length>3?`<details class="fold sub"${foldAttr("ytdall")} style="margin-top:8px">`+foldSub(`Show all (${ys.length})`)+`<ul class="rank">`+ys.slice(3).map((x,i)=>liF(x,i+3)).join("")+`</ul></details>`:"")+`</section>`;}
 
   // chart
   const months=chartKeys(k);
@@ -1207,7 +1224,8 @@ function viewAdd(){
       <button class="btn small" data-qt="copy">Copy ${esc(mShort(stepKey(k,-1)))}</button>
     </div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px"><input type="checkbox" id="qtRound" checked> Round to nearest ₹1,000</label></section>`;
-  h+=`<section class="block"><h2>Staff numbers</h2>`;
+  {const ss=team.reduce((x,s)=>x+num(m.staff?.[s.id]?.sales),0);
+   h+=`<section class="block"><details class="fold"${foldAttr("staffnum")}>`+foldSum(`Staff numbers (${team.length})`,ss?"Sales "+inr(ss):"");}
   if(!team.length){
     h+=`<div class="empty">Add your team in the Staff tab first, then enter each person's sales here.</div><div class="actions"><button class="btn small" data-go="staff">Add staff</button></div>`;
   }else{
@@ -1223,7 +1241,7 @@ function viewAdd(){
     {const tp=team.reduce((x,s)=>x+num(s.pct),0);h+=`<p id="rowPctTotal" style="margin:10px 0 0;font-weight:600" class="${Math.abs(tp-100)<0.05?"up":tp?"down":"muted"}">${tp?pctTotalText(tp):"Type each person's % to split the store target"}</p>`;}
     h+=`<div class="actions"><button class="btn small" id="fillTotals">Fill store totals from staff</button></div>`;
   }
-  h+=`</section>`;
+  h+=`</details></section>`;
   h+=`<div class="sticky-save"><button class="btn primary" id="saveMonth">Save ${esc(mShort(k))} numbers</button></div>`;
   if(rec(k)) h+=`<div class="actions"><button class="btn small danger" id="clearMonth">Clear ${esc(mShort(k))} data</button></div>`;
   return h;
@@ -1425,14 +1443,14 @@ function viewTeam(){
       <button class="btn small" data-rename="${s.id}">Edit</button><button class="btn small danger" data-remove="${s.id}">Remove</button></li>`).join("")+`</ul>`;
   h+=`<p class="hint">Removing someone hides them from new entries and attendance. Their past sales stay in the reports.</p></section>`;
   if(act.length){const tot=act.reduce((s,x)=>s+num(x.pct),0);
-    h+=`<section class="block"><h2>🎯 Target split %</h2>
+    h+=`<section class="block"><details class="fold"${foldAttr("teampct")}>`+foldSum("🎯 Target split %",`<span class="${Math.abs(tot-100)<0.05?"up":"down"}">${esc(pctTotalText(tot))}</span>`)+`
       <p class="hint" style="margin:0 0 10px">Set each person's share once. When you type the store target in the Sales tab, staff targets fill in by these %.</p>
       <ul class="rank">${act.map(s=>`<li><div class="who"><b>${esc(s.name)}</b><small>${esc(s.role||"")}</small></div>
         <div style="display:flex;align-items:center;gap:6px"><input class="n" data-pct="${s.id}" inputmode="decimal" value="${num(s.pct)||""}" placeholder="0" style="width:80px;text-align:right"><span>%</span></div></li>`).join("")}</ul>
       <p id="pctTotal" style="margin:10px 0 0;font-weight:600" class="${Math.abs(tot-100)<0.05?"up":"down"}">${pctTotalText(tot)}</p>
-      <div class="actions"><button class="btn small primary" id="pctSave" style="flex:1">Save %</button><button class="btn small" id="pctSuggest">Suggest from past sales</button><button class="btn small" id="pctEqual">Equal</button></div></section>`;}
-  if(left.length) h+=`<section class="block"><details${ui.leftOpen?" open":""} id="leftBox"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Removed staff (${left.length})</h2><span class="muted" style="font-size:13px">${ui.leftOpen?"Hide ▲":"Show ▼"}</span></summary>
-    <ul class="rank" style="margin-top:8px">`+left.map(s=>`<li><div class="who"><b>${esc(s.name)}</b><small>${esc(s.role||"")}</small></div><div style="display:flex;gap:6px"><button class="btn small" data-restore="${s.id}">Restore</button><button class="btn small danger" data-sdel="${s.id}">Delete</button></div></li>`).join("")+`</ul>
+      <div class="actions"><button class="btn small primary" id="pctSave" style="flex:1">Save %</button><button class="btn small" id="pctSuggest">Suggest from past sales</button><button class="btn small" id="pctEqual">Equal</button></div></details></section>`;}
+  if(left.length) h+=`<section class="block"><details class="fold"${foldAttr("removed")}>`+foldSum(`Removed staff (${left.length})`)+`
+    <ul class="rank">`+left.map(s=>`<li><div class="who"><b>${esc(s.name)}</b><small>${esc(s.role||"")}</small></div><div style="display:flex;gap:6px"><button class="btn small" data-restore="${s.id}">Restore</button><button class="btn small danger" data-sdel="${s.id}">Delete</button></div></li>`).join("")+`</ul>
     <div class="actions"><button class="btn small danger" id="sdelAll">Delete all removed staff</button></div>
     <p class="hint">Delete takes them off this list for good. Their old sales stay in reports under their name, and if their name comes again in an X24, the sales go to them quietly (they are not added back to the team).</p></details></section>`;
   h+=viewAccess();
@@ -1662,7 +1680,9 @@ function viewStRep(){
   const all=stRep.rows.map(stObj).filter(r=>r.sale+r.soh>0);
   const gcs=[...new Set(all.map(r=>r.gc).filter(Boolean))].sort((a,b)=>Object.keys(GC_NAMES).indexOf(a)-Object.keys(GC_NAMES).indexOf(b));
   const g=ui.stGc||"",view=ui.stView||"top",T=stTotals(g?all.filter(r=>r.gc===g):all);
-  const gcBtns=`<div class="chips" style="margin:0 0 10px"><button data-stgc="" style="${!g?"background:var(--soft)":""}">All</button>${gcs.map(c=>`<button data-stgc="${esc(c)}" style="${g===c?"background:var(--soft)":""}">${esc(GC_NAMES[c]||c)}</button>`).join("")}</div>`;
+  const allT=stTotals(all);
+  const gcBtns=`<div class="stcats" role="group" aria-label="Category">`+[""].concat(gcs).map(c=>{const t=c?stTotals(all.filter(r=>r.gc===c)):allT;const cl=!c||!isFinite(t.st)?"":t.st>=allT.st*1.1?"up":t.st<=allT.st*0.9?"down":"";
+      return `<button class="stcat" data-stgc="${esc(c)}" aria-pressed="${g===c}" title="${esc(c?GC_NAMES[c]||c:"All")}"><span>${esc(c||"All")}</span><b class="${cl}">${isFinite(t.st)?(t.st*100).toFixed(1)+"%":"–"}</b></button>`;}).join("")+`</div>`;
   let h=`<section class="block"><h2>ST% · ${esc(stRep.store||"Store")} <span class="badge">${esc(shortDate(stRep.date))}</span></h2>${gcBtns}
     <div class="grid"><div class="kv"><span>${g?esc(GC_NAMES[g]||g):"Store"} ST%</span><b>${pct(T.st,1)}</b></div><div class="kv"><span>Sale</span><b>${full(T.sale)}</b></div><div class="kv"><span>SOH</span><b>${full(T.soh)}</b></div>
     <div class="kv"><span>Fast</span><b class="up">${T.F}</b></div><div class="kv"><span>Avg</span><b style="color:var(--thread)">${T.A}</b></div><div class="kv"><span>Miss</span><b class="down">${T.M}</b></div></div>
@@ -1780,9 +1800,9 @@ function viewDaily(){
       <div class="kv"><span>Week off</span><b>${wo}</b></div></div>`;
     if(canEdit()&&unmarked) h+=`<div class="actions" style="margin:0 0 10px"><button class="btn small primary" id="allPresent">Mark remaining ${unmarked} as present</button></div>`;
     const LBL={P:"Present",L:"Leave",WO:"Week off","":"Not marked"};
-    h+=`<div class="tiles">`+team.map(s=>{const st=attStatus(att[s.id]);
+    h+=`<details class="fold sub"${foldAttr("atttiles")}>`+foldSub(`Staff list (${team.length})`)+`<div class="tiles" style="margin-top:10px">`+team.map(s=>{const st=attStatus(att[s.id]);
       return `<button class="tile st-${st||"none"}" data-tile="${s.id}" ${canEdit()?"":"disabled"} aria-label="${esc(s.name)}: ${LBL[st]}"><b>${esc(s.name)}</b><span>${LBL[st]}</span></button>`;}).join("")+`</div>`;
-    h+=`<p class="hint">${canEdit()?"Tap a box to change: Present → Leave → Week off → clear. Saves automatically.":"View only."}</p></section>`;
+    h+=`<p class="hint">${canEdit()?"Tap a box to change: Present → Leave → Week off → clear. Saves automatically.":"View only."}</p></details></section>`;
   }
 
   // VM work
@@ -1813,14 +1833,15 @@ function viewDaily(){
     const cols=[];for(let i=1;i<=nd;i++)cols.push(mk+"-"+pad2(i));
     const rows=state.staff.filter(s=>s.active!==false||days.some(x=>d.att[x]?.[s.id]));
     const SH={P:"P",L:"L",WO:"W","":""};const regT={p:0,l:0,w:0};
-    h+=`<section class="block"><h2>${esc(MN_FULL[m-1])} attendance</h2><div class="tscroll"><table class="reg">
+    let reg=`<div class="tscroll"><table class="reg">
       <thead><tr><th>Staff</th>${cols.map(c=>{const dd=dOf(c);return `<th class="${dd.getDay()===0?"sun":""}${c===iso?" today":""}">${dd.getDate()}<br><small>${WD[dd.getDay()].charAt(0)}</small></th>`;}).join("")}<th>P</th><th>L</th><th>W</th></tr></thead><tbody>`+
       rows.map(s=>{let p=0,l=0,w=0;const cells=cols.map(c=>{const st=c<=iso?attStatus(d.att[c]?.[s.id]):"";if(st==="P")p++;else if(st==="L")l++;else if(st==="WO")w++;
           return `<td><span class="box st-${st||"none"}${c===iso?" today":""}">${SH[st]}</span></td>`;}).join("");
         regT.p+=p;regT.l+=l;regT.w+=w;
         return `<tr><td>${esc(s.name)}</td>${cells}<td><b>${p}</b></td><td class="${l?"down":""}"><b>${l}</b></td><td><b>${w}</b></td></tr>`;}).join("")+
       `<tr class="total"><td>Total</td>${cols.map(c=>{let n=0;rows.forEach(s=>{if(c<=iso&&attStatus(d.att[c]?.[s.id])==="P")n++;});return `<td><small>${c<=iso&&n?n:""}</small></td>`;}).join("")}<td>${regT.p}</td><td>${regT.l}</td><td>${regT.w}</td></tr>`+
-      `</tbody></table></div><p class="hint"><span class="box st-P">P</span> Present &nbsp; <span class="box st-L">L</span> Leave &nbsp; <span class="box st-WO">W</span> Week off. Scroll sideways for all dates.</p></section>`;
+      `</tbody></table></div><p class="hint"><span class="box st-P">P</span> Present &nbsp; <span class="box st-L">L</span> Leave &nbsp; <span class="box st-WO">W</span> Week off. Scroll sideways for all dates.</p>`;
+    h+=`<section class="block"><details class="fold"${foldAttr("register")}>`+foldSum(`${esc(MN_FULL[m-1])} attendance`,`P ${regT.p} · L ${regT.l} · W ${regT.w}`)+reg+`</details></section>`;
   }
   return h;
 }
@@ -1913,6 +1934,11 @@ function setAtt(sid,patch){
   render();
 }
 
+/* fold-away sections: closed by default, open/close remembered on this phone */
+let foldState={};try{foldState=JSON.parse(localStorage.getItem("store-perf-fold")||"{}")||{};}catch(e){}
+function foldAttr(id){return ` data-fold="${id}"${foldState[id]?" open":""}`;}
+function foldSum(title,meta){return `<summary><h2>${title}</h2>${meta?`<span class="fmeta">${meta}</span>`:""}<span class="farrow" aria-hidden="true">▼</span></summary>`;}
+function foldSub(label){return `<summary><span style="flex:1">${label}</span><span class="farrow" aria-hidden="true">▼</span></summary>`;}
 let lyLoading=false;
 function render(){
   const v=document.getElementById("view");
@@ -2156,7 +2182,7 @@ document.addEventListener("change",e=>{
     task.done=el.checked;if(el.checked){task.doneAt=nowHM();task.doneOn=todayISO();}else{delete task.doneAt;delete task.doneOn;}
     persistDay(mk,el.checked?"VM work finished ✓":"Marked pending");render();}
 });
-document.addEventListener("toggle",e=>{if(e.target&&e.target.id==="leftBox"){ui.leftOpen=e.target.open;const sp=e.target.querySelector("summary span");if(sp)sp.textContent=ui.leftOpen?"Hide ▲":"Show ▼";}},true);
+document.addEventListener("toggle",e=>{const el=e.target;if(el&&el.dataset&&el.dataset.fold){foldState[el.dataset.fold]=el.open;try{localStorage.setItem("store-perf-fold",JSON.stringify(foldState));}catch(_){}}},true);
 document.addEventListener("input",e=>{
   const el=e.target;if(!canEdit())return;
   if(el.id==="f_target"||el.id==="qtTotal")applyPctTargets();

@@ -1410,7 +1410,7 @@ function viewPerson(){
   return h;
 }
 function viewTeam(){
-  const act=state.staff.filter(s=>s.active!==false),left=state.staff.filter(s=>s.active===false);
+  const act=state.staff.filter(s=>s.active!==false),left=state.staff.filter(s=>s.active===false&&!s.deleted);
   const roleOpts=sel=>`<option value="">Role (optional)</option>`+ROLES.map(r=>`<option ${sel===r?"selected":""}>${esc(r)}</option>`).join("");
   let h=backBtn("root","Staff")+`<section class="block"><h2>Add staff</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="text" id="newStaff" placeholder="Name" autocomplete="off" style="flex:2;min-width:150px">
@@ -1431,7 +1431,10 @@ function viewTeam(){
         <div style="display:flex;align-items:center;gap:6px"><input class="n" data-pct="${s.id}" inputmode="decimal" value="${num(s.pct)||""}" placeholder="0" style="width:80px;text-align:right"><span>%</span></div></li>`).join("")}</ul>
       <p id="pctTotal" style="margin:10px 0 0;font-weight:600" class="${Math.abs(tot-100)<0.05?"up":"down"}">${pctTotalText(tot)}</p>
       <div class="actions"><button class="btn small primary" id="pctSave" style="flex:1">Save %</button><button class="btn small" id="pctSuggest">Suggest from past sales</button><button class="btn small" id="pctEqual">Equal</button></div></section>`;}
-  if(left.length) h+=`<section class="block"><h2>Removed staff</h2><ul class="rank">`+left.map(s=>`<li><div class="who"><b>${esc(s.name)}</b><small>${esc(s.role||"")}</small></div><button class="btn small" data-restore="${s.id}">Restore</button></li>`).join("")+`</ul></section>`;
+  if(left.length) h+=`<section class="block"><details${ui.leftOpen?" open":""} id="leftBox"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Removed staff (${left.length})</h2><span class="muted" style="font-size:13px">${ui.leftOpen?"Hide ▲":"Show ▼"}</span></summary>
+    <ul class="rank" style="margin-top:8px">`+left.map(s=>`<li><div class="who"><b>${esc(s.name)}</b><small>${esc(s.role||"")}</small></div><div style="display:flex;gap:6px"><button class="btn small" data-restore="${s.id}">Restore</button><button class="btn small danger" data-sdel="${s.id}">Delete</button></div></li>`).join("")+`</ul>
+    <div class="actions"><button class="btn small danger" id="sdelAll">Delete all removed staff</button></div>
+    <p class="hint">Delete takes them off this list for good. Their old sales stay in reports under their name, and if their name comes again in an X24, the sales go to them quietly (they are not added back to the team).</p></details></section>`;
   h+=viewAccess();
   if(STANDALONE) h+=`<section class="block"><h2>Backup</h2>
     <p class="hint" style="margin:0 0 10px">Your data is saved on this phone only. Download a backup every week, and use it to move data to a new phone.</p>
@@ -2041,7 +2044,7 @@ document.addEventListener("click",e=>{
   if(t.id==="phDel"){const pid=t.dataset.pid;askConfirm("Delete this photo?","Delete",()=>{fsdb.doc("stores/"+SID+"/vmphotos/"+pid).delete().then(()=>{photoCache[ui.day]=(photoCache[ui.day]||[]).filter(x=>x.id!==pid);document.getElementById("photoBox").hidden=true;toast("Photo deleted");render();}).catch(()=>toast("Could not delete"));});return;}
   if(t.dataset.revoke){const m=accessInfo&&accessInfo.members.find(x=>x.id===t.dataset.revoke);
     askConfirm("Remove "+(m&&m.name||"this person")+"'s access?","Remove",()=>{fsdb.doc("stores/"+SID+"/members/"+t.dataset.revoke).delete().then(()=>{accessInfo.members=accessInfo.members.filter(x=>x.id!==t.dataset.revoke);toast("Access removed");render();}).catch(()=>toast("Could not remove"));});return;}
-  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","stImport","dsrImport","lyImport","lyClear","futFix","saveMT","incSave","incCopy","pctSave","pctSuggest","pctEqual","exportCsv","backupDl"].includes(t.id)))return;
+  if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.sdel||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","stImport","dsrImport","lyImport","lyClear","futFix","sdelAll","saveMT","incSave","incCopy","pctSave","pctSuggest","pctEqual","exportCsv","backupDl"].includes(t.id)))return;
   if(t.dataset.tab){if(t.dataset.tab==="daily")delete photoCache[ui.day];if(t.dataset.tab==="staff"&&ui.tab==="staff")ui.staffPage="root";go(t.dataset.tab);return;}
   if(t.dataset.go){go(t.dataset.go);return;}
   if(t.dataset.month&&t.dataset.stay){setCur(t.dataset.month);render();window.scrollTo(0,0);return;}
@@ -2078,6 +2081,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.vmdel){const d=dayCache[ui.day.slice(0,7)];const task=d?.vm.find(x=>x.id===t.dataset.vmdel);
     if(task)askConfirm("Delete \""+task.title+"\"?","Delete",()=>{d.vm=d.vm.filter(x=>x!==task);persistDay(ui.day.slice(0,7),"Task deleted");render();});return;}
   if(t.dataset.remove){const s=state.staff.find(x=>x.id===t.dataset.remove);if(s)askConfirm("Remove "+s.name+" from the team? Their past sales stay in reports.","Remove",()=>{s.active=false;persist(s.name+" removed");render();});return;}
+  if(t.dataset.sdel){const s=state.staff.find(x=>x.id===t.dataset.sdel);if(s)askConfirm("Delete "+s.name+" permanently?","Delete",()=>{s.deleted=true;s.active=false;persist(s.name+" deleted");render();});return;}
   if(t.dataset.restore){const s=state.staff.find(x=>x.id===t.dataset.restore);if(s){s.active=true;persist(s.name+" restored");render();}return;}
   if(t.dataset.rename){ui.renameId=t.dataset.rename;render();const i=document.getElementById("renName");if(i)i.focus();return;}
   if(t.dataset.rencancel){ui.renameId=null;render();return;}
@@ -2121,6 +2125,7 @@ document.addEventListener("click",e=>{
     case "x24Cancel":ui.x24=null;render();break;
     case "dsrImport":doDsrImport();break;
     case "lyCancel":ui.ly=null;render();break;
+    case "sdelAll":{const l=state.staff.filter(s=>s.active===false&&!s.deleted);askConfirm("Delete all "+l.length+" removed staff permanently?","Delete all",()=>{l.forEach(s=>s.deleted=true);persist(l.length+" staff deleted");render();});break;}
     case "futFix":askConfirm("Remove all sales saved on dates after today?","Remove",()=>{removeFutureSales();});break;
     case "lyImport":if(ui.ly&&ui.ly.days){const n=Object.keys(ui.ly.days).length;Object.assign(lyStore.days,ui.ly.days);ui.ly=null;saveLy("LY imported: "+n+" days ✓");render();}break;
     case "lyClear":askConfirm("Clear all uploaded LY sales?","Clear",()=>{lyStore={days:{}};saveLy("LY cleared");render();});break;
@@ -2151,6 +2156,7 @@ document.addEventListener("change",e=>{
     task.done=el.checked;if(el.checked){task.doneAt=nowHM();task.doneOn=todayISO();}else{delete task.doneAt;delete task.doneOn;}
     persistDay(mk,el.checked?"VM work finished ✓":"Marked pending");render();}
 });
+document.addEventListener("toggle",e=>{if(e.target&&e.target.id==="leftBox"){ui.leftOpen=e.target.open;const sp=e.target.querySelector("summary span");if(sp)sp.textContent=ui.leftOpen?"Hide ▲":"Show ▼";}},true);
 document.addEventListener("input",e=>{
   const el=e.target;if(!canEdit())return;
   if(el.id==="f_target"||el.id==="qtTotal")applyPctTargets();

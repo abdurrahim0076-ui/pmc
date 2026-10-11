@@ -203,6 +203,11 @@ textarea{width:100%;font:inherit;font-size:14px;padding:10px;border-radius:10px;
 .avatar{flex:0 0 56px;width:56px;height:56px;border-radius:50%;background:var(--thread);color:#1a1a1a;display:grid;place-items:center;font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:22px}
 .rc{display:inline-grid;place-items:center;min-width:34px;height:30px;padding:0 4px;border-radius:7px;border:1px solid var(--line);background:var(--soft);color:var(--muted);font:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .rc:disabled{cursor:default}
+.brush{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0 10px}.brush .rc{min-width:44px;height:34px}.brush .rc.on{outline:2px solid var(--thread);outline-offset:2px}
+.rname,.rday{border:0;background:none;color:inherit;font:inherit;text-align:inherit;padding:0;cursor:pointer}
+.rname b{display:block;font-weight:600}.rname small,table.roster td span small{display:block;font-size:11px;color:var(--muted)}
+ul.rank .x{border:0;background:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px}
+table.roster tr.sec td{background:var(--soft);font-weight:600;font-size:12px;color:var(--muted);text-align:left}
 .rc-M{background:#E8B931;border-color:#E8B931;color:#1a1a1a}.rc-E{background:#7A4FB5;border-color:#7A4FB5;color:#fff}
 .rc-G{background:var(--good);border-color:var(--good);color:#fff}.rc-WO{background:var(--denim-2);border-color:var(--denim-2);color:#fff}
 table.roster th,table.roster td{text-align:center;padding:4px 3px}table.roster th:first-child,table.roster td:first-child{text-align:left;padding-right:8px}
@@ -554,6 +559,8 @@ function normalize(d){
           staffAlias: d.staffAlias&&typeof d.staffAlias==="object"?d.staffAlias:{},
           incentives: d.incentives&&typeof d.incentives==="object"?d.incentives:{},
           roster: d.roster&&typeof d.roster==="object"?d.roster:{},
+          rosterDef: d.rosterDef&&typeof d.rosterDef==="object"?d.rosterDef:{},
+          support: Array.isArray(d.support)?d.support:null,
           lastDataDate: typeof d.lastDataDate==="string"?d.lastDataDate:""};
 }
 
@@ -1339,43 +1346,72 @@ function viewIncentive(){
     <p class="hint">From X24 sales in ${esc(mLong(fm))} (${res.days} days so far). Pieces and sales are net of returns. Achievement uses the staff member's month target, or their weekly targets added up.</p></section>`;
   return h;
 }
-/* ---------- Week plan: shifts + week off ---------- */
+/* ---------- Week plan: shifts + week off (sales team + support team) ---------- */
 const DEF_SHIFTS=[{c:"M",n:"Morning",t:"10:00 AM – 8:00 PM"},{c:"E",n:"Evening",t:"12:00 PM – 10:00 PM"}];
 function shifts(){const s=state.settings&&state.settings.shifts;return Array.isArray(s)&&s.length?s.filter(x=>x.c!=="G"):DEF_SHIFTS;}
 const WDN=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const SUPPORT_ROLES=["SM","ASM","Cashier","Denim designer","Tailor","Stock boy"];
+function supportList(){if(Array.isArray(state.support))return state.support;
+  return ["SM","ASM","Cashier","Denim designer","Tailor","Stock boy","Stock boy","Stock boy","Stock boy"].map((r,i)=>({id:"sp_d"+i,role:r,name:""}));}
+function planPeople(){const sales=state.staff.filter(s=>s.active!==false).map(s=>({id:s.id,name:s.name,role:"",sales:true}));
+  const sup=supportList().map(x=>({id:x.id,name:x.name||"",role:x.role,sales:false}));return {sales,sup,all:[...sales,...sup.filter(x=>x.name)]};}
+function personLabel(p){return p.sales?p.name:(p.name||"—")+" ("+p.role+")";}
 function rosterOf(wk){return (state.roster||{})[wk]||{};}
 function rosterOn(iso,sid){const wk=weekOfDate(dOf(iso));const [s]=weekRange(wk);const i=Math.round((dOf(iso)-s)/864e5);const r=rosterOf(wk)[sid];return r?(r[i]||""):"";}
-function rosterDay(iso){const out={};state.staff.filter(s=>s.active!==false).forEach(s=>{const c=rosterOn(iso,s.id);if(c)(out[c]=out[c]||[]).push(s.name);});return out;}
+function rosterDay(iso){const out={};planPeople().all.forEach(p=>{const c=rosterOn(iso,p.id);if(c)(out[c]=out[c]||[]).push(personLabel(p));});return out;}
 function codeName(c){if(c==="WO")return "Week off";const s=shifts().find(x=>x.c===c);return s?s.n:c;}
 function rosterWeek(){return ui.rosterWeek||weekOfDate(new Date());}
-function setRosterCell(wk,sid,i,code){
-  const all=Object.assign({},state.roster||{});const w=Object.assign({},all[wk]||{});const r=(w[sid]||["","","","","","",""]).slice();r[i]=code;
-  if(r.some(x=>x))w[sid]=r;else delete w[sid];if(Object.keys(w).length)all[wk]=w;else delete all[wk];state.roster=all;persist("Saved");
+function setRosterCells(wk,cells){
+  const all=Object.assign({},state.roster||{});const w=Object.assign({},all[wk]||{});
+  cells.forEach(([sid,i,code])=>{const r=(w[sid]||["","","","","","",""]).slice();r[i]=code;if(r.some(x=>x))w[sid]=r;else delete w[sid];});
+  if(Object.keys(w).length)all[wk]=w;else delete all[wk];state.roster=all;persist("Saved");
 }
+function saveSupport(list){state.support=list;persist("Support team saved");}
+function autoShift(id,wk){const d=(state.rosterDef||{})[id];if(!d)return null;let sh=d.sh||"M";
+  if(state.settings&&state.settings.rotate&&weekNo(wk)%2===1)sh=sh==="M"?"E":"M";return [0,1,2,3,4,5,6].map(i=>i===+d.off?"WO":sh);}
 function viewRoster(){
-  const wk=rosterWeek(),[ws,we]=weekRange(wk),R=rosterOf(wk),team=state.staff.filter(s=>s.active!==false),ed=canEdit(),SH=shifts();
-  const f=d=>d.getDate()+" "+MN[d.getMonth()];const today=todayISO();
+  const wk=rosterWeek(),[ws,we]=weekRange(wk),R=rosterOf(wk),ed=canEdit(),SH=shifts(),P=planPeople();
+  const f=d=>d.getDate()+" "+MN[d.getMonth()];const today=todayISO();const brush=ui.brush===undefined?"M":ui.brush;
   const dates=[0,1,2,3,4,5,6].map(i=>isoOf(new Date(ws.getFullYear(),ws.getMonth(),ws.getDate()+i)));
   let h=backBtn("root","Staff")+`<div class="monthbar"><button data-rw="-1" aria-label="Previous week">‹</button><div class="label">Week ${weekNo(wk)}<small>${esc(f(ws))} – ${esc(f(we))}</small></div><button data-rw="1" aria-label="Next week">›</button></div>`;
   h+=`<section class="block"><h2>🗓️ Week plan</h2><div class="legend" style="margin:0 0 10px;flex-wrap:wrap">${SH.map(s=>`<span><b class="rc rc-${esc(s.c)}">${esc(s.c)}</b> ${esc(s.n)} · ${esc(s.t)}</span>`).join("")}<span><b class="rc rc-WO">WO</b> Week off</span></div>`;
-  if(!team.length) return h+`<div class="empty">Add staff in Manage team first.</div></section>`;
-  h+=`<div class="tscroll"><table class="roster"><thead><tr><th>Staff</th>${dates.map((d,i)=>`<th class="${i>4?"we":""}${d===today?" today":""}">${WDN[i]}<br><small>${dOf(d).getDate()}</small></th>`).join("")}</tr></thead><tbody>`+
-    team.map(s=>{const r=R[s.id]||[];return `<tr><td>${esc(s.name)}</td>${dates.map((d,i)=>{const c=r[i]||"";return `<td><button class="rc rc-${esc(c||"none")}" data-rc="${s.id}|${i}" ${ed?"":"disabled"} aria-label="${esc(s.name)} ${WDN[i]}: ${esc(c?codeName(c):"not set")}">${esc(c||"·")}</button></td>`;}).join("")}</tr>`;}).join("");
-  const cnt=(c,i)=>team.filter(s=>(R[s.id]||[])[i]===c).length;
+  if(ed) h+=`<div class="actions" style="margin:0 0 8px"><button class="btn small primary" id="rAuto">⚡ Auto fill week</button><button class="btn small" id="rCopy">Copy last week</button><button class="btn small" id="rShare">Share on WhatsApp</button></div>
+    <div class="brush" role="group" aria-label="Brush"><span class="muted" style="font-size:13px">Brush:</span>${[...SH.map(s=>s.c),"WO",""].map(c=>`<button class="rc rc-${esc(c||"none")}${brush===c?" on":""}" data-brush="${esc(c)}">${esc(c||"Clear")}</button>`).join("")}</div>`;
+  else h+=`<div class="actions" style="margin:0 0 8px"><button class="btn small" id="rShare">Share on WhatsApp</button></div>`;
+  const row=p=>{const r=R[p.id]||[];return `<tr><td>${ed?`<button class="rname" data-rrow="${esc(p.id)}">`:"<span>"}<b>${esc(p.sales?p.name:(p.name||"—"))}</b>${p.sales?"":`<small>${esc(p.role)}</small>`}${ed?"</button>":"</span>"}</td>${dates.map((d,i)=>{const c=r[i]||"";return `<td><button class="rc rc-${esc(c||"none")}" data-rc="${esc(p.id)}|${i}" ${ed?"":"disabled"} aria-label="${esc(personLabel(p))} ${WDN[i]}: ${esc(c?codeName(c):"not set")}">${esc(c||"·")}</button></td>`;}).join("")}</tr>`;};
+  const supRows=P.sup.filter(p=>p.name||ed);
+  h+=`<div class="tscroll"><table class="roster"><thead><tr><th>Staff</th>${dates.map((d,i)=>`<th class="${i>4?"we":""}${d===today?" today":""}">${ed?`<button class="rday" data-rcol="${i}">`:""}${WDN[i]}<br><small>${dOf(d).getDate()}</small>${ed?"</button>":""}</th>`).join("")}</tr></thead><tbody>`+
+    `<tr class="sec"><td colspan="8">Sales team (${P.sales.length})</td></tr>`+P.sales.map(row).join("")+
+    (supRows.length?`<tr class="sec"><td colspan="8">👔 Support team</td></tr>`+supRows.map(row).join(""):"");
+  const counted=[...P.sales,...P.sup.filter(p=>p.name)];
+  const cnt=(c,i)=>counted.filter(p=>(R[p.id]||[])[i]===c).length;
   h+=[...SH.map(s=>s.c),"WO"].map(c=>`<tr class="cnt"><td>${esc(codeName(c))}</td>${dates.map((d,i)=>{const n=cnt(c,i);return `<td class="${c==="WO"&&i>4&&n?"down":""}">${n||""}</td>`;}).join("")}</tr>`).join("");
   h+=`</tbody></table></div>`;
-  const warn=[];team.forEach(s=>{const n=(R[s.id]||[]).filter(x=>x==="WO").length;if(n===0)warn.push(s.name+": no week off");else if(n>1)warn.push(s.name+": "+n+" week offs");});
-  const weOff=team.filter(s=>{const r=R[s.id]||[];return r[5]==="WO"||r[6]==="WO";}).map(s=>s.name);if(weOff.length)warn.push("Weekend off: "+weOff.join(", "));
-  if(Object.keys(R).length&&warn.length) h+=`<p class="hint down">⚠️ ${warn.map(esc).join(" · ")}</p>`;
-  h+=`<p class="hint">${ed?"Tap a box: "+SH.map(s=>s.c).join(" → ")+" → WO → clear. Saves automatically.":"View only."}</p>`;
-  h+=`<div class="actions">${ed?`<button class="btn small" id="rCopy">Copy last week</button><button class="btn small" id="rRotate">Copy + rotate M ↔ E</button>`:""}<button class="btn small" id="rShare">Share on WhatsApp</button></div></section>`;
-  if(ed) h+=`<section class="block"><h2>Shift timings</h2>${SH.map(s=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><b class="rc rc-${esc(s.c)}">${esc(s.c)}</b><input type="text" data-shn="${esc(s.c)}" value="${esc(s.n)}" style="flex:1"><input type="text" data-sht="${esc(s.c)}" value="${esc(s.t)}" style="flex:1.4"></div>`).join("")}
-    <div class="actions"><button class="btn small primary" id="shSave">Save timings</button></div></section>`;
+  const warn=[];counted.forEach(p=>{const n=(R[p.id]||[]).filter(x=>x==="WO").length;if(Object.keys(R).length){if(n===0)warn.push(personLabel(p)+": no week off");else if(n>1)warn.push(personLabel(p)+": "+n+" week offs");}});
+  const weOff=counted.filter(p=>{const r=R[p.id]||[];return r[5]==="WO"||r[6]==="WO";}).map(personLabel);if(weOff.length)warn.push("Weekend off: "+weOff.join(", "));
+  if(warn.length) h+=`<p class="hint down">⚠️ ${warn.map(esc).join(" · ")}</p>`;
+  h+=`<p class="hint">${ed?"Pick a brush, then tap a box. Tap a name to fill the whole row, or a day to fill the whole column. Saves automatically.":"View only."}</p></section>`;
+  if(ed){
+    const D=state.rosterDef||{};
+    const defRow=p=>{const d=D[p.id]||{};return `<li><div class="who"><b>${esc(p.sales?p.name:(p.name||p.role))}</b>${p.sales?"":`<small>${esc(p.role)}</small>`}</div>
+      <div style="display:flex;gap:6px"><select data-dsh="${esc(p.id)}"><option value="">—</option>${SH.map(s=>`<option ${d.sh===s.c?"selected":""}>${esc(s.c)}</option>`).join("")}</select>
+      <select data-doff="${esc(p.id)}"><option value="">No off</option>${WDN.map((w,i)=>`<option value="${i}" ${d.off!==undefined&&d.off!==""&&+d.off===i?"selected":""}>Off ${w}</option>`).join("")}</select></div></li>`;};
+    h+=`<section class="block"><h2>Default plan</h2><p class="hint" style="margin:0 0 8px">Set each person's usual shift and week off once. ⚡ Auto fill week uses this.</p>
+      <ul class="rank">${[...P.sales,...P.sup.filter(p=>p.name)].map(defRow).join("")}</ul>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px"><input type="checkbox" id="rRotateOn" ${state.settings&&state.settings.rotate?"checked":""}> Rotate M ↔ E every week</label>
+      <div class="actions"><button class="btn small primary" id="defSave">Save default plan</button></div></section>`;
+    const S=supportList();
+    h+=`<section class="block"><h2>👔 Support team</h2><p class="hint" style="margin:0 0 8px">Type the name under each role. They are only in the week plan, not in sales ranking, targets or incentives.</p>
+      <ul class="rank">${S.map(x=>`<li><div class="who" style="flex:0 0 120px"><b>${esc(x.role)}</b></div><input type="text" data-spn="${esc(x.id)}" value="${esc(x.name||"")}" placeholder="Name" style="flex:1"><button class="x" data-sprm="${esc(x.id)}" aria-label="Remove ${esc(x.role)} row">×</button></li>`).join("")}</ul>
+      <div class="actions"><select id="spRole">${SUPPORT_ROLES.map(r=>`<option>${esc(r)}</option>`).join("")}</select><button class="btn small" id="spAdd">+ Add row</button><button class="btn small primary" id="spSave">Save names</button></div></section>`;
+    h+=`<section class="block"><h2>Shift timings</h2>${SH.map(s=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><b class="rc rc-${esc(s.c)}">${esc(s.c)}</b><input type="text" data-shn="${esc(s.c)}" value="${esc(s.n)}" style="flex:1"><input type="text" data-sht="${esc(s.c)}" value="${esc(s.t)}" style="flex:1.4"></div>`).join("")}
+      <div class="actions"><button class="btn small primary" id="shSave">Save timings</button></div></section>`;
+  }
   return h;
 }
-function rosterText(wk){const [ws]=weekRange(wk),R=rosterOf(wk),team=state.staff.filter(s=>s.active!==false);
+function rosterText(wk){const [ws]=weekRange(wk),R=rosterOf(wk),ppl=planPeople().all;
   let t="*Levi's PMC – Week "+weekNo(wk)+" plan*\n";
-  for(let i=0;i<7;i++){const d=new Date(ws.getFullYear(),ws.getMonth(),ws.getDate()+i);const g={};team.forEach(s=>{const c=(R[s.id]||[])[i];if(c)(g[c]=g[c]||[]).push(s.name);});
+  for(let i=0;i<7;i++){const d=new Date(ws.getFullYear(),ws.getMonth(),ws.getDate()+i);const g={};ppl.forEach(p=>{const c=(R[p.id]||[])[i];if(c)(g[c]=g[c]||[]).push(personLabel(p));});
     const parts=[...shifts().map(s=>s.c),"WO"].filter(c=>g[c]).map(c=>(c==="WO"?"Off":c)+": "+g[c].join(", "));
     t+="\n*"+WDN[i]+" "+d.getDate()+" "+MN[d.getMonth()]+"*\n"+(parts.length?parts.join("\n"):"–")+"\n";}
   t+="\n"+shifts().map(s=>s.c+" = "+s.t).join(" · ");return t;}
@@ -2155,13 +2191,28 @@ document.addEventListener("click",e=>{
     persistDay(mk,"Marked present");render();return;}
   if(t.dataset.qt&&canEdit()){quickTargets(t.dataset.qt);return;}
   if(t.dataset.rw){ui.rosterWeek=stepKey(rosterWeek(),+t.dataset.rw);render();return;}
-  if(t.dataset.rc&&canEdit()){const [sid,i]=t.dataset.rc.split("|");const wk=rosterWeek();const cur=(rosterOf(wk)[sid]||[])[+i]||"";
-    const seq=[...shifts().map(s=>s.c),"WO",""];setRosterCell(wk,sid,+i,seq[(seq.indexOf(cur)+1)%seq.length]);render();return;}
+  if(t.dataset.brush!==undefined){ui.brush=t.dataset.brush;render();return;}
+  if(t.dataset.rc&&canEdit()){const [sid,i]=t.dataset.rc.split("|");setRosterCells(rosterWeek(),[[sid,+i,ui.brush===undefined?"M":ui.brush]]);render();return;}
+  if(t.dataset.rrow&&canEdit()){const b=ui.brush===undefined?"M":ui.brush;setRosterCells(rosterWeek(),[0,1,2,3,4,5,6].map(i=>[t.dataset.rrow,i,b]));render();return;}
+  if(t.dataset.rcol!==undefined&&canEdit()){const b=ui.brush===undefined?"M":ui.brush,P=planPeople();const ids=[...P.sales,...P.sup.filter(p=>p.name)].map(p=>p.id);
+    setRosterCells(rosterWeek(),ids.map(id=>[id,+t.dataset.rcol,b]));render();return;}
   if(t.id==="rShare"){const msg=rosterText(rosterWeek());if(navigator.share)navigator.share({text:msg}).catch(()=>{});else window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");return;}
-  if((t.id==="rCopy"||t.id==="rRotate")&&canEdit()){const wk=rosterWeek(),prev=rosterOf(stepKey(wk,-1));if(!Object.keys(prev).length){toast("Last week has no plan");return;}
-    const doIt=()=>{const w={};Object.keys(prev).forEach(id=>{w[id]=prev[id].map(c=>t.id==="rRotate"?(c==="M"?"E":c==="E"?"M":c):c);});
-      state.roster=Object.assign({},state.roster,{[wk]:w});persist(t.id==="rRotate"?"Copied and rotated":"Copied last week");render();};
+  if(t.id==="rAuto"&&canEdit()){const wk=rosterWeek(),P=planPeople();const ids=[...P.sales,...P.sup.filter(p=>p.name)].map(p=>p.id);
+    const fill=ids.map(id=>[id,autoShift(id,wk)]).filter(x=>x[1]);if(!fill.length){toast("Set the default plan first (below)");return;}
+    const doIt=()=>{const all=Object.assign({},state.roster||{});const w=Object.assign({},all[wk]||{});fill.forEach(([id,r])=>w[id]=r);all[wk]=w;state.roster=all;
+      persist("Week filled ("+fill.length+" people)");render();};
+    if(Object.keys(rosterOf(wk)).length)askConfirm("Fill this week from the default plan? Boxes already set will be replaced.","Fill",doIt);else doIt();return;}
+  if(t.id==="rCopy"&&canEdit()){const wk=rosterWeek(),prev=rosterOf(stepKey(wk,-1));if(!Object.keys(prev).length){toast("Last week has no plan");return;}
+    const doIt=()=>{state.roster=Object.assign({},state.roster,{[wk]:JSON.parse(JSON.stringify(prev))});persist("Copied last week");render();};
     if(Object.keys(rosterOf(wk)).length)askConfirm("Replace this week's plan?","Replace",doIt);else doIt();return;}
+  if(t.id==="defSave"&&canEdit()){const d={};document.querySelectorAll("[data-dsh]").forEach(s=>{const id=s.dataset.dsh;const off=document.querySelector(`[data-doff="${id}"]`).value;
+      if(s.value||off!=="")d[id]={sh:s.value||"M",off:off===""?"":+off};});
+    state.rosterDef=d;state.settings=Object.assign({},state.settings,{rotate:document.getElementById("rRotateOn").checked});persist("Default plan saved");render();return;}
+  if((t.id==="spSave"||t.id==="spAdd"||t.dataset.sprm)&&canEdit()){
+    let list=supportList().map(x=>{const i=document.querySelector(`[data-spn="${x.id}"]`);return {id:x.id,role:x.role,name:i?i.value.trim():x.name};});
+    if(t.id==="spAdd")list.push({id:"sp_"+Math.random().toString(36).slice(2,8),role:document.getElementById("spRole").value,name:""});
+    if(t.dataset.sprm)list=list.filter(x=>x.id!==t.dataset.sprm);
+    saveSupport(list);render();return;}
   if(t.id==="shSave"&&canEdit()){const ns=shifts().map(s=>({c:s.c,n:(document.querySelector(`[data-shn="${s.c}"]`)||{}).value||s.n,t:(document.querySelector(`[data-sht="${s.c}"]`)||{}).value||s.t}));
     state.settings=Object.assign({},state.settings,{shifts:ns});persist("Timings saved");render();return;}
   if(t.dataset.tile&&canEdit()){const iso=ui.day,d=dayCache[iso.slice(0,7)];const cur=attStatus(d?.att[iso]?.[t.dataset.tile]);

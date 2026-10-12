@@ -201,6 +201,9 @@ textarea{width:100%;font:inherit;font-size:14px;padding:10px;border-radius:10px;
 .attstrip b.p{background:var(--good)}.attstrip b.l{background:var(--bad)}.attstrip b.w{background:var(--denim-2)}
 .attstrip i{font-style:normal;font-size:12px;opacity:.9;margin-right:4px}
 .avatar{flex:0 0 56px;width:56px;height:56px;border-radius:50%;background:var(--thread);color:#1a1a1a;display:grid;place-items:center;font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:22px}
+.rfolders{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.rfolders .folder{padding:12px}.rfolders .folder b{font-size:18px}.rfolders .ficon{font-size:24px}
+.kv small{display:block;font-size:12px}
 .rc{display:inline-grid;place-items:center;min-width:34px;height:30px;padding:0 4px;border-radius:7px;border:1px solid var(--line);background:var(--soft);color:var(--muted);font:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .rc:disabled{cursor:default}
 .brush{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0 10px}.brush .rc{min-width:44px;height:34px}.brush .rc.on{outline:2px solid var(--thread);outline-offset:2px}
@@ -560,6 +563,8 @@ function normalize(d){
           incentives: d.incentives&&typeof d.incentives==="object"?d.incentives:{},
           roster: d.roster&&typeof d.roster==="object"?d.roster:{},
           rosterDef: d.rosterDef&&typeof d.rosterDef==="object"?d.rosterDef:{},
+          promos: Array.isArray(d.promos)?d.promos:[],
+          stWeeks: d.stWeeks&&typeof d.stWeeks==="object"?d.stWeeks:{},
           support: Array.isArray(d.support)?d.support:null,
           lastDataDate: typeof d.lastDataDate==="string"?d.lastDataDate:""};
 }
@@ -608,6 +613,7 @@ async function afterCol(){
   for(const fy in weekCache) delete weekCache[fy];
   for(const mk in x24Cache) delete x24Cache[mk];
   for(const wk in mixCache) delete mixCache[wk];
+  for(const k in billCache)delete billCache[k];for(const k in stWeekCache)delete stWeekCache[k];
   sohLoaded=false;sohData=null;stLoaded=false;stRep=null;lyLoaded=false;lyStore=null;
   render();
 }
@@ -861,13 +867,20 @@ function parseX24(XLSX,wb){
       if(!need.every(n=>hdr.includes(n)))continue;
       const c={date:hdr.indexOf("TRANS DATE"),tn:hdr.indexOf("TRANSNUM"),qty:hdr.indexOf("NET SOLD QTY"),amt:hdr.indexOf("TOTAL AMOUNT"),
         who:hdr.indexOf("SALES ASSOCIATE 1 NAME"),cat:hdr.indexOf("CATEGORY"),brick:hdr.indexOf("BRICK"),fit:hdr.indexOf("FIT"),
-        cls:hdr.indexOf("CLASS"),sub:hdr.indexOf("SUB CLASS")};
+        cls:hdr.indexOf("CLASS"),sub:hdr.indexOf("SUB CLASS"),desc:hdr.findIndex(x=>x.indexOf("ITEM DESC")===0)};
       const txt=v=>{const s=String(v??"").trim();return s&&!s.startsWith("#")&&s!=="0"?s:"";};
       const add=(o,key,q,v)=>{const a=o[key]||(o[key]=[0,0]);a[0]+=q;a[1]+=v;};
-      const days={};let lines=0,skippedNP=0;
+      const days={};let lines=0,skippedNP=0;const billsD={};
+      const CATK={"MENS TOPS":"MT","MENS BOTTOMS":"MB","WOMENS TOPS":"WT","WOMENS BOTTOMS":"WB"};
       for(let r=i+1;r<rows.length;r++){
         const row=rows[r];if(!row)continue;
         const date=normDate(row[c.date]);if(!date||date>todayISO())continue;
+        {const cuB=c.cat>=0?String(row[c.cat]??"").trim().toUpperCase():"";
+         if(cuB!=="NP"){const B=(billsD[date]=billsD[date]||{});const tnB=String(row[c.tn]??"");const b=B[tnB]||(B[tnB]={t:0,w:{},q:{}});
+           const aB=num(row[c.amt]);b.t+=aB;const wn=c.who>=0?String(row[c.who]??"").trim():"";if(wn)b.w[wn]=(b.w[wn]||0)+Math.abs(aB)+0.001;
+           const kB=CATK[cuB];if(kB)b.q[kB]=(b.q[kB]||0)+num(row[c.qty]);
+           if(cuB.indexOf("ACCESS")>-1){const qA=num(row[c.qty]);const tA=[c.cls,c.sub,c.brick,c.desc].map(ix=>ix>=0?String(row[ix]??""):"").join(" ").toUpperCase();
+             const kA=/BELT/.test(tA)?"BL":/WALLET|WLT/.test(tA)?"WL":"";b.q.AQ=(b.q.AQ||0)+qA;b.q.AV=(b.q.AV||0)+aB;if(kA){b.q[kA+"Q"]=(b.q[kA+"Q"]||0)+qA;b.q[kA+"V"]=(b.q[kA+"V"]||0)+aB;}}}}
         if(c.cat>=0){const cu=String(row[c.cat]??"").trim().toUpperCase();if(cu==="NP"||cu.indexOf("ACCESS")>-1){skippedNP++;continue;}}
         const qty=num(row[c.qty]),amt=num(row[c.amt]),tn=String(row[c.tn]??"");
         const d=days[date]||(days[date]={sales:0,units:0,tq:{},staff:{},mix:{c:{},b:{},f:{},s:{}}});
@@ -887,7 +900,8 @@ function parseX24(XLSX,wb){
         Object.keys(d.staff).forEach(n=>{const s=d.staff[n];st[n]={sales:Math.round(s.sales*100)/100,units:s.units,bills:bills(s.tq)};});
         const rnd=o=>{Object.keys(o).forEach(k=>{o[k]=[o[k][0],Math.round(o[k][1])];});return o;};
         rnd(d.mix.c);rnd(d.mix.b);rnd(d.mix.f);Object.values(d.mix.s).forEach(rnd);
-        out[dt]={sales:Math.round(d.sales*100)/100,units:d.units,bills:bills(d.tq),staff:st,mix:d.mix};});
+        const bl=Object.values(billsD[dt]||{}).map(b=>{const who=Object.keys(b.w).sort((x,y)=>b.w[y]-b.w[x])[0]||"";const r0=x=>Math.round(b.q[x]||0);return [who,Math.round(b.t),b.q.MT||0,b.q.MB||0,b.q.WT||0,b.q.WB||0,b.q.AQ||0,r0("AV"),b.q.BLQ||0,r0("BLV"),b.q.WLQ||0,r0("WLV")];});
+        out[dt]={sales:Math.round(d.sales*100)/100,units:d.units,bills:bills(d.tq),staff:st,mix:d.mix,bl};});
       if(!Object.keys(out).length) throw new Error("The report has no sales lines with a date.");
       return {days:out,lines,skippedNP};
     }
@@ -1178,7 +1192,7 @@ async function doImport(){
     if(!id){id=uid();state.staff.push({id,name:titleCase(p.name),active:true});}
     idFor[p.name]=id;state.staffAlias[normName(p.name).join(" ")]=id;});
   persist("Team updated");
-  const months=new Set(),weeks=new Set(),mixWeeks=new Set(),fmonths=new Set();
+  const months=new Set(),weeks=new Set(),mixWeeks=new Set(),fmonths=new Set(),billWeeks=new Set();
   for(const dt of x.dates){
     const mk=dt.slice(0,7);await loadX24(mk);
     const d=x.parsed.days[dt],st={};
@@ -1191,10 +1205,12 @@ async function doImport(){
       const ms={};Object.keys(d.mix.s).forEach(n=>{const id=idFor[n];const tgt=ms[id]||(ms[id]={});
         Object.keys(d.mix.s[n]).forEach(cat=>{const a=tgt[cat]||(tgt[cat]=[0,0]);a[0]+=d.mix.s[n][cat][0];a[1]+=d.mix.s[n][cat][1];});});
       mixCache[wk].days[dt]={c:d.mix.c,b:d.mix.b,f:d.mix.f,s:ms};mixWeeks.add(wk);}
+    if(d.bl){const wkB=weekOfDate(dOf(dt));await loadBills(wkB);billCache[wkB].days[dt]=d.bl.map(b=>[idFor[b[0]]||"",...b.slice(1)]);billWeeks.add(wkB);}
     months.add(mk);weeks.add(weekOfDate(dOf(dt)));fmonths.add(monthOfDate(dOf(dt)));
   }
   months.forEach(mk=>persistX24(mk));
   mixWeeks.forEach(wk=>persistMix(wk));
+  billWeeks.forEach(wk=>persistBills(wk));
   for(const fm of fmonths) await rebuildFiscalMonth(fm,"Imported");
   for(const wk of weeks){
     await loadWeeks(fyOf(wk));
@@ -1650,7 +1666,160 @@ function viewMix(){
   }
   return h;
 }
+/* ---------- bill-level data (promo, category UPT) ---------- */
+const billCache={},billLoading={};
+const LS_BILL="store-perf-bills-";
+function loadBills(wk){
+  if(billCache[wk]) return Promise.resolve(billCache[wk]);
+  if(billLoading[wk]) return billLoading[wk];
+  billLoading[wk]=(async()=>{let d=null;
+    try{const r=localStorage.getItem(LS_BILL+wk);if(r)d=JSON.parse(r);}catch(e){}
+    if(col){try{const s=await col.doc("bills-"+wk).get();if(s.exists)d=JSON.parse(JSON.stringify(s.data()));}catch(e){}}
+    d=d&&typeof d==="object"?d:{};
+    const days={};Object.keys(d.days||{}).forEach(dt=>{const v=d.days[dt];days[dt]=typeof v==="string"?JSON.parse(v):v;});
+    billCache[wk]={days};delete billLoading[wk];return billCache[wk];})();
+  return billLoading[wk];
+}
+function persistBills(wk){
+  if(!canEdit())return;const days={};Object.keys(billCache[wk].days).forEach(dt=>days[dt]=JSON.stringify(billCache[wk].days[dt]));
+  const doc={days};try{localStorage.setItem(LS_BILL+wk,JSON.stringify(doc));}catch(e){}
+  if(col) col.doc("bills-"+wk).set(doc).catch(()=>{});
+}
+function billsBetween(s,e){
+  const wks=weeksCovering(s,e);const miss=wks.filter(w=>!billCache[w]);
+  if(miss.length){Promise.all(miss.map(loadBills)).then(()=>{if(ui.tab==="months")render();});return null;}
+  const si=isoOf(s),ei=isoOf(e);const out=[];let days=0;
+  wks.forEach(w=>Object.keys(billCache[w].days).forEach(dt=>{if(dt<si||dt>ei)return;days++;billCache[w].days[dt].forEach(b=>out.push(b));}));
+  return {bills:out,days};
+}
+function staffName(id){const s=state.staff.find(x=>x.id===id);return s?s.name:"Other";}
+function rangeLabel(s,e){const f=d=>d.getDate()+" "+MN[d.getMonth()];return f(s)+" – "+f(e);}
+function needBillsMsg(s,e){return `<div class="empty">No bill-level data for ${esc(rangeLabel(s,e))} yet.${canEdit()?" Re-import the X24 for these dates once (Sales tab) to fill it.":""}</div>`;}
+
+/* 🎁 Promo con% */
+const DEF_SLABS=[{min:8999,free:1000},{min:12999,free:2000},{min:17999,free:4000}];
+function promoSel(){const P=state.promos||[];return P.find(p=>p.id===ui.promoId)||P[P.length-1]||null;}
+function viewPromo(){
+  const P=state.promos||[],sel=promoSel(),ed=canEdit();
+  let h="";
+  if(P.length>1) h+=`<div class="chips" style="margin-top:0">${P.map(p=>`<button data-promo="${esc(p.id)}" style="${sel&&sel.id===p.id?"background:var(--soft)":""}">${esc(p.name||"Promo")}</button>`).join("")}</div>`;
+  if(ed){const e=ui.promoEdit||(sel?JSON.parse(JSON.stringify(sel)):{id:"",name:"",from:isoOf(weekRange(weekOfDate(new Date()))[0]),to:todayISO(),slabs:DEF_SLABS.map(x=>({...x}))});ui.promoEdit=e;
+    h+=`<section class="block"><h2>${e.id?"Edit promo":"New promo"}</h2>
+      <label class="f" for="prName">Promo name</label><input type="text" id="prName" value="${esc(e.name)}" placeholder="Diwali offer">
+      <div class="fgrid" style="margin-top:8px"><div><label class="f" for="prFrom">From</label><input type="date" id="prFrom" value="${esc(e.from)}"></div><div><label class="f" for="prTo">To</label><input type="date" id="prTo" value="${esc(e.to)}"></div></div>
+      <div class="tscroll" style="margin-top:10px"><table><thead><tr><th>Slab</th><th>Single bill from (₹)</th><th>Free (₹)</th><th></th></tr></thead><tbody>${e.slabs.map((s,i)=>`<tr><td>${i+1}</td><td><input class="n" data-slmin="${i}" inputmode="numeric" value="${num(s.min)||""}"></td><td><input class="n" data-slfree="${i}" inputmode="numeric" value="${num(s.free)||""}"></td><td><button class="btn small" data-slrm="${i}" aria-label="Remove slab ${i+1}">×</button></td></tr>`).join("")}</tbody></table></div>
+      <div class="actions"><button class="btn small" id="slAdd">+ Add slab</button><button class="btn small primary" id="prSave" style="flex:1">Save promo</button>${e.id?`<button class="btn small" id="prNew">New promo</button><button class="btn small danger" id="prDel">Delete</button>`:""}</div></section>`;}
+  if(!sel) return h+(ed?"":`<section class="block"><div class="empty">No promo set up yet.</div></section>`);
+  const slabs=(sel.slabs||[]).filter(s=>num(s.min)>0).sort((a,b)=>num(a.min)-num(b.min));
+  const s=dOf(sel.from),eD=dOf(sel.to)<new Date()?dOf(sel.to):new Date();
+  const B=billsBetween(s,eD);if(!B) return h+`<div class="empty">Loading…</div>`;
+  if(!B.bills.length) return h+`<section class="block"><h2>🎁 ${esc(sel.name||"Promo")}</h2>${needBillsMsg(s,eD)}</section>`;
+  const slabOf=t=>{let k=-1;slabs.forEach((x,i)=>{if(t>=num(x.min))k=i;});return k;};
+  const blank=()=>({bills:0,val:0,pb:0,pv:0,free:0,sl:slabs.map(()=>0)});
+  const T=blank(),S={};
+  B.bills.forEach(b=>{if(b[1]<=0)return;const k=slabOf(b[1]);const o=S[b[0]]||(S[b[0]]=blank());[T,o].forEach(x=>{x.bills++;x.val+=b[1];if(k>=0){x.pb++;x.pv+=b[1];x.free+=num(slabs[k].free);x.sl[k]++;}});});
+  const pc=(a,b)=>b?pct(a/b,1):"–";
+  h+=`<section class="block"><h2>🎁 ${esc(sel.name||"Promo")} · ${esc(rangeLabel(s,eD))}</h2>
+    <div class="grid"><div class="kv"><span>Promo con% (bills)</span><b class="up">${pc(T.pb,T.bills)}</b></div><div class="kv"><span>Promo bills</span><b>${full(T.pb)} / ${full(T.bills)}</b></div><div class="kv"><span>Value con%</span><b>${pc(T.pv,T.val)}</b></div>
+    ${slabs.map((x,i)=>`<div class="kv"><span>₹${full(x.min)}+ · ₹${full(x.free)} free</span><b>${full(T.sl[i])} bills</b></div>`).join("")}<div class="kv"><span>Free value given</span><b>${inr(T.free)}</b></div></div>
+    <p class="hint">Slab by single bill total (all items, returns netted). ${B.days} days with bill data.</p></section>`;
+  const rows=Object.keys(S).map(id=>({id,...S[id]})).sort((a,b)=>(b.pb/(b.bills||1))-(a.pb/(a.bills||1))||b.pb-a.pb);
+  h+=`<section class="block"><h2>Staff-wise</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Bills</th>${slabs.map((x,i)=>`<th>S${i+1}<br><small>₹${full(x.min)}+</small></th>`).join("")}<th>Promo con%</th><th>Value con%</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${esc(r.id?staffName(r.id):"No associate")}</td><td>${full(r.bills)}</td>${r.sl.map(n=>`<td>${n||"–"}</td>`).join("")}<td class="${r.bills&&r.pb/r.bills>=T.pb/T.bills?"up":"down"}"><b>${pc(r.pb,r.bills)}</b></td><td>${pc(r.pv,r.val)}</td></tr>`).join("")+
+    `<tr class="total"><td>Store</td><td>${full(T.bills)}</td>${T.sl.map(n=>`<td>${n}</td>`).join("")}<td>${pc(T.pb,T.bills)}</td><td>${pc(T.pv,T.val)}</td></tr></tbody></table></div>
+    <p class="hint">🟢 at or above store promo con% · 🔴 below.</p></section>`;
+  return h;
+}
+
+/* 🧺 Category UPT */
+const UPT_G=[["Total",[2,3,4,5]],["MT",[2]],["MB",[3]],["WT",[4]],["WB",[5]],["Mens",[2,3]],["Womens",[4,5]]];
+function uptCalc(list){const tot=list.filter(b=>b[2]+b[3]+b[4]+b[5]>0).length;
+  return UPT_G.map(([n,ix])=>{let u=0,c=0;list.forEach(b=>{const q=ix.reduce((x,i)=>x+b[i],0);if(q>0){u+=q;c++;}});return {n,upt:c?u/c:NaN,att:tot?c/tot:NaN,bills:c};});}
+function viewUPT(){
+  const k=cur(),[s,e0]=periodDates(k,isYtd());const e=e0<new Date()?e0:new Date();
+  const B=billsBetween(s,e);if(!B) return `<div class="empty">Loading…</div>`;
+  if(!B.bills.length) return `<section class="block"><h2>🧺 UPT</h2>${needBillsMsg(s,e)}</section>`;
+  const mode=ui.uptMode||"upt";
+  const store=uptCalc(B.bills);const by={};B.bills.forEach(b=>(by[b[0]]=by[b[0]]||[]).push(b));
+  const rows=Object.keys(by).filter(id=>id).map(id=>({id,g:uptCalc(by[id])})).sort((a,b)=>(b.g[0].upt||0)-(a.g[0].upt||0));
+  const cell=(x,ref)=>{const v=mode==="upt"?x.upt:x.att;if(!isFinite(v))return `<td>–</td>`;const r=mode==="upt"?ref.upt:ref.att;const cl=isFinite(r)?(v>=r*1.05?"up":v<=r*0.95?"down":""):"";return `<td class="${cl}">${mode==="upt"?v.toFixed(2):pct(v)}</td>`;};
+  let h=`<section class="block"><h2>🧺 UPT · ${esc(isYtd()?ytdLabel():mLong(k))}</h2>
+    <div class="grid">${store.map(x=>`<div class="kv"><span>${esc(x.n)} UPT</span><b>${isFinite(x.upt)?x.upt.toFixed(2):"–"}</b><small class="muted">${isFinite(x.att)?pct(x.att)+" of bills":""}</small></div>`).join("")}</div>
+    <p class="hint">Category UPT = pieces of that category ÷ bills that bought it. "% of bills" = how many bills had that category (attach). From ${B.days} days of bill data.</p></section>
+    <div class="seg" role="group" aria-label="Measure"><button data-uptm="upt" aria-pressed="${mode==="upt"}">UPT</button><button data-uptm="att" aria-pressed="${mode==="att"}">Attach %</button></div>
+    <section class="block"><h2>Staff-wise ${mode==="upt"?"UPT":"attach %"}</h2><div class="tscroll"><table><thead><tr><th>Staff</th>${UPT_G.map(g=>`<th>${g[0]}</th>`).join("")}<th>Bills</th></tr></thead><tbody>`+
+    `<tr class="total"><td>Store</td>${store.map(x=>`<td>${mode==="upt"?(isFinite(x.upt)?x.upt.toFixed(2):"–"):pct(x.att)}</td>`).join("")}<td>${full(store[0].bills)}</td></tr>`+
+    rows.map(r=>`<tr><td>${esc(staffName(r.id))}</td>${r.g.map((x,i)=>cell(x,store[i])).join("")}<td>${full(r.g[0].bills)}</td></tr>`).join("")+
+    `</tbody></table></div><p class="hint">🟢 5% or more above store · 🔴 5% or more below.</p></section>`;
+  return h;
+}
+
+/* 🚶 Conv% day-wise */
+function viewConv(){
+  const k=cur(),ytd=isYtd();let keys;
+  if(ytd) keys=ytdKeys(k);
+  else{const [s,e]=periodDates(k,false);keys=datesBetween(s,e);
+    const mks=[...new Set(keys.map(d=>d.slice(0,7)))].filter(m=>!x24Cache[m]);
+    if(mks.length){Promise.all(mks.map(loadX24)).then(()=>{if(ui.tab==="months")render();});return `<div class="empty">Loading…</div>`;}}
+  const today=todayISO();keys=keys.filter(x=>isDay(x)?x<=today:true);
+  const rows=keys.map(x=>({k:x,a:aggStore([x])})).filter(r=>r.a.bills>0||r.a.footfall>0);
+  const T=aggStore(keys);
+  if(!rows.length) return `<section class="block"><h2>🚶 Conv%</h2><div class="empty">No walk-ins or bills for this period yet. Walk-ins come from the DSR or the footfall you type in the Sales tab.</div></section>`;
+  const avg=T.conv,cl=v=>!isFinite(v)||!isFinite(avg)?"":v>=avg*1.15?"up":v<=avg*0.85?"down":"";
+  const max=Math.max(0.0001,...rows.map(r=>isFinite(r.a.conv)?r.a.conv:0));
+  const lbl=x=>isDay(x)?WD[dOf(x).getDay()]+" "+dOf(x).getDate()+" "+MN[dOf(x).getMonth()]:mShort(x);
+  let h=`<section class="block"><h2>🚶 Conv% · ${esc(ytd?ytdLabel():mLong(k))}</h2>
+    <div class="grid"><div class="kv"><span>Conv%</span><b>${pct(T.conv,1)}</b></div><div class="kv"><span>Walk-ins</span><b>${full(T.footfall)}</b></div><div class="kv"><span>Bills</span><b>${full(T.bills)}</b></div></div>
+    <div class="chart wk" role="img" aria-label="Conversion by ${ytd?"week":"day"}" style="height:120px">${rows.map(r=>{const v=isFinite(r.a.conv)?r.a.conv:0;return `<div class="col"><div class="stack"><div class="s" style="height:${(v/max*100).toFixed(1)}%;background:${cl(r.a.conv)==="up"?"var(--good)":cl(r.a.conv)==="down"?"var(--bad)":"var(--denim-2)"}"></div></div><span class="m">${isDay(r.k)?dOf(r.k).getDate():weekNo(r.k)}</span></div>`;}).join("")}</div></section>
+    <section class="block"><h2>${ytd?"Week":"Day"}-wise</h2><div class="tscroll"><table><thead><tr><th>${ytd?"Week":"Day"}</th><th>Walk-ins</th><th>Bills</th><th>Conv%</th><th>Sales</th><th>ATV</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${esc(lbl(r.k))}</td><td>${r.a.footfall?full(r.a.footfall):"–"}</td><td>${full(r.a.bills)}</td><td class="${cl(r.a.conv)}"><b>${pct(r.a.conv,1)}</b></td><td>${inr(r.a.sales)}</td><td>${isFinite(r.a.atv)?inr(r.a.atv):"–"}</td></tr>`).join("")+
+    `<tr class="total"><td>Total</td><td>${full(T.footfall)}</td><td>${full(T.bills)}</td><td>${pct(T.conv,1)}</td><td>${inr(T.sales)}</td><td>${isFinite(T.atv)?inr(T.atv):"–"}</td></tr></tbody></table></div>
+    <p class="hint">Conv% = bills ÷ walk-ins. 🟢 15% above the period average · 🔴 15% below. ${ytd?"Pick Monthly or Weekly at the top for day-wise.":""}</p></section>`;
+  return h;
+}
+
+/* 🎒 Accessories con% — bill row: [id,total,MT,MB,WT,WB,accQ,accV,beltQ,beltV,walQ,walV] */
+function accCalc(list){const o={bills:0,val:0,app:0,aq:0,av:0,ab:0,bq:0,bv:0,bb:0,wq:0,wv:0,wb:0};
+  list.forEach(b=>{if(b[1]<=0)return;o.bills++;o.val+=b[1];o.app+=b[2]+b[3]+b[4]+b[5];
+    const aq=b[6]||0,bq=b[8]||0,wq=b[10]||0;o.aq+=aq;o.av+=b[7]||0;o.bq+=bq;o.bv+=b[9]||0;o.wq+=wq;o.wv+=b[11]||0;if(aq>0)o.ab++;if(bq>0)o.bb++;if(wq>0)o.wb++;});
+  o.oq=o.aq-o.bq-o.wq;o.ov=o.av-o.bv-o.wv;return o;}
+function viewAcc(){
+  const k=cur(),[s,e0]=periodDates(k,isYtd());const e=e0<new Date()?e0:new Date();
+  const B=billsBetween(s,e);if(!B) return `<div class="empty">Loading…</div>`;
+  const list=B.bills.filter(b=>b.length>=12);
+  if(!list.length) return `<section class="block"><h2>🎒 Acc con%</h2>${needBillsMsg(s,e)}</section>`;
+  const T=accCalc(list),pc=(a,b)=>b?pct(a/b,1):"–";
+  const by={};list.forEach(b=>(by[b[0]]=by[b[0]]||[]).push(b));
+  const rows=Object.keys(by).filter(id=>id).map(id=>({id,a:accCalc(by[id])})).filter(r=>r.a.bills).sort((x,y)=>(y.a.av/(y.a.val||1))-(x.a.av/(x.a.val||1))||y.a.aq-x.a.aq);
+  const cl=(v,r)=>!r?"":v>=r?"up":"down";
+  const part=(icon,n,q,v,bb)=>`<div class="kv"><span>${icon} ${n}</span><b>${full(q)} pcs</b><small class="muted">${inr(v)} · ${pc(v,T.val)} value${bb==null?"":" · "+pc(bb,T.bills)+" of bills"}</small></div>`;
+  let h=`<section class="block"><h2>🎒 Acc con% · ${esc(isYtd()?ytdLabel():mLong(k))}</h2>
+    <div class="grid"><div class="kv"><span>Acc con% (value)</span><b class="up">${pc(T.av,T.val)}</b><small class="muted">${inr(T.av)} of ${inr(T.val)}</small></div>
+    <div class="kv"><span>Acc con% (qty)</span><b>${pc(T.aq,T.aq+T.app)}</b><small class="muted">${full(T.aq)} of ${full(T.aq+T.app)} pcs</small></div>
+    <div class="kv"><span>Acc attach %</span><b>${pc(T.ab,T.bills)}</b><small class="muted">${full(T.ab)} of ${full(T.bills)} bills</small></div>
+    ${part("🪢","Belt",T.bq,T.bv,T.bb)}${part("👛","Wallet",T.wq,T.wv,T.wb)}${part("🧢","Others",T.oq,T.ov,null)}</div>
+    <p class="hint">Value con% = accessory sales ÷ total sales (apparel + accessories). Attach % = bills with an accessory ÷ all bills. Main sales and KPIs stay apparel-only. From ${B.days} days of bill data.</p></section>
+    <section class="block"><h2>Staff-wise</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Acc pcs</th><th>Acc ₹</th><th>Value con%</th><th>Qty con%</th><th>Attach %</th><th>🪢 Belt</th><th>👛 Wallet</th><th>Others</th></tr></thead><tbody>`+
+    rows.map(r=>{const a=r.a;return `<tr><td>${esc(staffName(r.id))}</td><td>${a.aq||"–"}</td><td>${a.av?inr(a.av):"–"}</td><td class="${cl(a.av/(a.val||1),T.av/(T.val||1))}"><b>${pc(a.av,a.val)}</b></td><td>${pc(a.aq,a.aq+a.app)}</td><td>${pc(a.ab,a.bills)}</td><td>${a.bq||"–"}</td><td>${a.wq||"–"}</td><td>${a.oq||"–"}</td></tr>`;}).join("")+
+    `<tr class="total"><td>Store</td><td>${full(T.aq)}</td><td>${inr(T.av)}</td><td>${pc(T.av,T.val)}</td><td>${pc(T.aq,T.aq+T.app)}</td><td>${pc(T.ab,T.bills)}</td><td>${full(T.bq)}</td><td>${full(T.wq)}</td><td>${full(T.oq)}</td></tr></tbody></table></div>
+    <p class="hint">🟢 at or above store value con% · 🔴 below. Staff = main associate on the bill.${list.length<B.bills.length?" Some days were imported before accessories were tracked — re-import the X24 for full numbers.":""}</p></section>`;
+  return h;
+}
+
 function viewReport(){
+  const rp=ui.rpage||"";
+  const back=`<button class="back" data-rpage="">‹ Report</button>`;
+  if(rp==="promo") return back+viewPromo();
+  if(rp==="upt") return back+viewUPT();
+  if(rp==="conv") return back+viewConv();
+  if(rp==="acc") return back+viewAcc();
+  const folders=`<div class="rfolders"><button class="folder" data-rpage="promo"><span class="ficon" aria-hidden="true">🎁</span><span class="ftxt"><b>Promo con%</b><small>Slabs · store and staff</small></span></button>
+    <button class="folder" data-rpage="upt"><span class="ficon" aria-hidden="true">🧺</span><span class="ftxt"><b>UPT</b><small>MT · MB · WT · WB · Mens · Womens</small></span></button>
+    <button class="folder" data-rpage="conv"><span class="ficon" aria-hidden="true">🚶</span><span class="ftxt"><b>Conv%</b><small>Day-wise walk-ins and bills</small></span></button>
+    <button class="folder" data-rpage="acc"><span class="ficon" aria-hidden="true">🎒</span><span class="ftxt"><b>Acc con%</b><small>Belt · Wallet · store and staff</small></span></button></div>`;
+  return folders+viewReportMain();
+}
+function viewReportMain(){
   const r=(ui.report==="st"?"kpi":ui.report)||"kpi";
   return `<div class="seg" role="group" aria-label="Report"><button data-rep="kpi" aria-pressed="${r==="kpi"}">KPI table</button><button data-rep="mix" aria-pressed="${r==="mix"}">Sale mix</button></div>`+(r==="mix"?viewMix():viewMonths());
 }
@@ -1700,12 +1869,29 @@ async function loadStRep(){
   stRep=d&&d.json?d:null;if(stRep){try{stRep.rows=JSON.parse(stRep.json);}catch(e){stRep=null;}}
   stLoaded=true;return stRep;
 }
+const stWeekCache={};
+function stWeekOf(rep){return weekOfDate(dOf(rep.date||todayISO()));}
+function stSummary(rows){const all=rows.map(stObj).filter(r=>r.sale+r.soh>0);const t=stTotals(all);const gc={};
+  [...new Set(all.map(r=>r.gc).filter(Boolean))].forEach(g=>{const x=stTotals(all.filter(r=>r.gc===g));gc[g]=x.st;});return {st:t.st,sale:t.sale,soh:t.soh,gc};}
+function rememberStWeek(rep){if(!canEdit()||!rep||!rep.rows)return;const wk=stWeekOf(rep);
+  if(state.stWeeks&&state.stWeeks[wk]&&state.stWeeks[wk].date===rep.date)return;
+  const sm=stSummary(rep.rows);state.stWeeks=Object.assign({},state.stWeeks,{[wk]:{date:rep.date,...sm}});persist("ST week saved");
+  const doc={date:rep.date,store:rep.store||"",file:rep.file||"",json:rep.json||JSON.stringify(rep.rows)};
+  stWeekCache[wk]=Object.assign({},doc,{rows:rep.rows});
+  try{localStorage.setItem(LS_ST+"-"+wk,JSON.stringify(doc));}catch(e){}
+  if(col) col.doc("strep-"+wk).set(doc).catch(()=>{});}
+async function loadStWeek(wk){if(stWeekCache[wk])return stWeekCache[wk];let d=null;
+  try{const r=localStorage.getItem(LS_ST+"-"+wk);if(r)d=JSON.parse(r);}catch(e){}
+  if(col){try{const s=await col.doc("strep-"+wk).get();if(s.exists)d=JSON.parse(JSON.stringify(s.data()));}catch(e){}}
+  if(d&&d.json){try{d.rows=JSON.parse(d.json);}catch(e){d=null;}}else d=null;
+  stWeekCache[wk]=d||{missing:true};return stWeekCache[wk];}
 function saveStRep(d){
   if(!canEdit())return;
   const doc={date:d.date,store:d.store||"",file:d.file||"",json:JSON.stringify(d.rows)};
   stRep=Object.assign({},doc,{rows:d.rows});stLoaded=true;
   try{localStorage.setItem(LS_ST,JSON.stringify(doc));}catch(e){}
   if(col) col.doc("strep").set(doc).then(()=>setStatus("Synced")).catch(()=>setStatus("Saved on this device only"));
+  ui.stWeek="";rememberStWeek(stRep);
 }
 function isStBook(XLSX,wb){
   for(const n of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null});
@@ -1765,6 +1951,26 @@ function stCard(r,i){
       <div class="stmeta">${r.mrp?"₹"+full(r.mrp)+" · ":""}${r.sl?full(r.sl)+" days":""}</div></div></div>`;
 }
 function viewStRep(){
+  if(!stLoaded) return viewStRepCore();
+  if(stRep) rememberStWeek(stRep);
+  const W=Object.assign({},state.stWeeks||{});if(stRep&&!W[stWeekOf(stRep)])W[stWeekOf(stRep)]={date:stRep.date,...stSummary(stRep.rows)};
+  const wks=Object.keys(W).sort();if(wks.length<1) return viewStRepCore();
+  const latest=stRep?stWeekOf(stRep):wks[wks.length-1];const sel=wks.includes(ui.stWeek)?ui.stWeek:latest;const i=wks.indexOf(sel);
+  const prev=i>0?W[wks[i-1]]:null,cur=W[sel];
+  const dl=(a,b)=>{if(!isFinite(a)||!isFinite(b))return "";const d=(a-b)*100;return `<small class="${d>=0?"up":"down"}">${d>=0?"▲":"▼"} ${Math.abs(d).toFixed(1)}%</small>`;};
+  const maxSt=Math.max(0.0001,...wks.map(w=>W[w].st||0));
+  let top=`<div class="monthbar"><button data-stw="${esc(wks[i-1]||"")}" ${i>0?"":"disabled"} aria-label="Previous ST week">‹</button><div class="label">ST% · Week ${weekNo(sel)}<small>Report of ${esc(shortDate(cur.date))}${sel===latest?" · latest":""}</small></div><button data-stw="${esc(wks[i+1]||"")}" ${i<wks.length-1?"":"disabled"} aria-label="Next ST week">›</button></div>
+    <section class="block"><h2>Week on week</h2><div class="grid"><div class="kv"><span>Store ST%</span><b>${pct(cur.st,1)}</b>${prev?dl(cur.st,prev.st):""}</div>
+    ${Object.keys(GC_NAMES).filter(g=>cur.gc&&isFinite(cur.gc[g])).map(g=>`<div class="kv"><span>${esc(g)}</span><b>${pct(cur.gc[g],1)}</b>${prev&&prev.gc?dl(cur.gc[g],prev.gc[g]):""}</div>`).join("")}</div>
+    ${wks.length>1?`<div class="chart wk" role="img" aria-label="Store ST% by week" style="height:90px">${wks.map(w=>`<button class="col${w===sel?" sel":""}" data-stw="${esc(w)}" aria-label="Week ${weekNo(w)}: ${pct(W[w].st,1)}"><div class="stack"><div class="s" style="height:${((W[w].st||0)/maxSt*100).toFixed(1)}%"></div></div><span class="m">W${weekNo(w)}</span></button>`).join("")}</div>`:`<p class="hint">Upload next week's ST report to see the change week on week.</p>`}</section>`;
+  if(sel===latest&&stRep) return top+viewStRepCore();
+  const rep=stWeekCache[sel];
+  if(!rep){loadStWeek(sel).then(()=>{if(ui.tab==="st")render();});return top+`<div class="empty">Loading…</div>`;}
+  if(rep.missing) return top+`<div class="empty">Full detail for this week isn't saved on this device.</div>`;
+  const keep=stRep;stRep=rep;let body;try{body=viewStRepCore();}finally{stRep=keep;}
+  return top+body;
+}
+function viewStRepCore(){
   if(!stLoaded){loadStRep().then(()=>{if(ui.tab==="st")render();});return `<div class="empty">Loading ST report…</div>`;}
   if(!stRep) return `<section class="block"><h2>ST%</h2><div class="empty">No ST report yet. ${canEdit()?"Upload the Week ST report (Excel) in the Sales tab.":"Ask the manager to upload the Week ST report."}</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Upload ST report</button></div>`:""}</section>`;
   loadPcImgs();
@@ -2190,6 +2396,22 @@ document.addEventListener("click",e=>{
     for(let dd=1;dd<=nd;dd++){const iso=mk+"-"+pad2(dd);if(iso>today)break;if(!attStatus(d.att[iso]?.[ui.staffId])){(d.att[iso]=d.att[iso]||{})[ui.staffId]={status:"P"};}}
     persistDay(mk,"Marked present");render();return;}
   if(t.dataset.qt&&canEdit()){quickTargets(t.dataset.qt);return;}
+  if(t.dataset.rpage!==undefined){ui.rpage=t.dataset.rpage;render();window.scrollTo(0,0);return;}
+  if(t.dataset.stw!==undefined){if(t.dataset.stw){ui.stWeek=t.dataset.stw;render();}return;}
+  if(t.dataset.uptm){ui.uptMode=t.dataset.uptm;render();return;}
+  if(t.dataset.promo){ui.promoId=t.dataset.promo;ui.promoEdit=null;render();return;}
+  if((t.id==="slAdd"||t.dataset.slrm!==undefined||t.id==="prSave"||t.id==="prNew"||t.id==="prDel")&&canEdit()){
+    const e=ui.promoEdit||{slabs:[]};
+    if(document.getElementById("prName")){e.name=document.getElementById("prName").value.trim();e.from=document.getElementById("prFrom").value;e.to=document.getElementById("prTo").value;
+      e.slabs=e.slabs.map((s,i)=>({min:num((document.querySelector(`[data-slmin="${i}"]`)||{}).value),free:num((document.querySelector(`[data-slfree="${i}"]`)||{}).value)}));}
+    if(t.id==="slAdd"){const last=e.slabs[e.slabs.length-1];e.slabs.push({min:last?num(last.min)+5000:8999,free:last?num(last.free)+1000:1000});ui.promoEdit=e;render();return;}
+    if(t.dataset.slrm!==undefined){e.slabs.splice(+t.dataset.slrm,1);ui.promoEdit=e;render();return;}
+    if(t.id==="prNew"){ui.promoEdit={id:"",name:"",from:todayISO(),to:todayISO(),slabs:DEF_SLABS.map(x=>({...x}))};ui.promoId="__new";render();return;}
+    if(t.id==="prDel"){askConfirm("Delete promo \""+(e.name||"Promo")+"\"?","Delete",()=>{state.promos=(state.promos||[]).filter(p=>p.id!==e.id);ui.promoEdit=null;ui.promoId="";persist("Promo deleted");render();});return;}
+    if(!e.from||!e.to||e.to<e.from){toast("Pick the promo dates");return;}
+    e.slabs=e.slabs.filter(s=>s.min>0).sort((a,b)=>a.min-b.min);if(!e.slabs.length){toast("Add at least one slab");return;}
+    if(!e.id)e.id="pr_"+Math.random().toString(36).slice(2,8);const list=(state.promos||[]).filter(p=>p.id!==e.id);list.push(JSON.parse(JSON.stringify(e)));
+    state.promos=list;ui.promoId=e.id;ui.promoEdit=null;persist("Promo saved");render();return;}
   if(t.dataset.rw){ui.rosterWeek=stepKey(rosterWeek(),+t.dataset.rw);render();return;}
   if(t.dataset.brush!==undefined){ui.brush=t.dataset.brush;render();return;}
   if(t.dataset.rc&&canEdit()){const [sid,i]=t.dataset.rc.split("|");setRosterCells(rosterWeek(),[[sid,+i,ui.brush===undefined?"M":ui.brush]]);render();return;}

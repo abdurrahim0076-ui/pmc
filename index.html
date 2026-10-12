@@ -1453,6 +1453,45 @@ function viewStaffPerf(){
       <span class="chev" aria-hidden="true">›</span></button></li>`;}).join("")+`</ul><p class="hint">Tap a name to open their full performance.</p>`;
   return h+`</section>`;
 }
+/* per-staff bill KPIs (staff sheet) */
+function billKpis(list,pr){
+  const o={bills:0,app:0,single:0,btm:0,wms:0,mt:0,mb:0,wt:0,wb:0,cMT:0,cMB:0,cWT:0,cWB:0,pBills:0,pb:0,sl:[]};
+  const slabs=pr?(pr.slabs||[]).filter(x=>num(x.min)>0).sort((a,b)=>num(a.min)-num(b.min)):[];o.sl=slabs.map(()=>0);o.slabs=slabs;
+  list.forEach(b=>{const q=b[2]+b[3]+b[4]+b[5];if(q<=0)return;o.bills++;o.app+=q;if(q===1)o.single++;
+    o.mt+=b[2];o.mb+=b[3];o.wt+=b[4];o.wb+=b[5];if(b[2]>0)o.cMT++;if(b[3]>0)o.cMB++;if(b[4]>0)o.cWT++;if(b[5]>0)o.cWB++;
+    if(pr&&b._d>=pr.from&&b._d<=pr.to&&b[1]>0){o.pBills++;let k=-1;slabs.forEach((x,i)=>{if(b[1]>=num(x.min))k=i;});if(k>=0){o.pb++;o.sl[k]++;}}});
+  o.a=accCalc(list);return o;}
+function staffConBlock(sid,k,ytd){
+  const [s0,e0]=periodDates(k,ytd);const e=e0<new Date()?e0:new Date();
+  const wks=weeksCovering(s0,e);const miss=wks.filter(w=>!billCache[w]);
+  if(miss.length){Promise.all(miss.map(loadBills)).then(()=>{if(ui.tab==="staff")render();});return `<section class="block"><h2>📊 Con%</h2><div class="empty">Loading…</div></section>`;}
+  const si=isoOf(s0),ei=isoOf(e);const all=[];
+  wks.forEach(w=>Object.keys(billCache[w].days).forEach(dt=>{if(dt<si||dt>ei)return;billCache[w].days[dt].forEach(b=>{const c=b.slice();c._d=dt;all.push(c);});}));
+  if(!all.length) return `<section class="block"><h2>📊 Con%</h2>${needBillsMsg(s0,e)}</section>`;
+  const pr=(state.promos||[]).filter(p=>p.from<=ei&&p.to>=si).sort((a,b)=>a.from<b.from?1:-1)[0]||null;
+  const mine=all.filter(b=>b[0]===sid);
+  const M=billKpis(mine,pr),S=billKpis(all,pr);
+  const r=(a,b)=>b?a/b:NaN;
+  const tile=(lbl,v,sv,hi=true,sub="")=>{const cl=!isFinite(v)||!isFinite(sv)?"":(hi?v>=sv:v<=sv)?"up":"down";
+    return `<div class="kv"><span>${lbl}</span><b class="${cl}">${isFinite(v)?pct(v,1):"–"}</b><small class="muted">Store ${isFinite(sv)?pct(sv,1):"–"}${sub?" · "+sub:""}</small></div>`;};
+  const u=(q,c)=>c?(q/c).toFixed(2):"–";
+  let h=`<section class="block"><h2>📊 Con% · ${esc(ytd?"YTD":mLong(k))}</h2><div class="grid">
+    ${pr?tile("🎁 Promo con%",r(M.pb,M.pBills),r(S.pb,S.pBills),true,M.pb+"/"+M.pBills+" bills"):""}
+    ${tile("🧍 SUPT (1-pc bills)",r(M.single,M.bills),r(S.single,S.bills),false,M.single+"/"+M.bills+" bills")}
+    ${tile("👖 BTM con%",r(M.mb+M.wb,M.app),r(S.mb+S.wb,S.app),true,(M.mb+M.wb)+" pcs")}
+    ${tile("👗 WMS%",r(M.wt+M.wb,M.app),r(S.wt+S.wb,S.app),true,(M.wt+M.wb)+" pcs")}
+    ${tile("🎒 Acc con%",r(M.a.av,M.a.val),r(S.a.av,S.a.val),true,"🪢 "+M.a.bq+" · 👛 "+M.a.wq)}
+    </div>`;
+  if(pr&&M.slabs.length) h+=`<div class="tscroll" style="margin-top:10px"><table><thead><tr><th>${esc(pr.name||"Promo")}</th>${M.slabs.map((x,i)=>`<th>S${i+1}<br><small>₹${full(x.min)}+</small></th>`).join("")}<th>Total</th></tr></thead><tbody>
+    <tr><td>${esc(staffName(sid))}</td>${M.sl.map(n=>`<td>${n||"–"}${n?`<br><small class="muted">${pct(n/M.pb,1)}</small>`:""}</td>`).join("")}<td><b>${M.pb}</b></td></tr>
+    <tr class="total"><td>Store</td>${S.sl.map(n=>`<td>${n}<br><small>${S.pb?pct(n/S.pb,1):"–"}</small></td>`).join("")}<td>${S.pb}</td></tr></tbody></table></div>`;
+  h+=`<div class="tscroll" style="margin-top:10px"><table><thead><tr><th>UPT</th><th>Total</th><th>MT</th><th>MB</th><th>WT</th><th>WB</th></tr></thead><tbody>
+    <tr><td>${esc(staffName(sid))}</td><td>${u(M.app,M.bills)}</td><td>${u(M.mt,M.cMT)}</td><td>${u(M.mb,M.cMB)}</td><td>${u(M.wt,M.cWT)}</td><td>${u(M.wb,M.cWB)}</td></tr>
+    <tr class="total"><td>Store</td><td>${u(S.app,S.bills)}</td><td>${u(S.mt,S.cMT)}</td><td>${u(S.mb,S.cMB)}</td><td>${u(S.wt,S.cWT)}</td><td>${u(S.wb,S.cWB)}</td></tr></tbody></table></div>
+    <p class="hint">🟢 better than store · 🔴 worse (for SUPT, lower is better). SUPT = bills with only 1 piece ÷ bills. BTM = MB + WB pcs ÷ all pcs. WMS = WT + WB pcs ÷ all pcs. Acc con% = accessory value ÷ total value. Promo slab % = slab bills ÷ promo bills. From bill-level X24 data.</p></section>`;
+  return h;
+}
+
 function viewPerson(){
   const s=state.staff.find(x=>x.id===ui.staffId),k=cur(),ytd=ui.staffView==="ytd"||isYtd();
   const keys=ytd?ytdKeys(k):[k];
@@ -1488,6 +1527,7 @@ function viewPerson(){
     <div class="kv"><span>vs store UPT</span><b class="${isFinite(a.upt)&&isFinite(store.upt)?(a.upt>=store.upt?"up":"down"):""}">${isFinite(a.upt)&&isFinite(store.upt)?((a.upt>=store.upt?"+":"")+((a.upt/store.upt-1)*100).toFixed(0)+"%"):"–"}</b></div>
   </div>${ytd?"":`<p class="hint">YTD: ${inr(y.sales)} sales · ${pct(y.ach)} achievement · ATV ${fmt(y.atv)} · UPT ${isFinite(y.upt)?y.upt.toFixed(2):"–"}</p>`}</section>`;
 
+  h+=staffConBlock(s.id,k,ytd);
   // sale mix by category
   const t=mixFor(k,ytd);
   if(t&&t.s&&t.s[s.id]){const o=t.s[s.id];const cats=Object.keys(o).sort((p,q)=>o[q][1]-o[p][1]);

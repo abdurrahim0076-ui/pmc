@@ -1722,12 +1722,12 @@ function viewPromo(){
   const pc=(a,b)=>b?pct(a/b,1):"–";
   h+=`<section class="block"><h2>🎁 ${esc(sel.name||"Promo")} · ${esc(rangeLabel(s,eD))}</h2>
     <div class="grid"><div class="kv"><span>Promo con% (bills)</span><b class="up">${pc(T.pb,T.bills)}</b></div><div class="kv"><span>Promo bills</span><b>${full(T.pb)} / ${full(T.bills)}</b></div><div class="kv"><span>Value con%</span><b>${pc(T.pv,T.val)}</b></div>
-    ${slabs.map((x,i)=>`<div class="kv"><span>₹${full(x.min)}+ · ₹${full(x.free)} free</span><b>${full(T.sl[i])} bills</b></div>`).join("")}<div class="kv"><span>Free value given</span><b>${inr(T.free)}</b></div></div>
-    <p class="hint">Slab by single bill total (all items, returns netted). ${B.days} days with bill data.</p></section>`;
+    ${slabs.map((x,i)=>`<div class="kv"><span>₹${full(x.min)}+ · ₹${full(x.free)} free</span><b>${full(T.sl[i])} bills</b><small class="muted">${pc(T.sl[i],T.pb)} of promo bills</small></div>`).join("")}<div class="kv"><span>Free value given</span><b>${inr(T.free)}</b></div></div>
+    <p class="hint">Slab % = that slab's bills ÷ all promo bills (e.g. 10 of 60 = 16.7%). Slab by single bill total (all items, returns netted). ${B.days} days with bill data.</p></section>`;
   const rows=Object.keys(S).map(id=>({id,...S[id]})).sort((a,b)=>(b.pb/(b.bills||1))-(a.pb/(a.bills||1))||b.pb-a.pb);
   h+=`<section class="block"><h2>Staff-wise</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Bills</th>${slabs.map((x,i)=>`<th>S${i+1}<br><small>₹${full(x.min)}+</small></th>`).join("")}<th>Promo con%</th><th>Value con%</th></tr></thead><tbody>`+
-    rows.map(r=>`<tr><td>${esc(r.id?staffName(r.id):"No associate")}</td><td>${full(r.bills)}</td>${r.sl.map(n=>`<td>${n||"–"}</td>`).join("")}<td class="${r.bills&&r.pb/r.bills>=T.pb/T.bills?"up":"down"}"><b>${pc(r.pb,r.bills)}</b></td><td>${pc(r.pv,r.val)}</td></tr>`).join("")+
-    `<tr class="total"><td>Store</td><td>${full(T.bills)}</td>${T.sl.map(n=>`<td>${n}</td>`).join("")}<td>${pc(T.pb,T.bills)}</td><td>${pc(T.pv,T.val)}</td></tr></tbody></table></div>
+    rows.map(r=>`<tr><td>${esc(r.id?staffName(r.id):"No associate")}</td><td>${full(r.bills)}</td>${r.sl.map(n=>`<td>${n?n+`<br><small class="muted">${pc(n,r.pb)}</small>`:"–"}</td>`).join("")}<td class="${r.bills&&r.pb/r.bills>=T.pb/T.bills?"up":"down"}"><b>${pc(r.pb,r.bills)}</b></td><td>${pc(r.pv,r.val)}</td></tr>`).join("")+
+    `<tr class="total"><td>Store</td><td>${full(T.bills)}</td>${T.sl.map(n=>`<td>${n}<br><small>${pc(n,T.pb)}</small></td>`).join("")}<td>${pc(T.pb,T.bills)}</td><td>${pc(T.pv,T.val)}</td></tr></tbody></table></div>
     <p class="hint">🟢 at or above store promo con% · 🔴 below.</p></section>`;
   return h;
 }

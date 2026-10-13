@@ -867,7 +867,7 @@ function parseX24(XLSX,wb){
       if(!need.every(n=>hdr.includes(n)))continue;
       const c={date:hdr.indexOf("TRANS DATE"),tn:hdr.indexOf("TRANSNUM"),qty:hdr.indexOf("NET SOLD QTY"),amt:hdr.indexOf("TOTAL AMOUNT"),
         who:hdr.indexOf("SALES ASSOCIATE 1 NAME"),cat:hdr.indexOf("CATEGORY"),brick:hdr.indexOf("BRICK"),fit:hdr.indexOf("FIT"),
-        cls:hdr.indexOf("CLASS"),sub:hdr.indexOf("SUB CLASS"),desc:hdr.findIndex(x=>x.indexOf("ITEM DESC")===0)};
+        cls:hdr.indexOf("CLASS"),sub:hdr.indexOf("SUB CLASS"),pc9:hdr.indexOf("PC9"),desc:hdr.findIndex(x=>x.indexOf("ITEM DESC")===0)};
       const txt=v=>{const s=String(v??"").trim();return s&&!s.startsWith("#")&&s!=="0"?s:"";};
       const add=(o,key,q,v)=>{const a=o[key]||(o[key]=[0,0]);a[0]+=q;a[1]+=v;};
       const days={};let lines=0,skippedNP=0;const billsD={};
@@ -883,12 +883,13 @@ function parseX24(XLSX,wb){
              const kA=/BELT/.test(tA)?"BL":/WALLET|WLT/.test(tA)?"WL":"";b.q.AQ=(b.q.AQ||0)+qA;b.q.AV=(b.q.AV||0)+aB;if(kA){b.q[kA+"Q"]=(b.q[kA+"Q"]||0)+qA;b.q[kA+"V"]=(b.q[kA+"V"]||0)+aB;}}}}
         if(c.cat>=0){const cu=String(row[c.cat]??"").trim().toUpperCase();if(cu==="NP"||cu.indexOf("ACCESS")>-1){skippedNP++;continue;}}
         const qty=num(row[c.qty]),amt=num(row[c.amt]),tn=String(row[c.tn]??"");
-        const d=days[date]||(days[date]={sales:0,units:0,tq:{},staff:{},mix:{c:{},b:{},f:{},s:{}}});
+        const d=days[date]||(days[date]={sales:0,units:0,tq:{},staff:{},mix:{c:{},b:{},f:{},s:{},p:{}}});
         const cat=c.cat>=0?(txt(row[c.cat])||"Other"):"All";
         const brick=(c.brick>=0&&txt(row[c.brick]))||[c.cls>=0?txt(row[c.cls]):"",c.sub>=0?txt(row[c.sub]):""].filter(Boolean).join(" · ")||"Other";
         const fit=(c.fit>=0&&txt(row[c.fit]))||"Other";
         add(d.mix.c,cat,qty,amt);add(d.mix.b,cat+"|"+brick.toUpperCase(),qty,amt);add(d.mix.f,cat+"|"+String(fit).toUpperCase(),qty,amt);
         d.sales+=amt;d.units+=qty;d.tq[tn]=(d.tq[tn]||0)+qty;
+        if(c.pc9>=0){const pc=String(row[c.pc9]??"").trim().toUpperCase();if(/^[0-9A-Z]{5}-[0-9A-Z]{4}$/.test(pc))d.mix.p[pc]=(d.mix.p[pc]||0)+qty;}
         const who=c.who>=0?String(row[c.who]??"").trim():"";
         if(who){const s=d.staff[who]||(d.staff[who]={sales:0,units:0,tq:{}});s.sales+=amt;s.units+=qty;s.tq[tn]=(s.tq[tn]||0)+qty;
           add(d.mix.s[who]||(d.mix.s[who]={}),cat,qty,amt);}
@@ -1205,7 +1206,7 @@ async function doImport(){
     if(d.mix){const wk=weekOfDate(new Date(+dt.slice(0,4),+dt.slice(5,7)-1,+dt.slice(8,10)));await loadMix(wk);
       const ms={};Object.keys(d.mix.s).forEach(n=>{const id=idFor[n];const tgt=ms[id]||(ms[id]={});
         Object.keys(d.mix.s[n]).forEach(cat=>{const a=tgt[cat]||(tgt[cat]=[0,0]);a[0]+=d.mix.s[n][cat][0];a[1]+=d.mix.s[n][cat][1];});});
-      mixCache[wk].days[dt]={c:d.mix.c,b:d.mix.b,f:d.mix.f,s:ms};mixWeeks.add(wk);}
+      mixCache[wk].days[dt]={c:d.mix.c,b:d.mix.b,f:d.mix.f,s:ms};if(d.mix.p&&Object.keys(d.mix.p).length)mixCache[wk].days[dt].p=d.mix.p;mixWeeks.add(wk);}
     if(d.bl){const wkB=weekOfDate(dOf(dt));await loadBills(wkB);billCache[wkB].days[dt]=d.bl.map(b=>[idFor[b[0]]||"",...b.slice(1)]);billWeeks.add(wkB);}
     months.add(mk);weeks.add(weekOfDate(dOf(dt)));fmonths.add(monthOfDate(dOf(dt)));
   }
@@ -1929,6 +1930,8 @@ async function loadStWeek(wk){if(stWeekCache[wk])return stWeekCache[wk];let d=nu
 function saveStRep(d){
   if(!canEdit())return;
   const doc={date:d.date,store:d.store||"",file:d.file||"",json:JSON.stringify(d.rows)};
+  /* an older week's report: keep it for Week / Month / H1 / H2, don't replace the latest */
+  if(stRep&&stRep.date&&d.date<stRep.date){rememberStWeek(Object.assign({},doc,{rows:d.rows}));ui.stWeek=stWeekOf(d);toast("Week "+weekNo(stWeekOf(d))+" ST report saved");return;}
   stRep=Object.assign({},doc,{rows:d.rows});stLoaded=true;
   try{localStorage.setItem(LS_ST,JSON.stringify(doc));}catch(e){}
   if(col) col.doc("strep").set(doc).then(()=>setStatus("Synced")).catch(()=>setStatus("Saved on this device only"));
@@ -2037,23 +2040,78 @@ function stPeriodRep(pk,per,W){
   const end=reps[reps.length-1];
   return {rep:{date:end.date,store:end.store||"",rows},weeks:inP,total:stPerWeeks(pk,per).filter(w=>weekRange(w)[0]<=new Date()).length,base:bRep?base:null,cumul};
 }
+/* ST% from X24: sale = PC9 pieces sold in X24 for the dates, SOH / status from the nearest ST report */
+function stX24Sales(s,e){const wks=weeksCovering(s,e);const miss=wks.filter(w=>!mixCache[w]);
+  if(miss.length){Promise.all(miss.map(loadMix)).then(()=>{if(ui.tab==="st")render();});return null;}
+  const si=isoOf(s),ei=isoOf(e),map={};let days=0;
+  wks.forEach(w=>Object.keys(mixCache[w].days||{}).forEach(dt=>{if(dt<si||dt>ei)return;const p=mixCache[w].days[dt].p;if(!p)return;days++;Object.keys(p).forEach(pc=>map[pc]=(map[pc]||0)+num(p[pc]));}));
+  return {map,days};}
+function stX24Build(s,e,refWk){
+  const today=new Date();if(e>today)e=today;if(s>e)return {none:true};
+  const X=stX24Sales(s,e);if(!X)return null;if(!X.days)return {none:true};
+  const W=stAllWeeks(),wks=Object.keys(W).sort();if(!wks.length)return {noSt:true};
+  const bw=wks.filter(w=>w<=refWk).pop()||wks[0];const R=stRepOf(bw);
+  if(!R){if(stWeekCache[bw]&&stWeekCache[bw].missing)return {noSt:true};loadStWeek(bw).then(()=>{if(ui.tab==="st")render();});return null;}
+  const inRep=new Set(R.rows.map(r=>r[0]));let out=0;Object.keys(X.map).forEach(pc=>{if(!inRep.has(pc)&&X.map[pc]>0)out+=X.map[pc];});
+  const rows=R.rows.map(r=>{const c=r.slice();c[12]=Math.max(0,X.map[r[0]]||0);return c;});
+  return {rep:{date:R.date,store:R.store||"",rows},days:X.days,baseWk:bw,out};}
+function stTopBlock(title,rows,prevRows,vsLbl,hint,chart){
+  const T=stSummary(rows),PT=prevRows?stSummary(prevRows):null;
+  const dl=(a,b)=>{if(!isFinite(a)||!isFinite(b))return "";const d=(a-b)*100;return `<small class="${d>=0?"up":"down"}">${d>=0?"▲":"▼"} ${Math.abs(d).toFixed(1)}% vs ${esc(vsLbl)}</small>`;};
+  return `<section class="block"><h2>${esc(title)}</h2><div class="grid"><div class="kv"><span>Store ST%</span><b>${pct(T.st,1)}</b>${PT?dl(T.st,PT.st):""}</div>
+    <div class="kv"><span>Sale</span><b>${full(T.sale)}</b></div><div class="kv"><span>SOH</span><b>${full(T.soh)}</b></div>
+    ${Object.keys(GC_NAMES).filter(g=>isFinite(T.gc[g])).map(g=>`<div class="kv"><span>${esc(g)}</span><b>${pct(T.gc[g],1)}</b>${PT&&PT.gc?dl(T.gc[g],PT.gc[g]):""}</div>`).join("")}</div>${chart||""}
+    <p class="hint">${hint}</p></section>`;}
+function stWeekBuild(wk,W){const [s,e]=weekRange(wk);const X=stX24Build(s,e,wk);if(X===null)return null;
+  if(X.rep)return {...X,src:"x24"};
+  if(W[wk]){const R=stRepOf(wk);if(R)return {rep:R,src:"st"};if(stWeekCache[wk]&&stWeekCache[wk].missing)return {none:true,noDetail:true};loadStWeek(wk).then(()=>{if(ui.tab==="st")render();});return null;}
+  return {none:true};}
+function viewStWeekX(){
+  if(!stLoaded) return viewStRepCore();
+  if(stRep) rememberStWeek(stRep);
+  const W=stAllWeeks(),stw=Object.keys(W).sort(),cw=weekOfDate(new Date());
+  let w0=weekKey(fyOf(cw),1);if(stw[0]&&stw[0]<w0)w0=stw[0];
+  const list=[];for(let w=w0;w<=cw&&list.length<120;w=stepKey(w,1))list.push(w);
+  const def=stw.length?stw[stw.length-1]:stepKey(cw,-1);
+  const sel=list.includes(ui.stWeek)?ui.stWeek:def,i=list.indexOf(sel);
+  const B=stWeekBuild(sel,W);
+  const sub=!B?"&nbsp;":B.src==="x24"?"Sale from X24 ("+B.days+" days) · SOH from W"+weekNo(B.baseWk)+" ST report":B.src==="st"?"ST report of "+esc(shortDate(B.rep.date)):"No data";
+  const bar=`<div class="monthbar"><button data-stw="${esc(list[i-1]||"")}" ${i>0?"":"disabled"} aria-label="Previous week">‹</button><div class="label">ST% · Week ${weekNo(sel)}<small>${sub}</small></div><button data-stw="${esc(list[i+1]||"")}" ${i<list.length-1?"":"disabled"} aria-label="Next week">›</button></div>`;
+  if(!B) return bar+`<div class="empty">Loading…</div>`;
+  if(B.none||B.noSt) return bar+`<section class="block"><div class="empty">${B.noSt?"Upload one Week ST report so SOH is known.":B.noDetail?"Full detail for this week isn't saved on this device.":"No X24 or ST report for Week "+weekNo(sel)+" yet. Import that week's X24 in the Sales tab."}</div></section>`;
+  const P=stWeekBuild(stepKey(sel,-1),W);
+  const maxSt=Math.max(0.0001,...stw.map(w=>W[w].st||0));
+  const chart=stw.length>1?`<div class="chart wk" role="img" aria-label="ST report % by week" style="height:90px">${stw.map(w=>`<button class="col${w===sel?" sel":""}" data-stw="${esc(w)}" aria-label="Week ${weekNo(w)}: ${pct(W[w].st,1)}"><div class="stack"><div class="s" style="height:${((W[w].st||0)/maxSt*100).toFixed(1)}%"></div></div><span class="m">W${weekNo(w)}</span></button>`).join("")}</div>`:"";
+  const hint=B.src==="x24"?`Week ST% = pieces sold this week (X24) ÷ (sold + SOH in the W${weekNo(B.baseWk)} ST report).${B.out?" "+full(B.out)+" pcs sold of PC9s not in that ST report are left out.":""} Bars: ST% of each uploaded ST report.`:`No X24 for this week, so this is the ST report (sale since REC IN). Import the week's X24 for week-only sale.`;
+  const top=stTopBlock("Week "+weekNo(sel)+" ("+rangeText(sel)+")",B.rep.rows,P&&P.rep&&P.src===B.src?P.rep.rows:null,"W"+weekNo(stepKey(sel,-1)),hint,chart);
+  const keep=stRep;stRep=B.rep;let body;try{body=viewStRepCore();}finally{stRep=keep;}
+  return bar+top+(B.src==="x24"?body.replace("sale since the style came in (REC IN)","sale this week from X24"):body);
+}
+
 function viewStRep(){
   const per=ui.stPer||"week";
   const seg=`<div class="seg" role="group" aria-label="ST period">${[["week","Week"],["month","Month"],["h1","H1"],["h2","H2"]].map(([k,l])=>`<button data-stper="${k}" aria-pressed="${per===k}">${l}</button>`).join("")}</div>`;
-  if(per==="week"||!stLoaded) return seg+viewStWeekP();
+  if(per==="week"||!stLoaded) return seg+viewStWeekX();
   const W=stAllWeeks(),wks=Object.keys(W).sort();if(!wks.length) return seg+viewStRepCore();
   const pp=per==="month"?"month":"half";
-  const keys=[...new Set(wks.map(w=>stPerKey(w,pp)))].filter(k=>pp==="month"||k.slice(-2)===per.toUpperCase()).sort();
+  let keys=[...new Set(wks.map(w=>stPerKey(w,pp)))].filter(k=>pp==="month"||k.slice(-2)===per.toUpperCase());
+  if(pp==="month"){const cm=monthOfDate(new Date());monthKeys(fyOf(cm)).forEach(m=>{if(m<=cm&&!keys.includes(m))keys.push(m);});}
+  keys.sort();
+  const getP=k=>{if(pp!=="month")return stPeriodRep(k,pp,W);const [a,b]=fmRange(k);const X=stX24Build(a,b,weekOfDate(b>new Date()?new Date():b));
+    if(X===null)return null;if(X.rep)return {rep:X.rep,weeks:[],total:0,x24:X};return stPeriodRep(k,pp,W);};
   if(!keys.length) return seg+`<section class="block"><div class="empty">No ST report uploaded for ${per.toUpperCase()} yet (${per==="h1"?"Dec – May":"Jun – Nov"}).</div></section>`;
   const sel=keys.includes(ui.stPk)?ui.stPk:keys[keys.length-1],i=keys.indexOf(sel);
-  const P=stPeriodRep(sel,pp,W);
-  const bar=`<div class="monthbar"><button data-stpk="${esc(keys[i-1]||"")}" ${i>0?"":"disabled"} aria-label="Previous period">‹</button><div class="label">ST% · ${esc(stPerLabel(sel,pp))}<small>${P&&P.weeks?P.weeks.length+" of "+P.total+" weeks uploaded":"&nbsp;"}</small></div><button data-stpk="${esc(keys[i+1]||"")}" ${i<keys.length-1?"":"disabled"} aria-label="Next period">›</button></div>`;
+  const P=getP(sel);
+  const bar=`<div class="monthbar"><button data-stpk="${esc(keys[i-1]||"")}" ${i>0?"":"disabled"} aria-label="Previous period">‹</button><div class="label">ST% · ${esc(stPerLabel(sel,pp))}<small>${P&&P.x24?"Sale from X24 ("+P.x24.days+" days) · SOH from W"+weekNo(P.x24.baseWk)+" ST report":P&&P.weeks?P.weeks.length+" of "+P.total+" weeks uploaded":"&nbsp;"}</small></div><button data-stpk="${esc(keys[i+1]||"")}" ${i<keys.length-1?"":"disabled"} aria-label="Next period">›</button></div>`;
   if(!P) return seg+bar+`<div class="empty">Loading…</div>`;
   if(P.none) return seg+bar+`<div class="empty">${P.noDetail?"Full detail for these weeks isn't saved on this device.":"No ST report uploaded for this period."}</div>`;
   const T=stSummary(P.rep.rows);
-  const pk=stPrevKey(sel,pp),PP=(pp==="month"?keys.includes(pk):!!Object.keys(W).find(w=>stPerKey(w,pp)===pk))?stPeriodRep(pk,pp,W):null,PT=PP&&PP.rep?stSummary(PP.rep.rows):null;
+  const pk=stPrevKey(sel,pp),PP=(pp==="month"?keys.includes(pk):!!Object.keys(W).find(w=>stPerKey(w,pp)===pk))?getP(pk):null,PT=PP&&PP.rep?stSummary(PP.rep.rows):null;
   const dl=(a,b)=>{if(!isFinite(a)||!isFinite(b))return "";const d=(a-b)*100;return `<small class="${d>=0?"up":"down"}">${d>=0?"▲":"▼"} ${Math.abs(d).toFixed(1)}% vs ${pp==="month"?"last month":esc(pk.slice(-2))}</small>`;};
   const maxSt=Math.max(0.0001,...P.weeks.map(w=>W[w].st||0));
+  if(P.x24){const top=stTopBlock(stPerLabel(sel,pp),P.rep.rows,PP&&PP.rep?PP.rep.rows:null,"last month",`Month ST% = pieces sold in the month (X24) ÷ (sold + SOH in the W${weekNo(P.x24.baseWk)} ST report).${P.x24.out?" "+full(P.x24.out)+" pcs sold of PC9s not in that ST report are left out.":""}`,"");
+    const keep=stRep;stRep=P.rep;let body;try{body=viewStRepCore();}finally{stRep=keep;}
+    return seg+bar+top+body.replace("sale since the style came in (REC IN)","sale this month from X24");}
   const top=`<section class="block"><h2>${esc(stPerLabel(sel,pp))}</h2><div class="grid"><div class="kv"><span>Store ST%</span><b>${pct(T.st,1)}</b>${PT?dl(T.st,PT.st):""}</div>
     <div class="kv"><span>Sale in period</span><b>${full(T.sale)}</b></div><div class="kv"><span>SOH at end</span><b>${full(T.soh)}</b></div>
     ${Object.keys(GC_NAMES).filter(g=>isFinite(T.gc[g])).map(g=>`<div class="kv"><span>${esc(g)}</span><b>${pct(T.gc[g],1)}</b>${PT&&PT.gc?dl(T.gc[g],PT.gc[g]):""}</div>`).join("")}</div>

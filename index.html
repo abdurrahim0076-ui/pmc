@@ -1460,7 +1460,7 @@ function billKpis(list,pr){
   const slabs=pr?(pr.slabs||[]).filter(x=>num(x.min)>0).sort((a,b)=>num(a.min)-num(b.min)):[];o.sl=slabs.map(()=>0);o.slabs=slabs;
   list.forEach(b=>{const q=b[2]+b[3]+b[4]+b[5];if(q<=0)return;o.bills++;o.app+=q;if(q===1)o.single++;
     o.mt+=b[2];o.mb+=b[3];o.wt+=b[4];o.wb+=b[5];if(b[2]>0)o.cMT++;if(b[3]>0)o.cMB++;if(b[4]>0)o.cWT++;if(b[5]>0)o.cWB++;
-    if(pr&&b._d>=pr.from&&b._d<=pr.to&&b[1]>0){o.pBills++;let k=-1;slabs.forEach((x,i)=>{if(b[1]>=num(x.min))k=i;});if(k>=0){o.pb++;o.sl[k]++;}}});
+    if(pr&&b[1]>0){o.pBills++;let k=-1;slabs.forEach((x,i)=>{if(b[1]>=num(x.min))k=i;});if(k>=0){o.pb++;o.sl[k]++;}}});
   o.a=accCalc(list);return o;}
 function staffConBlock(sid,k,ytd){
   const [s0,e0]=periodDates(k,ytd);const e=e0<new Date()?e0:new Date();
@@ -1469,7 +1469,7 @@ function staffConBlock(sid,k,ytd){
   const si=isoOf(s0),ei=isoOf(e);const all=[];
   wks.forEach(w=>Object.keys(billCache[w].days).forEach(dt=>{if(dt<si||dt>ei)return;billCache[w].days[dt].forEach(b=>{const c=b.slice();c._d=dt;all.push(c);});}));
   if(!all.length) return `<section class="block"><h2>📊 Con%</h2>${needBillsMsg(s0,e)}</section>`;
-  const pr=(state.promos||[]).filter(p=>p.from<=ei&&p.to>=si).sort((a,b)=>a.from<b.from?1:-1)[0]||null;
+  const pr=promoSel();
   const mine=all.filter(b=>b[0]===sid);
   const M=billKpis(mine,pr),S=billKpis(all,pr);
   const r=(a,b)=>b?a/b:NaN;
@@ -1745,15 +1745,15 @@ function viewPromo(){
   const P=state.promos||[],sel=promoSel(),ed=canEdit();
   let h="";
   if(P.length>1) h+=`<div class="chips" style="margin-top:0">${P.map(p=>`<button data-promo="${esc(p.id)}" style="${sel&&sel.id===p.id?"background:var(--soft)":""}">${esc(p.name||"Promo")}</button>`).join("")}</div>`;
-  if(ed){const e=ui.promoEdit||(sel?JSON.parse(JSON.stringify(sel)):{id:"",name:"",from:isoOf(weekRange(weekOfDate(new Date()))[0]),to:todayISO(),slabs:DEF_SLABS.map(x=>({...x}))});ui.promoEdit=e;
+  if(ed){const e=ui.promoEdit||(sel?JSON.parse(JSON.stringify(sel)):{id:"",name:"",slabs:DEF_SLABS.map(x=>({...x}))});ui.promoEdit=e;
     h+=`<section class="block"><h2>${e.id?"Edit promo":"New promo"}</h2>
       <label class="f" for="prName">Promo name</label><input type="text" id="prName" value="${esc(e.name)}" placeholder="Diwali offer">
-      <div class="fgrid" style="margin-top:8px"><div><label class="f" for="prFrom">From</label><input type="date" id="prFrom" value="${esc(e.from)}"></div><div><label class="f" for="prTo">To</label><input type="date" id="prTo" value="${esc(e.to)}"></div></div>
+      
       <div class="tscroll" style="margin-top:10px"><table><thead><tr><th>Slab</th><th>Single bill from (₹)</th><th>Free (₹)</th><th></th></tr></thead><tbody>${e.slabs.map((s,i)=>`<tr><td>${i+1}</td><td><input class="n" data-slmin="${i}" inputmode="numeric" value="${num(s.min)||""}"></td><td><input class="n" data-slfree="${i}" inputmode="numeric" value="${num(s.free)||""}"></td><td><button class="btn small" data-slrm="${i}" aria-label="Remove slab ${i+1}">×</button></td></tr>`).join("")}</tbody></table></div>
       <div class="actions"><button class="btn small" id="slAdd">+ Add slab</button><button class="btn small primary" id="prSave" style="flex:1">Save promo</button>${e.id?`<button class="btn small" id="prNew">New promo</button><button class="btn small danger" id="prDel">Delete</button>`:""}</div></section>`;}
   if(!sel) return h+(ed?"":`<section class="block"><div class="empty">No promo set up yet.</div></section>`);
   const slabs=(sel.slabs||[]).filter(s=>num(s.min)>0).sort((a,b)=>num(a.min)-num(b.min));
-  const s=dOf(sel.from),eD=dOf(sel.to)<new Date()?dOf(sel.to):new Date();
+  const k=cur(),[s,e0]=periodDates(k,isYtd());const eD=e0<new Date()?e0:new Date();
   const B=billsBetween(s,eD);if(!B) return h+`<div class="empty">Loading…</div>`;
   if(!B.bills.length) return h+`<section class="block"><h2>🎁 ${esc(sel.name||"Promo")}</h2>${needBillsMsg(s,eD)}</section>`;
   const slabOf=t=>{let k=-1;slabs.forEach((x,i)=>{if(t>=num(x.min))k=i;});return k;};
@@ -1761,7 +1761,7 @@ function viewPromo(){
   const T=blank(),S={};
   B.bills.forEach(b=>{if(b[1]<=0)return;const k=slabOf(b[1]);const o=S[b[0]]||(S[b[0]]=blank());[T,o].forEach(x=>{x.bills++;x.val+=b[1];if(k>=0){x.pb++;x.pv+=b[1];x.free+=num(slabs[k].free);x.sl[k]++;}});});
   const pc=(a,b)=>b?pct(a/b,1):"–";
-  h+=`<section class="block"><h2>🎁 ${esc(sel.name||"Promo")} · ${esc(rangeLabel(s,eD))}</h2>
+  h+=`<section class="block"><h2>🎁 ${esc(sel.name||"Promo")} · ${esc(isYtd()?ytdLabel():mLong(k))}</h2>
     <div class="grid"><div class="kv"><span>Promo con% (bills)</span><b class="up">${pc(T.pb,T.bills)}</b></div><div class="kv"><span>Promo bills</span><b>${full(T.pb)} / ${full(T.bills)}</b></div><div class="kv"><span>Value con%</span><b>${pc(T.pv,T.val)}</b></div>
     ${slabs.map((x,i)=>`<div class="kv"><span>₹${full(x.min)}+ · ₹${full(x.free)} free</span><b>${full(T.sl[i])} bills</b><small class="muted">${pc(T.sl[i],T.pb)} of promo bills</small></div>`).join("")}<div class="kv"><span>Free value given</span><b>${inr(T.free)}</b></div></div>
     <p class="hint">Slab % = that slab's bills ÷ all promo bills (e.g. 10 of 60 = 16.7%). Slab by single bill total (all items, returns netted). ${B.days} days with bill data.</p></section>`;
@@ -2555,13 +2555,12 @@ document.addEventListener("click",e=>{
   if(t.dataset.promo){ui.promoId=t.dataset.promo;ui.promoEdit=null;render();return;}
   if((t.id==="slAdd"||t.dataset.slrm!==undefined||t.id==="prSave"||t.id==="prNew"||t.id==="prDel")&&canEdit()){
     const e=ui.promoEdit||{slabs:[]};
-    if(document.getElementById("prName")){e.name=document.getElementById("prName").value.trim();e.from=document.getElementById("prFrom").value;e.to=document.getElementById("prTo").value;
+    if(document.getElementById("prName")){e.name=document.getElementById("prName").value.trim();
       e.slabs=e.slabs.map((s,i)=>({min:num((document.querySelector(`[data-slmin="${i}"]`)||{}).value),free:num((document.querySelector(`[data-slfree="${i}"]`)||{}).value)}));}
     if(t.id==="slAdd"){const last=e.slabs[e.slabs.length-1];e.slabs.push({min:last?num(last.min)+5000:8999,free:last?num(last.free)+1000:1000});ui.promoEdit=e;render();return;}
     if(t.dataset.slrm!==undefined){e.slabs.splice(+t.dataset.slrm,1);ui.promoEdit=e;render();return;}
-    if(t.id==="prNew"){ui.promoEdit={id:"",name:"",from:todayISO(),to:todayISO(),slabs:DEF_SLABS.map(x=>({...x}))};ui.promoId="__new";render();return;}
+    if(t.id==="prNew"){ui.promoEdit={id:"",name:"",slabs:DEF_SLABS.map(x=>({...x}))};ui.promoId="__new";render();return;}
     if(t.id==="prDel"){askConfirm("Delete promo \""+(e.name||"Promo")+"\"?","Delete",()=>{state.promos=(state.promos||[]).filter(p=>p.id!==e.id);ui.promoEdit=null;ui.promoId="";persist("Promo deleted");render();});return;}
-    if(!e.from||!e.to||e.to<e.from){toast("Pick the promo dates");return;}
     e.slabs=e.slabs.filter(s=>s.min>0).sort((a,b)=>a.min-b.min);if(!e.slabs.length){toast("Add at least one slab");return;}
     if(!e.id)e.id="pr_"+Math.random().toString(36).slice(2,8);const list=(state.promos||[]).filter(p=>p.id!==e.id);list.push(JSON.parse(JSON.stringify(e)));
     state.promos=list;ui.promoId=e.id;ui.promoEdit=null;persist("Promo saved");render();return;}

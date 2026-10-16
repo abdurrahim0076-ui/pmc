@@ -751,6 +751,14 @@ function ytdAvgs(k,y){const fs=fyStart(fyOf(k));const [,pe]=periodDates(k,false)
   return {wk:y.sales/wks,mo:y.sales/months,wks,months};}
 function vsTxt(v,avg){if(!(v>0)||!(avg>0))return "";const d=v/avg-1;return `<small class="${d>=0?"up":"down"}">${d>=0?"▲":"▼"} ${Math.abs(d*100).toFixed(0)}% vs YTD avg</small>`;}
 
+/* tailor shop (NP lines in the X24) — shown on the dashboard only, never added to sales */
+function npBetween(s,e){const mks=[];for(let d=new Date(s.getFullYear(),s.getMonth(),1);d<=e;d=new Date(d.getFullYear(),d.getMonth()+1,1))mks.push(isoOf(d).slice(0,7));
+  const miss=mks.filter(m=>!x24Cache[m]);if(miss.length){Promise.all(miss.map(loadX24)).then(()=>{if(ui.tab==="home")render();});return null;}
+  const si=isoOf(s),ei=isoOf(e),t={q:0,v:0,b:0,days:0};
+  mks.forEach(m=>Object.keys(x24Cache[m].days||{}).forEach(dt=>{if(dt<si||dt>ei)return;const n=x24Cache[m].days[dt].np;if(!n)return;t.days++;t.q+=num(n[0]);t.v+=num(n[1]);t.b+=num(n[2]);}));
+  return t;}
+function npTile(t,label){return `<div class="kv"><span>👖 ${label}</span><b>${!t?"…":t.days?inr(t.v):"–"}</b><small class="muted">${t&&t.days?full(t.q)+" pcs · "+full(t.b)+" bills":t?"Import X24 again to see it":""}</small></div>`;}
+
 function viewHome(){
   const k=cur(), m=aggStore(selKeys()), y=aggStore(ytdKeys(k));
   if(isWeek(k)){withYtdTarget(y,k);if(isYtd())withYtdTarget(m,k);}
@@ -778,6 +786,7 @@ function viewHome(){
       <div class="kv"><span>📐 Sale / sq ft</span><b>₹${full(Math.round(m.sales/gsa()))}</b><small class="muted">GSA ${full(gsa())} sq ft</small></div>
       <div class="kv"><span>👖 BTM%</span><b>${hx?pct(hx.btm,1):"…"}</b></div>
       <div class="kv"><span>👗 WMS%</span><b>${hx?pct(hx.wms,1):"…"}</b></div>
+      ${npTile(npBetween(hs,he0<new Date()?he0:new Date()),"Tailor shop")}
       <div class="kv"><span>ATV</span><b>${isFinite(m.atv)?inr(m.atv):"–"}</b></div>
       <div class="kv"><span>UPT</span><b>${isFinite(m.upt)?m.upt.toFixed(2):"–"}</b></div>
       <div class="kv"><span>AVU</span><b>${isFinite(m.asp)?inr(m.asp):"–"}</b></div>
@@ -801,7 +810,7 @@ function viewHome(){
     <div class="kv"><span>Avg / week</span><b>${(()=>{const a=ytdAvgs(k,y);return y.sales>0?inr(a.wk):"–";})()}</b></div>
     <div class="kv"><span>Avg / month</span><b>${(()=>{const a=ytdAvgs(k,y);return y.sales>0?inr(a.mo):"–";})()}</b></div>
     <div class="kv"><span>📐 Sale / sq ft</span><b>${(()=>{const a=ytdAvgs(k,y);return y.sales>0?"₹"+full(Math.round(a.mo/gsa())):"–";})()}</b><small class="muted">per month avg · GSA ${full(gsa())} sq ft</small></div>
-    ${(()=>{const yx=homeMix(fyStart(fyOf(k)),(()=>{const [,pe]=periodDates(k,false);return pe<new Date()?pe:new Date();})());return `<div class="kv"><span>👖 BTM%</span><b>${yx?pct(yx.btm,1):"…"}</b></div><div class="kv"><span>👗 WMS%</span><b>${yx?pct(yx.wms,1):"…"}</b></div>`;})()}
+    ${(()=>{const yx=homeMix(fyStart(fyOf(k)),(()=>{const [,pe]=periodDates(k,false);return pe<new Date()?pe:new Date();})());const ye=(()=>{const [,pe]=periodDates(k,false);return pe<new Date()?pe:new Date();})();return `<div class="kv"><span>👖 BTM%</span><b>${yx?pct(yx.btm,1):"…"}</b></div><div class="kv"><span>👗 WMS%</span><b>${yx?pct(yx.wms,1):"…"}</b></div>`+npTile(npBetween(fyStart(fyOf(k)),ye),"Tailor YTD");})()}
   </div><p class="hint">${isDay(k)?"From "+esc(shortDate(isoOf(fyStart(fyOf(k)))))+" to "+esc(mShort(k)):isWeek(k)?"Week 1 to Week "+weekNo(k):"December to "+esc(MN_FULL[parseKey(k).m-1])}. L2L counts only ${isDay(k)?"days":isWeek(k)?"weeks":"months"} that have last year's sales too.</p></section>`;
   {const yk=ytdKeys(k);const ys=staffWithData(yk).map(s=>({s,a:aggStaff(s.id,yk)})).filter(x=>x.a.sales>0).sort((p,q)=>q.a.sales-p.a.sales);
    const liF=(x,i)=>`<li><span class="pos">${i+1}</span><div class="who"><b>${esc(x.s.name)}</b><small>ATV ${isFinite(x.a.atv)?inr(x.a.atv):"–"} · UPT ${isFinite(x.a.upt)?x.a.upt.toFixed(2):"–"}</small></div><div class="amt"><b>${inr(x.a.sales)}</b><small class="${isFinite(x.a.ach)?(x.a.ach>=1?"up":"down"):"muted"}">${isFinite(x.a.ach)?pct(x.a.ach)+" ach.":""}</small></div></li>`;
@@ -897,7 +906,7 @@ function parseX24(XLSX,wb){
         cls:hdr.indexOf("CLASS"),sub:hdr.indexOf("SUB CLASS"),pc9:hdr.indexOf("PC9"),code:hdr.indexOf("PRODUCT CODE"),desc:hdr.findIndex(x=>x.indexOf("ITEM DESC")===0)};
       const txt=v=>{const s=String(v??"").trim();return s&&!s.startsWith("#")&&s!=="0"?s:"";};
       const add=(o,key,q,v)=>{const a=o[key]||(o[key]=[0,0]);a[0]+=q;a[1]+=v;};
-      const days={};let lines=0,skippedNP=0;const billsD={};
+      const days={};let lines=0,skippedNP=0;const billsD={},npD={};
       const CATK={"MENS TOPS":"MT","MENS BOTTOMS":"MB","WOMENS TOPS":"WT","WOMENS BOTTOMS":"WB"};
       for(let r=i+1;r<rows.length;r++){
         const row=rows[r];if(!row)continue;
@@ -908,6 +917,7 @@ function parseX24(XLSX,wb){
            const kB=CATK[cuB];if(kB)b.q[kB]=(b.q[kB]||0)+num(row[c.qty]);
            if(cuB.indexOf("ACCESS")>-1){const qA=num(row[c.qty]);const tA=[c.cls,c.sub,c.brick,c.desc].map(ix=>ix>=0?String(row[ix]??""):"").join(" ").toUpperCase();
              const kA=/BELT/.test(tA)?"BL":/WALLET|WLT/.test(tA)?"WL":"";b.q.AQ=(b.q.AQ||0)+qA;b.q.AV=(b.q.AV||0)+aB;if(kA){b.q[kA+"Q"]=(b.q[kA+"Q"]||0)+qA;b.q[kA+"V"]=(b.q[kA+"V"]||0)+aB;}}}}
+        if(c.cat>=0&&String(row[c.cat]??"").trim().toUpperCase()==="NP"){const n=npD[date]||(npD[date]={q:0,v:0,t:{}});n.q+=num(row[c.qty]);n.v+=num(row[c.amt]);n.t[String(row[c.tn]??"")]=1;}
         if(c.cat>=0){const cu=String(row[c.cat]??"").trim().toUpperCase();if(cu==="NP"||cu.indexOf("ACCESS")>-1){skippedNP++;continue;}}
         const qty=num(row[c.qty]),amt=num(row[c.amt]),tn=String(row[c.tn]??"");
         const d=days[date]||(days[date]={sales:0,units:0,tq:{},staff:{},mix:{c:{},b:{},f:{},s:{},p:{}}});
@@ -931,7 +941,8 @@ function parseX24(XLSX,wb){
         const rnd=o=>{Object.keys(o).forEach(k=>{o[k]=[o[k][0],Math.round(o[k][1])];});return o;};
         rnd(d.mix.c);rnd(d.mix.b);rnd(d.mix.f);Object.values(d.mix.s).forEach(rnd);
         const bl=Object.values(billsD[dt]||{}).map(b=>{const who=Object.keys(b.w).sort((x,y)=>b.w[y]-b.w[x])[0]||"";const r0=x=>Math.round(b.q[x]||0);return [who,Math.round(b.t),b.q.MT||0,b.q.MB||0,b.q.WT||0,b.q.WB||0,b.q.AQ||0,r0("AV"),b.q.BLQ||0,r0("BLV"),b.q.WLQ||0,r0("WLV")];});
-        out[dt]={sales:Math.round(d.sales*100)/100,units:d.units,bills:bills(d.tq),staff:st,mix:d.mix,bl};});
+        const npx=npD[dt];
+        out[dt]={np:npx?[npx.q,Math.round(npx.v),Object.keys(npx.t).length]:[0,0,0],sales:Math.round(d.sales*100)/100,units:d.units,bills:bills(d.tq),staff:st,mix:d.mix,bl};});
       if(!Object.keys(out).length) throw new Error("The report has no sales lines with a date.");
       return {days:out,lines,skippedNP};
     }
@@ -1231,7 +1242,7 @@ async function doImport(){
     const old=x24Cache[mk].days[dt]||{};
     Object.keys(st).forEach(id=>{if(old.staff&&old.staff[id]&&old.staff[id].target)st[id].target=old.staff[id].target;});
     const keep={};["target","footfall","lySales"].forEach(f=>{if(old[f]!=null)keep[f]=old[f];});
-    x24Cache[mk].days[dt]={...keep,sales:d.sales,units:d.units,bills:d.bills,staff:st,source:"x24"};
+    x24Cache[mk].days[dt]={...keep,sales:d.sales,units:d.units,bills:d.bills,staff:st,source:"x24"};if(d.np)x24Cache[mk].days[dt].np=d.np;
     if(d.mix){const wk=weekOfDate(new Date(+dt.slice(0,4),+dt.slice(5,7)-1,+dt.slice(8,10)));await loadMix(wk);
       const ms={};Object.keys(d.mix.s).forEach(n=>{const id=idFor[n];const tgt=ms[id]||(ms[id]={});
         Object.keys(d.mix.s[n]).forEach(cat=>{const a=tgt[cat]||(tgt[cat]=[0,0]);a[0]+=d.mix.s[n][cat][0];a[1]+=d.mix.s[n][cat][1];});});

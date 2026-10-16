@@ -1981,16 +1981,16 @@ const GC_NAMES={MB:"Men's Bottoms",MT:"Men's Tops",WB:"Women's Bottoms",WT:"Wome
 /* photos: pc9_images.json sits next to index.html on GitHub */
 let pcImgs=null,pcImgState="idle";
 function loadPcImgs(){
-  if(pcImgState!=="idle")return;
+  loadPcUser();if(pcImgState!=="idle")return;
   pcImgState="loading";
   fetch("pc9_images.json",{cache:"default"}).then(r=>{if(!r.ok)throw 0;return r.json();})
     .then(j=>{pcImgs=(j&&j.img)||{};pcImgs.__fmt=(j&&j.fmt)||"webp";pcImgState="ready";if(ui.tab==="st")render();})
     .catch(()=>{pcImgs={};pcImgState="missing";if(ui.tab==="st")render();});
 }
-function pcImg(pc){if(!pcImgs||!pcImgs[pc])return "";return "data:image/"+(pcImgs.__fmt==="jpg"?"jpeg":pcImgs.__fmt)+";base64,"+pcImgs[pc];}
+function pcImg(pc){if(pcUser[pc])return pcUser[pc];if(!pcImgs||!pcImgs[pc])return "";return "data:image/"+(pcImgs.__fmt==="jpg"?"jpeg":pcImgs.__fmt)+";base64,"+pcImgs[pc];}
 function stCard(r,i){
   const img=pcImg(r.pc);const sc=r.stat==="Fast"?"fast":r.stat==="Avg"?"avg":r.stat==="Miss"?"miss":"";
-  return `<div class="stcard"><div class="stimg">${img?`<img src="${img}" alt="${esc(r.pc)}" loading="lazy">`:`<span>No photo</span>`}
+  return `<div class="stcard"><div class="stimg">${img?`<img src="${img}" alt="${esc(r.pc)}" loading="lazy">`:`<span>No photo</span>${canEdit()?`<button class="btn small" data-pcadd="${esc(r.pc)}" style="margin-top:6px">📷 Add</button>`:""}`}
       <b class="strank">${i+1}</b>${r.stat?`<em class="stpill ${sc}">${esc(r.stat)}</em>`:""}</div>
     <div class="stbody"><div class="stpct num">${pct(r.st,1)}<small>ST%</small></div>
       <div class="stsale">Sale <b>${full(r.sale)}</b> · SOH <b>${full(r.soh)}</b></div>
@@ -2166,9 +2166,9 @@ function viewStRepCore(){
   const N=ui.stN||20,shown=N==="all"?list:list.slice(0,N);
   h+=`<div class="chips" style="margin:0 0 8px">${view==="top"?["","Fast","Avg","Miss"].map(s=>`<button data-ststat="${s}" style="${(ui.stStat||"")===s?"background:var(--soft)":""}">${s||"All status"}</button>`).join(""):""}
     ${[10,20,50,"all"].map(n=>`<button data-stn="${n}" style="${N===n?"background:var(--soft)":""}">${n==="all"?"All":"Top "+n}</button>`).join("")}
-    ${imgsOk?`<button data-stphoto="1" style="${photoOnly?"background:var(--soft)":""}">${photoOnly?"✓ ":""}With photo only</button>`:""}</div>`;
+    ${imgsOk?`<button data-stphoto="1" style="${photoOnly?"background:var(--soft)":""}">${photoOnly?"✓ ":""}With photo only</button>`:""}${canEdit()?`<button id="pcBulk">📷 Upload PC9 photos</button>`:""}</div>`;
   if(pcImgState==="loading") h+=`<p class="hint" style="margin:0 0 8px">Loading photos…</p>`;
-  if(pcImgState==="missing") h+=`<p class="hint" style="margin:0 0 8px">Photos not found. Upload <b>pc9_images.json</b> to GitHub next to index.html.</p>`;
+  if(pcImgState==="missing"&&!Object.keys(pcUser).length) h+=`<p class="hint" style="margin:0 0 8px">No PC9 photos yet.${canEdit()?" Tap 📷 Upload PC9 photos (file name = PC9, e.g. A4411-0031.jpg).":""}</p>`;
   if(!shown.length) return h+`<section class="block"><div class="empty">No PC9 in this list${g?" for "+esc(GC_NAMES[g]||g):""}.</div></section>`;
   h+=`<div class="stgrid">${shown.map(stCard).join("")}</div>
     <p class="hint" style="margin:10px 2px 0">${note} Showing ${shown.length} of ${list.length}.${hidden?" "+hidden+" PC9 without a photo hidden.":""}</p>`;
@@ -2398,13 +2398,21 @@ let lyLoading=false;/* ---------- 🎓 Training: season session slides, Must Kno
 const trn={st:"",seasons:[],data:{},learn:{},slides:{}};
 function loadTraining(){
   if(trn.st)return;trn.st="loading";
-  fetch("training.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw 0;return r.json();})
-    .then(j=>{trn.seasons=(j&&j.seasons)||[];(trn.seasons).forEach(x=>{trn.data[x.id]=x;});if(!trn.seasons.length)throw 0;trn.st="ready";})
-    .catch(()=>{trn.st="missing";}).finally(()=>{if(ui.tab==="learn"||ui.tab==="home"||ui.tab==="daily")render();});
+  const gh=fetch("training.json",{cache:"no-cache"}).then(r=>r.ok?r.json():null).catch(()=>null);
+  Promise.all([gh,fsGet("trn-index").catch(()=>null)]).then(async([j,ix])=>{
+    const list=[];((j&&j.seasons)||[]).forEach(x=>{trn.data[x.id]={...x,src:"gh"};list.push(trn.data[x.id]);});
+    for(const x of ((ix&&ix.seasons)||[])){const d=await fsGet("trn-"+x.id);if(!d||!d.json)continue;
+      try{const o={...x,...JSON.parse(d.json),src:"fs"};const k=list.findIndex(y=>y.id===o.id);if(k>=0)list.splice(k,1);trn.data[o.id]=o;list.push(o);}catch(e){}}
+    trn.seasons=list;trn.st=list.length?"ready":"missing";
+  }).catch(()=>{trn.st="missing";}).finally(()=>{if(ui.tab==="learn"||ui.tab==="home"||ui.tab==="daily")render();});
 }
 function loadSeason(id){return Promise.resolve(trn.data[id]||(trn.data[id]={missing:true}));}
 function curSeason(){return trn.seasons[trn.seasons.length-1]||null;}
-function slideUrl(id,n){const P=trn.slides[id];
+function slideUrl(id,n){
+  if(trn.data[id]&&trn.data[id].src==="fs"){trn.fsSl=trn.fsSl||{};const k=id+"|"+n,v=trn.fsSl[k];
+    if(v===undefined){trn.fsSl[k]="loading";fsGet("trn-"+id+"-s"+n).then(d=>{trn.fsSl[k]=d&&d.img||"missing";}).finally(()=>render());}
+    return v&&v.startsWith("data:")?v:"data:image/gif;base64,R0lGODlhAQABAAAAACw=";}
+  const P=trn.slides[id];
   if(!P){trn.slides[id]="loading";fetch("slides_"+encodeURIComponent(id)+".json").then(r=>{if(!r.ok)throw 0;return r.json();}).then(j=>{trn.slides[id]=j;}).catch(()=>{trn.slides[id]="missing";}).finally(()=>render());}
   return P&&typeof P==="object"&&P[n]?P[n]:"data:image/gif;base64,R0lGODlhAQABAAAAACw=";}
 function dayIdx(iso,from,n){const d=Math.round((dOf(iso)-dOf(from||iso))/864e5);return ((d%n)+n)%n;}
@@ -2439,13 +2447,13 @@ function learnCard(iso,compact){
     <p style="margin:0 0 8px;font-weight:700">${esc(card.q)}</p>
     ${open?`<ul class="learnlist">${card.a.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>${card.s?`<button class="slidethumb" data-slide="${card.s}" aria-label="Open slide ${card.s}"><img src="${slideUrl(S.id,card.s)}" alt="Slide ${card.s}" loading="lazy"></button>`:""}`
       :`<button class="btn small" data-learnopen="${iso}">Show answer</button>`}
-    <div class="actions">${canPhoto()&&iso===todayISO()?(mine?`<span class="up" style="align-self:center;font-weight:700">✓ You learnt this</span>`:`<button class="btn small primary" data-learnt="${iso}">Padichitten ✓</button>`):""}<button class="btn small" data-go="learn">🎓 Training</button></div>
+    <div class="actions">${canPhoto()&&iso===todayISO()?(mine?`<span class="up" style="align-self:center;font-weight:700">✓ You learnt this</span>`:`<button class="btn small primary" data-learnt="${iso}">Mark as learnt ✓</button>`):""}<button class="btn small" data-go="learn">🎓 Training</button></div>
     ${fsdb?`<p class="hint">${L.length?"Learnt today: "+esc([...new Set(L.map(x=>x.name))].join(", ")):"No one has marked it yet."}</p>`:""}</section>`;
 }
 function viewLearn(){
   loadTraining();
   if(trn.st==="loading"||!trn.st) return `<div class="empty">Loading training…</div>`;
-  if(trn.st==="missing") return `<section class="block"><h2>🎓 Training</h2><div class="empty">Training file not found. Upload <b>training.json</b> to GitHub next to index.html.</div></section>`;
+  if(trn.st==="missing") return `<section class="block"><h2>🎓 Training</h2><div class="empty">No training season yet.${canEdit()?" Upload one below.":""}</div></section>`+viewTrnAdmin();
   const ids=trn.seasons.map(s=>s.id),sid=ids.includes(ui.trnSeason)?ui.trnSeason:ids[ids.length-1],S=trn.seasons.find(s=>s.id===sid);
   const D=trn.data[sid];if(!D){loadSeason(sid).then(()=>render());return `<div class="empty">Loading…</div>`;}
   const chips=ids.length>1?`<div class="chips" style="margin-top:0">${ids.map(x=>`<button data-trnseason="${esc(x)}" style="${x===sid?"background:var(--soft)":""}">${esc(x)}</button>`).join("")}</div>`:"";
@@ -2453,21 +2461,134 @@ function viewLearn(){
   const pg=ui.trnPage||"session";
   const seg=`<div class="seg" role="group" aria-label="Training"><button data-trnpage="session" aria-pressed="${pg==="session"}">📽️ Session</button><button data-trnpage="mk" aria-pressed="${pg==="mk"}">📘 Must Knows</button><button data-trnpage="today" aria-pressed="${pg==="today"}">☀️ Today</button></div>`;
   let h=`<section class="block" style="padding-bottom:8px"><h2>🎓 ${esc(D.name||sid)}</h2></section>`+chips+seg;
-  if(pg==="today") return h+learnCard(todayISO(),false);
-  if(pg==="session"){const N=num(D.slides)||1;slideUrl(sid,1);if(trn.slides[sid]==="missing")return h+`<section class="block"><div class="empty">Slides not found. Upload <b>slides_${esc(sid)}.json</b> to GitHub next to index.html.</div></section>`;if(trn.slides[sid]==="loading")return h+`<div class="empty">Loading slides…</div>`;const n=Math.min(N,Math.max(1,num(ui.slide)||1));
+  const adm=viewTrnAdmin()+(canEdit()&&D.src==="fs"&&!ui.trnBusy&&!ui.trnDraft?`<div class="actions"><button class="btn small danger" data-trndel="${esc(sid)}">Delete ${esc(sid)}</button></div>`:"");
+  if(ui.trnDraft||ui.trnBusy||ui.trnNew) return h+adm;
+  if(pg==="today") return h+learnCard(todayISO(),false)+adm;
+  if(pg==="session"){const N=num(D.slides)||1;slideUrl(sid,1);if(D.src!=="fs"&&trn.slides[sid]==="missing")return h+`<section class="block"><div class="empty">Slides not found. Upload <b>slides_${esc(sid)}.json</b> to GitHub next to index.html.</div></section>`;if(D.src!=="fs"&&trn.slides[sid]==="loading")return h+`<div class="empty">Loading slides…</div>`;const n=Math.min(N,Math.max(1,num(ui.slide)||1));
     return h+`<section class="block"><div class="slidebox" id="slideBox"><img src="${slideUrl(sid,n)}" alt="Slide ${n} of ${N}"></div>
       <div class="monthbar" style="margin:10px 0 0"><button data-slide="${n-1}" ${n>1?"":"disabled"} aria-label="Previous slide">‹</button><div class="label">Slide ${n} / ${N}<small>Swipe or tap ‹ ›</small></div><button data-slide="${n+1}" ${n<N?"":"disabled"} aria-label="Next slide">›</button></div>
       <div class="actions"><button class="btn small" data-slidefull="${n}">Open full size</button>
-      <select id="slideJump" aria-label="Go to slide">${Array.from({length:N},(_,i)=>`<option value="${i+1}" ${i+1===n?"selected":""}>Slide ${i+1}</option>`).join("")}</select></div></section>`;}
+      <select id="slideJump" aria-label="Go to slide">${Array.from({length:N},(_,i)=>`<option value="${i+1}" ${i+1===n?"selected":""}>Slide ${i+1}</option>`).join("")}</select></div></section>`+adm;}
   const M=learnMarks(),f=ui.mkFilter||"";
   const list=D.mustKnows.map((c,i)=>({...c,i,key:sid+"-"+(i+1)})).filter(c=>!f||(f==="no"?M[c.key]!=="y":M[c.key]==="y"));
   const known=D.mustKnows.filter((c,i)=>M[sid+"-"+(i+1)]==="y").length;
   h+=`<div class="chips" style="margin:0 0 8px"><button data-mkf="" style="${!f?"background:var(--soft)":""}">All ${D.mustKnows.length}</button><button data-mkf="no" style="${f==="no"?"background:var(--soft)":""}">To learn ${D.mustKnows.length-known}</button><button data-mkf="y" style="${f==="y"?"background:var(--soft)":""}">Know ✓ ${known}</button></div>`;
   h+=list.map(c=>{const op=ui.mkOpen===c.key;return `<section class="block mk"><button class="mkq" data-mkopen="${c.key}" aria-expanded="${op}"><span class="muted">${c.i+1}.</span> ${esc(c.q)} ${M[c.key]==="y"?'<span class="up">✓</span>':M[c.key]==="n"?'<span class="down">✗</span>':""}</button>
     ${op?`<ul class="learnlist">${c.a.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>${c.s?`<button class="btn small" data-slide="${c.s}" data-trnpage="session">📽️ Slide ${c.s}</button>`:""}
-    <div class="actions"><button class="btn small primary" data-mkmark="${c.key}|y">Theriyum ✓</button><button class="btn small" data-mkmark="${c.key}|n">Theriyala ✗</button></div>`:""}</section>`;}).join("")||`<div class="empty">Nothing here.</div>`;
-  return h+`<p class="hint">Tap a question, say the answer in your mind, then open it. Marks are saved on this phone.</p>`;
+    <div class="actions"><button class="btn small primary" data-mkmark="${c.key}|y">I know this ✓</button><button class="btn small" data-mkmark="${c.key}|n">Still learning ✗</button></div>`:""}</section>`;}).join("")||`<div class="empty">Nothing here.</div>`;
+  return h+`<p class="hint">Tap a question, say the answer in your mind, then open it. Marks are saved on this phone.</p>`+adm;
 }
+/* ---------- in-app uploads (manager): training seasons + PC9 photos, saved in the database ---------- */
+async function fsGet(id){let d=null;try{const r=localStorage.getItem("store-perf-doc-"+id);if(r)d=JSON.parse(r);}catch(e){}
+  if(col){try{const s=await col.doc(id).get();if(s.exists)d=JSON.parse(JSON.stringify(s.data()));}catch(e){}}return d;}
+async function fsSet(id,d,merge){
+  if(!col){let o=d;if(merge){const old=await fsGet(id)||{};o={...old,...d};if(d.img)o.img={...(old.img||{}),...d.img};}
+    try{localStorage.setItem("store-perf-doc-"+id,JSON.stringify(o));}catch(e){throw new Error("Phone storage is full");}return;}
+  await col.doc(id).set(d,merge?{merge:true}:undefined);}
+async function fsDel(id){try{localStorage.removeItem("store-perf-doc-"+id);}catch(e){}if(col)await col.doc(id).delete().catch(()=>{});}
+function loadPdfJs(){
+  if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+  return new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";res(window.pdfjsLib);};
+    s.onerror=()=>rej(new Error("Could not load the PDF reader. Check the internet."));document.head.appendChild(s);});}
+async function openPdf(file){const lib=await loadPdfJs();return lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;}
+async function pdfLines(pdf){const lines=[];
+  for(let p=1;p<=pdf.numPages;p++){const pg=await pdf.getPage(p);const tc=await pg.getTextContent();const rows=[];
+    tc.items.forEach(it=>{if(!it.str||!it.str.trim())return;const y=Math.round(it.transform[5]);let r=rows.find(r=>Math.abs(r.y-y)<4);if(!r){r={y,parts:[]};rows.push(r);}r.parts.push({x:it.transform[4],s:it.str});});
+    rows.sort((a,b)=>b.y-a.y).forEach(r=>{const t=r.parts.sort((a,b)=>a.x-b.x).map(q=>q.s).join(" ").replace(/\s+/g," ").trim();if(t)lines.push(t);});}
+  return lines;}
+/* "1. Question… • answer • answer 2. Question…" → cards */
+function splitMustKnows(lines){
+  const out=[];let n=1,cur=null;const bul=/^[•●▪◦\-–]\s*/;
+  for(const l of lines){
+    const m=l.match(/^(\d{1,2})\s*[.)]\s*(.+)$/);
+    if(m&&+m[1]===n){cur={q:m[2].trim(),a:[]};out.push(cur);n++;continue;}
+    if(!cur)continue;
+    if(!cur.a.length&&/^[a-z(]/.test(l)&&!/[?:]\s*$|\)\s*$|\.\s*$/.test(cur.q)&&cur.q.length<170){cur.q+=" "+l;continue;}
+    const b=l.replace(bul,"").trim();if(!b)continue;
+    if(bul.test(l)||/^[ivx]+[.)]\s/i.test(l)||/^[A-Z][^.]{0,40}:\s/.test(l)||!cur.a.length)cur.a.push(b);else cur.a[cur.a.length-1]+=" "+b;}
+  return out;}
+async function renderPdfPage(pdf,p){const pg=await pdf.getPage(p);const v0=pg.getViewport({scale:1});const v=pg.getViewport({scale:Math.min(2,1200/v0.width)});
+  const c=document.createElement("canvas");c.width=Math.round(v.width);c.height=Math.round(v.height);const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);
+  await pg.render({canvasContext:x,viewport:v}).promise;let q=0.72,d=c.toDataURL("image/jpeg",q);while(d.length>900000&&q>0.3){q-=0.12;d=c.toDataURL("image/jpeg",q);}
+  pg.cleanup();return d;}
+const trnFiles={launch:null,mk:null};
+async function trnReadFiles(){
+  const name=(document.getElementById("tnName")||{}).value||"",from=(document.getElementById("tnFrom")||{}).value||todayISO();
+  const id=name.trim().replace(/[^A-Za-z0-9-]+/g,"-").replace(/^-|-$/g,"");
+  if(!id){toast("Type the season name, e.g. H1-27");return;}
+  if(!trnFiles.launch&&!trnFiles.mk){toast("Pick the Launch PDF and / or the Must Knows PDF");return;}
+  ui.trnBusy="Reading the PDFs…";render();
+  try{let slides=0,mk=[];
+    if(trnFiles.launch){const pdf=await openPdf(trnFiles.launch);slides=pdf.numPages;pdf.destroy();}
+    if(trnFiles.mk){const pdf=await openPdf(trnFiles.mk);mk=splitMustKnows(await pdfLines(pdf));pdf.destroy();}
+    ui.trnDraft={id,name:name.trim(),from,slides,mk:mk.length?mk:[{q:"",a:[]}]};
+  }catch(e){toast(e.message||"Could not read the PDF");}
+  ui.trnBusy="";render();}
+function trnReadEdits(){const D=ui.trnDraft;if(!D)return;
+  document.querySelectorAll("[data-tnq]").forEach(i=>{const c=D.mk[+i.dataset.tnq];if(c)c.q=i.value.trim();});
+  document.querySelectorAll("[data-tna]").forEach(i=>{const c=D.mk[+i.dataset.tna];if(c)c.a=i.value.split("\n").map(x=>x.trim()).filter(Boolean);});}
+async function trnSave(){
+  trnReadEdits();const D=ui.trnDraft;if(!D)return;const mk=D.mk.filter(c=>c.q);
+  if(!mk.length&&!D.slides){toast("Nothing to save");return;}
+  try{
+    if(trnFiles.launch&&D.slides){const pdf=await openPdf(trnFiles.launch);
+      for(let p=1;p<=pdf.numPages;p++){ui.trnBusy="Saving slide "+p+" / "+pdf.numPages+"…";render();await fsSet("trn-"+D.id+"-s"+p,{img:await renderPdfPage(pdf,p)});}
+      pdf.destroy();}
+    ui.trnBusy="Saving Must Knows…";render();
+    await fsSet("trn-"+D.id,{json:JSON.stringify({id:D.id,name:D.name,from:D.from,slides:D.slides,mustKnows:mk})});
+    const ix=await fsGet("trn-index")||{};const list=(ix.seasons||[]).filter(x=>x.id!==D.id);list.push({id:D.id,name:D.name,from:D.from,slides:D.slides});
+    await fsSet("trn-index",{seasons:list});
+    ui.trnDraft=null;ui.trnNew=false;trnFiles.launch=trnFiles.mk=null;trn.st="";trn.fsSl={};ui.trnSeason=D.id;toast(D.id+" saved ✓");
+  }catch(e){toast("Save failed: "+(e.message||e));}
+  ui.trnBusy="";render();}
+async function trnDelete(id){
+  const S=trn.data[id];if(!S||S.src!=="fs")return;ui.trnBusy="Deleting…";render();
+  for(let p=1;p<=num(S.slides);p++)await fsDel("trn-"+id+"-s"+p);await fsDel("trn-"+id);
+  const ix=await fsGet("trn-index")||{};await fsSet("trn-index",{seasons:(ix.seasons||[]).filter(x=>x.id!==id)});
+  delete trn.data[id];trn.st="";ui.trnSeason="";ui.trnBusy="";toast(id+" deleted");render();}
+function viewTrnAdmin(){
+  if(!canEdit())return "";
+  if(ui.trnBusy)return `<section class="block"><h2>➕ New season</h2><div class="empty">${esc(ui.trnBusy)}<br><small>Keep this page open.</small></div></section>`;
+  const D=ui.trnDraft;
+  if(!ui.trnNew&&!D)return `<div class="actions"><button class="btn small" data-trnnew="1">➕ Upload new season</button></div>`;
+  if(!D)return `<section class="block"><h2>➕ New season</h2>
+    <label class="f" for="tnName">Season name</label><input type="text" id="tnName" placeholder="H1-27" value="${esc((ui.trnForm||{}).name||"")}">
+    <label class="f" for="tnFrom" style="margin-top:8px">Daily learning starts</label><input type="date" id="tnFrom" value="${esc((ui.trnForm||{}).from||todayISO())}">
+    <label class="f" style="margin-top:8px">Season Launch PDF (slides)</label><label class="btn small" style="display:block;text-align:center">${trnFiles.launch?"✓ "+esc(trnFiles.launch.name):"Choose Launch PDF"}<input type="file" id="tnLaunch" accept="application/pdf,.pdf" hidden></label>
+    <label class="f" style="margin-top:8px">Must Knows PDF (questions)</label><label class="btn small" style="display:block;text-align:center">${trnFiles.mk?"✓ "+esc(trnFiles.mk.name):"Choose Must Knows PDF"}<input type="file" id="tnMk" accept="application/pdf,.pdf" hidden></label>
+    <div class="actions"><button class="btn small primary" id="tnRead" style="flex:1">Read files</button><button class="btn small" data-trnnew="">Cancel</button></div>
+    <p class="hint">Use a computer for big PDFs. The slides are saved when you press Save on the next step.</p></section>`;
+  return `<section class="block"><h2>➕ ${esc(D.name)} · check before saving</h2>
+    <p class="hint" style="margin:0 0 8px">${D.slides?D.slides+" slides will be saved. ":"No Launch PDF. "}${D.mk.length} Must Knows cards found. Fix any card that split wrongly: question on top, one answer point per line.</p>
+    ${D.mk.map((c,i)=>`<div class="block" style="padding:10px;margin:0 0 8px"><label class="f" for="tnq${i}">${i+1}. Question</label><input type="text" id="tnq${i}" data-tnq="${i}" value="${esc(c.q)}">
+      <label class="f" for="tna${i}" style="margin-top:6px">Answer points</label><textarea id="tna${i}" data-tna="${i}" rows="${Math.min(8,Math.max(3,c.a.length+1))}" style="width:100%">${esc(c.a.join("\n"))}</textarea>
+      <div class="actions" style="margin-top:6px"><button class="btn small" data-tnrm="${i}">Remove card</button></div></div>`).join("")}
+    <div class="actions"><button class="btn small" id="tnAdd">+ Add card</button><button class="btn small primary" id="tnSave" style="flex:1">Save season</button><button class="btn small" id="tnCancel">Cancel</button></div></section>`;}
+
+/* PC9 photos added in the app: 16 small docs pcimg-0 … pcimg-f, { img: { "A4411-0031": dataURL } } */
+const pcUser={};let pcUserLoaded=false;
+function pcBucket(pc){let h=0;for(const ch of pc)h=(h*31+ch.charCodeAt(0))>>>0;return "pcimg-"+(h%16).toString(16);}
+function loadPcUser(){if(pcUserLoaded)return;pcUserLoaded=true;
+  Promise.all(Array.from({length:16},(_,i)=>fsGet("pcimg-"+i.toString(16)))).then(ds=>{ds.forEach(d=>{if(d&&d.img)Object.assign(pcUser,d.img);});if(ui.tab==="st")render();});}
+function pc9FromName(n){const m=String(n).toUpperCase().match(/([0-9A-Z]{5})[-_ .]?([0-9A-Z]{4})/);return m?m[1]+"-"+m[2]:"";}
+function smallPhoto(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file);const img=new Image();
+  img.onload=()=>{const sc=Math.min(1,360/img.height,240/img.width);const c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.width*sc));c.height=Math.max(1,Math.round(img.height*sc));
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);res(c.toDataURL("image/jpeg",0.72));};
+  img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("Could not read "+file.name));};img.src=url;});}
+async function savePcPhotos(map){const by={};Object.keys(map).forEach(pc=>{(by[pcBucket(pc)]=by[pcBucket(pc)]||{})[pc]=map[pc];});
+  for(const b of Object.keys(by))await fsSet(b,{img:by[b]},true);Object.assign(pcUser,map);}
+function pickFiles(accept,multi,fn){const i=document.createElement("input");i.type="file";i.accept=accept;i.multiple=!!multi;i.style.display="none";document.body.appendChild(i);
+  i.addEventListener("change",()=>{const f=[...i.files];i.remove();if(f.length)fn(f);});i.click();}
+async function addPcPhotos(files,forPc){
+  const map={};let skip=[];toast("Adding photos…");
+  for(const f of files){
+    if(/\.json$/i.test(f.name)){try{const j=JSON.parse(await f.text());const fmt=j.fmt||"webp";Object.keys(j.img||{}).forEach(pc=>{map[pc.toUpperCase()]="data:image/"+(fmt==="jpg"?"jpeg":fmt)+";base64,"+j.img[pc];});}catch(e){skip.push(f.name);}continue;}
+    const pc=forPc||pc9FromName(f.name);if(!pc){skip.push(f.name);continue;}
+    try{map[pc]=await smallPhoto(f);}catch(e){skip.push(f.name);}}
+  const n=Object.keys(map).length;
+  if(n){try{await savePcPhotos(map);}catch(e){toast("Save failed: "+(e.message||e));return;}}
+  render();setTimeout(()=>toast(n+" photo"+(n===1?"":"s")+" saved ✓"+(skip.length?" · "+skip.length+" skipped (no PC9 in the file name)":"")),300);}
 
 function render(){
   const v=document.getElementById("view");
@@ -2482,7 +2603,7 @@ function render(){
   if(ui.tab==="learn"){v.innerHTML=viewLearn();return;}
   if(ui.tab==="daily") ensureDay();
   else if(!weeksReady()){ensureWeeks();v.innerHTML='<div class="empty">Loading…</div>';return;}
-  v.innerHTML = ui.tab==="home"?learnCard(todayISO(),true)+viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+learnCard(ui.day,true)): viewReport();
+  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+learnCard(ui.day,true)): viewReport();
 }
 
 /* ---------- standalone helpers ---------- */
@@ -2604,6 +2725,15 @@ document.addEventListener("click",e=>{
   if(t.dataset.tab){if(t.dataset.tab==="daily")delete photoCache[ui.day];if(t.dataset.tab==="staff"&&ui.tab==="staff")ui.staffPage="root";go(t.dataset.tab);return;}
   if(t.dataset.go){go(t.dataset.go);return;}
   if(t.dataset.slidefull){const u=slideUrl(ui.trnSeason&&trn.data[ui.trnSeason]?ui.trnSeason:curSeason().id,+t.dataset.slidefull);const wn=window.open();if(wn){wn.document.write('<title>Slide</title><body style="margin:0;background:#000"><img src="'+u+'" style="width:100%">');wn.document.close();}return;}
+  if(t.dataset.trnnew!==undefined){ui.trnNew=!!t.dataset.trnnew;if(!ui.trnNew){trnFiles.launch=trnFiles.mk=null;}render();return;}
+  if(t.id==="tnRead"&&canEdit()){trnReadFiles();return;}
+  if(t.id==="tnSave"&&canEdit()){trnSave();return;}
+  if(t.id==="tnCancel"){ui.trnDraft=null;ui.trnNew=false;trnFiles.launch=trnFiles.mk=null;render();return;}
+  if(t.id==="tnAdd"){trnReadEdits();ui.trnDraft.mk.push({q:"",a:[]});render();return;}
+  if(t.dataset.tnrm!==undefined){trnReadEdits();ui.trnDraft.mk.splice(+t.dataset.tnrm,1);render();return;}
+  if(t.dataset.trndel&&canEdit()){const id=t.dataset.trndel;askConfirm("Delete season "+id+" with its slides?","Delete",()=>trnDelete(id));return;}
+  if(t.dataset.pcadd&&canEdit()){const pc=t.dataset.pcadd;pickFiles("image/*",false,f=>addPcPhotos(f,pc));return;}
+  if(t.id==="pcBulk"&&canEdit()){pickFiles("image/*,.json,application/json",true,f=>addPcPhotos(f));return;}
   if(t.dataset.learnopen){ui.learnOpen=t.dataset.learnopen;render();return;}
   if(t.dataset.learnt){const T=todaysCard(t.dataset.learnt);if(T){t.disabled=true;markLearnt(t.dataset.learnt,T.card);}return;}
   if(t.dataset.trnseason){ui.trnSeason=t.dataset.trnseason;ui.slide=1;render();return;}
@@ -2758,6 +2888,7 @@ document.addEventListener("change",e=>{
   if(el.id==="backupFile"&&el.files&&el.files[0]){backupRestore(el.files[0]);el.value="";return;}
   if(el.id==="x24File"&&el.files&&el.files[0]){handleX24File(el.files[0]);return;}
   if(el.id==="lyFile"&&el.files&&el.files[0]){handleLyFile(el.files[0]);el.value="";return;}
+  if((el.id==="tnLaunch"||el.id==="tnMk")&&el.files&&el.files[0]){const nm=document.getElementById("tnName"),fr=document.getElementById("tnFrom");ui.trnForm={name:nm?nm.value:"",from:fr?fr.value:""};trnFiles[el.id==="tnLaunch"?"launch":"mk"]=el.files[0];render();return;}
   if(el.id==="slideJump"){ui.slide=+el.value;render();return;}
   if(el.id==="dayPick"&&el.value){ui.day=el.value;delete photoCache[ui.day];render();return;}
   if(el.dataset.a){const row=el.closest(".arow");if(!row)return;

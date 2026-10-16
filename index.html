@@ -871,7 +871,7 @@ function parseX24(XLSX,wb){
       if(!need.every(n=>hdr.includes(n)))continue;
       const c={date:hdr.indexOf("TRANS DATE"),tn:hdr.indexOf("TRANSNUM"),qty:hdr.indexOf("NET SOLD QTY"),amt:hdr.indexOf("TOTAL AMOUNT"),
         who:hdr.indexOf("SALES ASSOCIATE 1 NAME"),cat:hdr.indexOf("CATEGORY"),brick:hdr.indexOf("BRICK"),fit:hdr.indexOf("FIT"),
-        cls:hdr.indexOf("CLASS"),sub:hdr.indexOf("SUB CLASS"),pc9:hdr.indexOf("PC9"),desc:hdr.findIndex(x=>x.indexOf("ITEM DESC")===0)};
+        cls:hdr.indexOf("CLASS"),sub:hdr.indexOf("SUB CLASS"),pc9:hdr.indexOf("PC9"),code:hdr.indexOf("PRODUCT CODE"),desc:hdr.findIndex(x=>x.indexOf("ITEM DESC")===0)};
       const txt=v=>{const s=String(v??"").trim();return s&&!s.startsWith("#")&&s!=="0"?s:"";};
       const add=(o,key,q,v)=>{const a=o[key]||(o[key]=[0,0]);a[0]+=q;a[1]+=v;};
       const days={};let lines=0,skippedNP=0;const billsD={};
@@ -893,7 +893,9 @@ function parseX24(XLSX,wb){
         const fit=(c.fit>=0&&txt(row[c.fit]))||"Other";
         add(d.mix.c,cat,qty,amt);add(d.mix.b,cat+"|"+brick.toUpperCase(),qty,amt);add(d.mix.f,cat+"|"+String(fit).toUpperCase(),qty,amt);
         d.sales+=amt;d.units+=qty;d.tq[tn]=(d.tq[tn]||0)+qty;
-        if(c.pc9>=0){const pc=String(row[c.pc9]??"").trim().toUpperCase();if(/^[0-9A-Z]{5}-[0-9A-Z]{4}$/.test(pc))d.mix.p[pc]=(d.mix.p[pc]||0)+qty;}
+        {let pc=c.pc9>=0?String(row[c.pc9]??"").trim().toUpperCase():"";
+         if(!/^[0-9A-Z]{5}-[0-9A-Z]{4}$/.test(pc)&&c.code>=0){const pcode=String(row[c.code]??"").trim().toUpperCase();if(/^[0-9A-Z]{9,}$/.test(pcode))pc=pcode.slice(0,5)+"-"+pcode.slice(5,9);}
+         if(/^[0-9A-Z]{5}-[0-9A-Z]{4}$/.test(pc))d.mix.p[pc]=(d.mix.p[pc]||0)+qty;}
         const who=c.who>=0?String(row[c.who]??"").trim():"";
         if(who){const s=d.staff[who]||(d.staff[who]={sales:0,units:0,tq:{}});s.sales+=amt;s.units+=qty;s.tq[tn]=(s.tq[tn]||0)+qty;
           add(d.mix.s[who]||(d.mix.s[who]={}),cat,qty,amt);}
@@ -2084,7 +2086,14 @@ function stTopBlock(title,rows,prevRows,vsLbl,hint,chart){
     <p class="hint">${hint}</p></section>`;}
 function stWeekBuild(wk,W){const [s,e]=weekRange(wk);const X=stX24Build(s,e,wk);if(X===null)return null;
   if(X.rep)return {...X,src:"x24"};
-  if(W[wk]){const R=stRepOf(wk);if(R)return {rep:R,src:"st"};if(stWeekCache[wk]&&stWeekCache[wk].missing)return {none:true,noDetail:true};loadStWeek(wk).then(()=>{if(ui.tab==="st")render();});return null;}
+  if(W[wk]){const R=stRepOf(wk);
+    if(!R){if(stWeekCache[wk]&&stWeekCache[wk].missing)return {none:true,noDetail:true};loadStWeek(wk).then(()=>{if(ui.tab==="st")render();});return null;}
+    const pw=stepKey(wk,-1);
+    if(W[pw]){const PR=stRepOf(pw);
+      if(!PR&&!(stWeekCache[pw]&&stWeekCache[pw].missing)){loadStWeek(pw).then(()=>{if(ui.tab==="st")render();});return null;}
+      if(PR){const pm={};PR.rows.forEach(r=>pm[r[0]]=r[12]);let up=0,cmp=0;R.rows.forEach(r=>{if(pm[r[0]]!=null){cmp++;if(r[12]>=pm[r[0]])up++;}});
+        if(cmp&&up/cmp>=0.8){const rows=R.rows.map(r=>{const c=r.slice();c[12]=Math.max(0,r[12]-(pm[r[0]]||0));return c;});return {rep:{date:R.date,store:R.store||"",rows},src:"stdelta",prevWk:pw};}}}
+    return {rep:R,src:"st"};}
   return {none:true};}
 function viewStWeekX(){
   if(!stLoaded) return viewStRepCore();
@@ -2095,17 +2104,18 @@ function viewStWeekX(){
   const def=stw.length?stw[stw.length-1]:stepKey(cw,-1);
   const sel=list.includes(ui.stWeek)?ui.stWeek:def,i=list.indexOf(sel);
   const B=stWeekBuild(sel,W);
-  const sub=!B?"&nbsp;":B.src==="x24"?"Sale from X24 ("+B.days+" days) · SOH from W"+weekNo(B.baseWk)+" ST report":B.src==="st"?"ST report of "+esc(shortDate(B.rep.date)):"No data";
+  const sub=!B?"&nbsp;":B.src==="x24"?"Sale from X24 ("+B.days+" days) · SOH from W"+weekNo(B.baseWk)+" ST report":B.src==="stdelta"?"ST report of "+esc(shortDate(B.rep.date))+" minus W"+weekNo(B.prevWk):B.src==="st"?"ST report of "+esc(shortDate(B.rep.date)):"No data";
   const bar=`<div class="monthbar"><button data-stw="${esc(list[i-1]||"")}" ${i>0?"":"disabled"} aria-label="Previous week">‹</button><div class="label">ST% · Week ${weekNo(sel)}<small>${sub}</small></div><button data-stw="${esc(list[i+1]||"")}" ${i<list.length-1?"":"disabled"} aria-label="Next week">›</button></div>`;
   if(!B) return bar+`<div class="empty">Loading…</div>`;
   if(B.none||B.noSt) return bar+`<section class="block"><div class="empty">${B.noSt?"Upload one Week ST report so SOH is known.":B.noDetail?"Full detail for this week isn't saved on this device.":"No X24 or ST report for Week "+weekNo(sel)+" yet. Import that week's X24 in the Sales tab."}</div></section>`;
   const P=stWeekBuild(stepKey(sel,-1),W);
   const maxSt=Math.max(0.0001,...stw.map(w=>W[w].st||0));
   const chart=stw.length>1?`<div class="chart wk" role="img" aria-label="ST report % by week" style="height:90px">${stw.map(w=>`<button class="col${w===sel?" sel":""}" data-stw="${esc(w)}" aria-label="Week ${weekNo(w)}: ${pct(W[w].st,1)}"><div class="stack"><div class="s" style="height:${((W[w].st||0)/maxSt*100).toFixed(1)}%"></div></div><span class="m">W${weekNo(w)}</span></button>`).join("")}</div>`:"";
-  const hint=B.src==="x24"?`Week ST% = pieces sold this week (X24) ÷ (sold + SOH in the W${weekNo(B.baseWk)} ST report).${B.out?" "+full(B.out)+" pcs sold of PC9s not in that ST report are left out.":""} Bars: ST% of each uploaded ST report.`:`No X24 for this week, so this is the ST report (sale since REC IN). Import the week's X24 for week-only sale.`;
-  const top=stTopBlock("Week "+weekNo(sel)+" ("+rangeText(sel)+")",B.rep.rows,P&&P.rep&&P.src===B.src?P.rep.rows:null,"W"+weekNo(stepKey(sel,-1)),hint,chart);
-  const keep=stRep;stRep=B.rep;let body;try{body=viewStRepCore();}finally{stRep=keep;}
-  return bar+top+(B.src==="x24"?body.replace("sale since the style came in (REC IN)","sale this week from X24"):body);
+  const hint=B.src==="x24"?`Week ST% = pieces sold this week (X24) ÷ (sold + SOH in the W${weekNo(B.baseWk)} ST report).${B.out?" "+full(B.out)+" pcs sold of PC9s not in that ST report are left out.":""} Bars: ST% of each uploaded ST report.`:B.src==="stdelta"?`Week ST% = pieces sold this week (this week's ST report sale minus the W${weekNo(B.prevWk)} report) ÷ (sold + SOH now). Bars: ST% of each uploaded ST report.`:`No X24 and no report for the week before, so this is the ST report as it is (sale since REC IN).`;
+  const wkOnly=B.src==="x24"||B.src==="stdelta";
+  const top=stTopBlock("Week "+weekNo(sel)+" ("+rangeText(sel)+")",B.rep.rows,P&&P.rep&&(P.src==="st")===(B.src==="st")?P.rep.rows:null,"W"+weekNo(stepKey(sel,-1)),hint,chart);
+  const keep=stRep;stRep=B.rep;if(wkOnly){stMinSale=2;stPeriodNote="Week "+weekNo(sel);}let body;try{body=viewStRepCore();}finally{stRep=keep;stMinSale=5;stPeriodNote="";}
+  return bar+top+(wkOnly?body.replace("sale since the style came in (REC IN)",B.src==="x24"?"sale this week from X24":"sale this week"):body);
 }
 
 function viewStRep(){
@@ -2131,17 +2141,18 @@ function viewStRep(){
   const dl=(a,b)=>{if(!isFinite(a)||!isFinite(b))return "";const d=(a-b)*100;return `<small class="${d>=0?"up":"down"}">${d>=0?"▲":"▼"} ${Math.abs(d).toFixed(1)}% vs ${pp==="month"?"last month":esc(pk.slice(-2))}</small>`;};
   const maxSt=Math.max(0.0001,...P.weeks.map(w=>W[w].st||0));
   if(P.x24){const top=stTopBlock(stPerLabel(sel,pp),P.rep.rows,PP&&PP.rep?PP.rep.rows:null,"last month",`Month ST% = pieces sold in the month (X24) ÷ (sold + SOH in the W${weekNo(P.x24.baseWk)} ST report).${P.x24.out?" "+full(P.x24.out)+" pcs sold of PC9s not in that ST report are left out.":""}`,"");
-    const keep=stRep;stRep=P.rep;let body;try{body=viewStRepCore();}finally{stRep=keep;}
+    const keep=stRep;stRep=P.rep;stPeriodNote=stPerLabel(sel,pp);let body;try{body=viewStRepCore();}finally{stRep=keep;stPeriodNote="";}
     return seg+bar+top+body.replace("sale since the style came in (REC IN)","sale this month from X24");}
   const top=`<section class="block"><h2>${esc(stPerLabel(sel,pp))}</h2><div class="grid"><div class="kv"><span>Store ST%</span><b>${pct(T.st,1)}</b>${PT?dl(T.st,PT.st):""}</div>
     <div class="kv"><span>Sale in period</span><b>${full(T.sale)}</b></div><div class="kv"><span>SOH at end</span><b>${full(T.soh)}</b></div>
     ${Object.keys(GC_NAMES).filter(g=>isFinite(T.gc[g])).map(g=>`<div class="kv"><span>${esc(g)}</span><b>${pct(T.gc[g],1)}</b>${PT&&PT.gc?dl(T.gc[g],PT.gc[g]):""}</div>`).join("")}</div>
     ${P.weeks.length>1?`<div class="chart wk" role="img" aria-label="Weekly report ST% in this period" style="height:90px">${P.weeks.map(w=>`<button class="col" data-stper="week" data-stwk="${esc(w)}" aria-label="Week ${weekNo(w)}: ${pct(W[w].st,1)}"><div class="stack"><div class="s" style="height:${((W[w].st||0)/maxSt*100).toFixed(1)}%"></div></div><span class="m">W${weekNo(w)}</span></button>`).join("")}</div>`:""}
     <p class="hint">Period ST% = pieces sold in the period ÷ (sold + SOH in the last uploaded week). ${P.cumul?(P.base?"Sale = report sale at the end minus the sale in the week before the period (W"+weekNo(P.base)+").":"No report before this period, so sale counts from when each style came in."):"Weekly sale added up across the weeks."} ${P.weeks.length<P.total?"Some weeks are missing — upload them for a correct ST%.":""}</p></section>`;
-  const keep=stRep;stRep=P.rep;let body;try{body=viewStRepCore();}finally{stRep=keep;}
+  const keep=stRep;stRep=P.rep;stPeriodNote=stPerLabel(sel,pp);let body;try{body=viewStRepCore();}finally{stRep=keep;stPeriodNote="";}
   return seg+bar+top+body.replace("sale since the style came in (REC IN)","sale in this period");
 }
 
+let stMinSale=5,stPeriodNote="";
 function viewStRepCore(){
   if(!stLoaded){loadStRep().then(()=>{if(ui.tab==="st")render();});return `<div class="empty">Loading ST report…</div>`;}
   if(!stRep) return `<section class="block"><h2>ST%</h2><div class="empty">No ST report yet. ${canEdit()?"Upload the Week ST report (Excel) in the Sales tab.":"Ask the manager to upload the Week ST report."}</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Upload ST report</button></div>`:""}</section>`;
@@ -2156,7 +2167,7 @@ function viewStRepCore(){
     <div class="grid"><div class="kv"><span>${g?esc(GC_NAMES[g]||g):"Store"} ST%</span><b>${pct(T.st,1)}</b></div><div class="kv"><span>Sale</span><b>${full(T.sale)}</b></div><div class="kv"><span>SOH</span><b>${full(T.soh)}</b></div>
     <div class="kv"><span>Fast</span><b class="up">${T.F}</b></div><div class="kv"><span>Avg</span><b style="color:var(--thread)">${T.A}</b></div><div class="kv"><span>Miss</span><b class="down">${T.M}</b></div></div>
     <p class="hint">ST% = Sale ÷ (Sale + SOH), sale since the style came in (REC IN). Fast / Avg / Miss status as in the Levi's report.</p></section>
-    <div class="seg" role="group" aria-label="ST view"><button data-stview="top" aria-pressed="${view==="top"}">Top ST%</button><button data-stview="rep" aria-pressed="${view==="rep"}">Replenish</button><button data-stview="miss" aria-pressed="${view==="miss"}">Miss</button><button data-stview="tbl" aria-pressed="${view==="tbl"}">Brick / Fit</button></div>`;
+    <div class="seg" role="group" aria-label="ST view"><button data-stview="top" aria-pressed="${view==="top"}">Top ST%</button><button data-stview="best" aria-pressed="${view==="best"}">Best sellers</button><button data-stview="rep" aria-pressed="${view==="rep"}">Replenish</button><button data-stview="miss" aria-pressed="${view==="miss"}">Miss</button><button data-stview="tbl" aria-pressed="${view==="tbl"}">Brick / Fit</button></div>`;
   let list=g?all.filter(r=>r.gc===g):all.slice();
   if(view==="tbl"){
     const lvl=ui.stLvl||"brick";
@@ -2172,8 +2183,10 @@ function viewStRepCore(){
     return h;
   }
   let note="";
-  if(view==="top"){const s=ui.stStat||"";list=list.filter(r=>r.sale>=5);if(s)list=list.filter(r=>r.stat===s);list.sort((a,b)=>(b.st||0)-(a.st||0)||b.sale-a.sale);
-    note="Highest store ST% first, PC9 with sale 5 or more.";}
+  if(view==="best"){list=list.filter(r=>r.sale>0);list.sort((a,b)=>b.sale-a.sale||(b.st||0)-(a.st||0));
+    note="Most pieces sold first"+(stPeriodNote?" ("+stPeriodNote+")":"")+".";}
+  else if(view==="top"){const s=ui.stStat||"";list=list.filter(r=>r.sale>=stMinSale);if(s)list=list.filter(r=>r.stat===s);list.sort((a,b)=>(b.st||0)-(a.st||0)||b.sale-a.sale);
+    note="Highest store ST% first, PC9 with sale "+stMinSale+" or more.";}
   else if(view==="rep"){list=list.filter(r=>r.stat==="Fast"&&r.soh<=10);list.sort((a,b)=>b.sale-a.sale||a.soh-b.soh);
     note="Fast status and SOH 10 or less, best sellers first: raise an indent / IST before key sizes break.";}
   else{list=list.filter(r=>r.stat==="Miss"&&r.sl>=60&&r.soh>0);list.sort((a,b)=>b.soh-a.soh||(a.st||0)-(b.st||0));

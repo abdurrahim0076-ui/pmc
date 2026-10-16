@@ -201,6 +201,10 @@ textarea{width:100%;font:inherit;font-size:14px;padding:10px;border-radius:10px;
 .attstrip b.p{background:var(--good)}.attstrip b.l{background:var(--bad)}.attstrip b.w{background:var(--denim-2)}
 .attstrip i{font-style:normal;font-size:12px;opacity:.9;margin-right:4px}
 .avatar{flex:0 0 56px;width:56px;height:56px;border-radius:50%;background:var(--thread);color:#1a1a1a;display:grid;place-items:center;font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:22px}
+.learnlist{margin:0 0 8px;padding-left:18px}.learnlist li{margin:0 0 5px;line-height:1.4}
+.slidethumb{display:block;border:1px solid var(--line);border-radius:10px;padding:0;overflow:hidden;background:none;cursor:pointer;width:100%;max-width:360px;margin:6px 0}.slidethumb img{display:block;width:100%;height:auto}
+.slidebox{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;touch-action:pan-y}.slidebox img{display:block;width:100%;height:auto}
+.mk{padding:10px 12px}.mkq{display:block;width:100%;text-align:left;background:none;border:0;padding:4px 0;font:inherit;font-weight:700;color:inherit;cursor:pointer}
 .rfolders{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
 .rfolders .folder{padding:12px}.rfolders .folder b{font-size:18px}.rfolders .ficon{font-size:24px}
 .kv small{display:block;font-size:12px}
@@ -2302,7 +2306,7 @@ function loadPhotos(iso){
   if(photoCache[iso]||photoLoading[iso]||!fsdb)return;
   photoLoading[iso]=true;
   fsdb.collection("stores/"+SID+"/vmphotos").where("date","==",iso).get()
-    .then(q=>{photoCache[iso]=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.at).localeCompare(String(b.at)));})
+    .then(q=>{photoCache[iso]=q.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.kind!=="learn").sort((a,b)=>String(a.at).localeCompare(String(b.at)));})
     .catch(e=>{photoCache[iso]=[];photoCache[iso].err=e.message||String(e);})
     .finally(()=>{delete photoLoading[iso];if(ui.tab==="daily")render();});
 }
@@ -2389,7 +2393,82 @@ let foldState={};try{foldState=JSON.parse(localStorage.getItem("store-perf-fold"
 function foldAttr(id){return ` data-fold="${id}"${foldState[id]?" open":""}`;}
 function foldSum(title,meta){return `<summary><h2>${title}</h2>${meta?`<span class="fmeta">${meta}</span>`:""}<span class="farrow" aria-hidden="true">▼</span></summary>`;}
 function foldSub(label){return `<summary><span style="flex:1">${label}</span><span class="farrow" aria-hidden="true">▼</span></summary>`;}
-let lyLoading=false;
+let lyLoading=false;/* ---------- 🎓 Training: season session slides, Must Knows, daily learning ---------- */
+/* two files on GitHub next to index.html: training.json (seasons + Must Knows) and slides_<season>.json (slide pictures) */
+const trn={st:"",seasons:[],data:{},learn:{},slides:{}};
+function loadTraining(){
+  if(trn.st)return;trn.st="loading";
+  fetch("training.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw 0;return r.json();})
+    .then(j=>{trn.seasons=(j&&j.seasons)||[];(trn.seasons).forEach(x=>{trn.data[x.id]=x;});if(!trn.seasons.length)throw 0;trn.st="ready";})
+    .catch(()=>{trn.st="missing";}).finally(()=>{if(ui.tab==="learn"||ui.tab==="home"||ui.tab==="daily")render();});
+}
+function loadSeason(id){return Promise.resolve(trn.data[id]||(trn.data[id]={missing:true}));}
+function curSeason(){return trn.seasons[trn.seasons.length-1]||null;}
+function slideUrl(id,n){const P=trn.slides[id];
+  if(!P){trn.slides[id]="loading";fetch("slides_"+encodeURIComponent(id)+".json").then(r=>{if(!r.ok)throw 0;return r.json();}).then(j=>{trn.slides[id]=j;}).catch(()=>{trn.slides[id]="missing";}).finally(()=>render());}
+  return P&&typeof P==="object"&&P[n]?P[n]:"data:image/gif;base64,R0lGODlhAQABAAAAACw=";}
+function dayIdx(iso,from,n){const d=Math.round((dOf(iso)-dOf(from||iso))/864e5);return ((d%n)+n)%n;}
+function learnMarks(){try{return JSON.parse(localStorage.getItem("store-perf-mk")||"{}");}catch(e){return {};}}
+function setLearnMark(key,v){const m=learnMarks();if(v)m[key]=v;else delete m[key];try{localStorage.setItem("store-perf-mk",JSON.stringify(m));}catch(e){}}
+/* who read today's card: saved with the VM photo records (kind "learn") so staff can write it */
+function loadLearn(iso){
+  if(trn.learn[iso]||!fsdb)return;trn.learn[iso]={loading:true,list:[]};
+  fsdb.collection("stores/"+SID+"/vmphotos").where("date","==",iso).get()
+    .then(q=>{trn.learn[iso]={list:q.docs.map(d=>d.data()).filter(x=>x.kind==="learn")};})
+    .catch(()=>{trn.learn[iso]={list:[]};}).finally(()=>render());
+}
+async function markLearnt(iso,card){
+  if(!canPhoto())return;const now=new Date();
+  const rec={date:iso,taskId:"",taskTitle:"📚 "+card.q,by:fbAuth.currentUser.uid,name:myName||(role==="admin"?"Manager":"Staff"),at:isoOf(now)+"T"+nowHM(),img:"",kind:"learn",card:card.id};
+  try{await fsdb.collection("stores/"+SID+"/vmphotos").add(rec);(trn.learn[iso]=trn.learn[iso]||{list:[]}).list.push(rec);toast("Super! Marked as learnt ✓");}
+  catch(e){toast(/permission/i.test(String(e.code||e.message))?"Not allowed. Update the database rules.":"Could not save");}
+  render();
+}
+function todaysCard(iso){
+  const S=curSeason();if(!S)return null;const D=trn.data[S.id];if(!D||D.missing||!D.mustKnows)return null;
+  const i=dayIdx(iso,S.from,D.mustKnows.length);return {S,D,i,card:{...D.mustKnows[i],id:S.id+"-"+(i+1)},n:D.mustKnows.length};
+}
+function learnCard(iso,compact){
+  loadTraining();if(trn.st!=="ready")return "";
+  const T=todaysCard(iso);if(!T){if(!trn.data[curSeason().id])loadSeason(curSeason().id).then(()=>render());return "";}
+  const {S,card,i,n}=T;if(fsdb)loadLearn(iso);
+  const L=(trn.learn[iso]&&trn.learn[iso].list||[]).filter(x=>x.card===card.id);
+  const mine=fbAuth&&fbAuth.currentUser&&L.some(x=>x.by===fbAuth.currentUser.uid);
+  const open=!compact||ui.learnOpen===iso;
+  return `<section class="block learn"><h2>☀️ ${iso===todayISO()?"Today's":esc(shortDate(iso))} learning <span class="badge">${esc(S.id)} · ${i+1}/${n}</span></h2>
+    <p style="margin:0 0 8px;font-weight:700">${esc(card.q)}</p>
+    ${open?`<ul class="learnlist">${card.a.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>${card.s?`<button class="slidethumb" data-slide="${card.s}" aria-label="Open slide ${card.s}"><img src="${slideUrl(S.id,card.s)}" alt="Slide ${card.s}" loading="lazy"></button>`:""}`
+      :`<button class="btn small" data-learnopen="${iso}">Show answer</button>`}
+    <div class="actions">${canPhoto()&&iso===todayISO()?(mine?`<span class="up" style="align-self:center;font-weight:700">✓ You learnt this</span>`:`<button class="btn small primary" data-learnt="${iso}">Padichitten ✓</button>`):""}<button class="btn small" data-go="learn">🎓 Training</button></div>
+    ${fsdb?`<p class="hint">${L.length?"Learnt today: "+esc([...new Set(L.map(x=>x.name))].join(", ")):"No one has marked it yet."}</p>`:""}</section>`;
+}
+function viewLearn(){
+  loadTraining();
+  if(trn.st==="loading"||!trn.st) return `<div class="empty">Loading training…</div>`;
+  if(trn.st==="missing") return `<section class="block"><h2>🎓 Training</h2><div class="empty">Training file not found. Upload <b>training.json</b> to GitHub next to index.html.</div></section>`;
+  const ids=trn.seasons.map(s=>s.id),sid=ids.includes(ui.trnSeason)?ui.trnSeason:ids[ids.length-1],S=trn.seasons.find(s=>s.id===sid);
+  const D=trn.data[sid];if(!D){loadSeason(sid).then(()=>render());return `<div class="empty">Loading…</div>`;}
+  const chips=ids.length>1?`<div class="chips" style="margin-top:0">${ids.map(x=>`<button data-trnseason="${esc(x)}" style="${x===sid?"background:var(--soft)":""}">${esc(x)}</button>`).join("")}</div>`:"";
+  if(D.missing) return chips+`<div class="empty">Files for ${esc(sid)} not found.</div>`;
+  const pg=ui.trnPage||"session";
+  const seg=`<div class="seg" role="group" aria-label="Training"><button data-trnpage="session" aria-pressed="${pg==="session"}">📽️ Session</button><button data-trnpage="mk" aria-pressed="${pg==="mk"}">📘 Must Knows</button><button data-trnpage="today" aria-pressed="${pg==="today"}">☀️ Today</button></div>`;
+  let h=`<section class="block" style="padding-bottom:8px"><h2>🎓 ${esc(D.name||sid)}</h2></section>`+chips+seg;
+  if(pg==="today") return h+learnCard(todayISO(),false);
+  if(pg==="session"){const N=num(D.slides)||1;slideUrl(sid,1);if(trn.slides[sid]==="missing")return h+`<section class="block"><div class="empty">Slides not found. Upload <b>slides_${esc(sid)}.json</b> to GitHub next to index.html.</div></section>`;if(trn.slides[sid]==="loading")return h+`<div class="empty">Loading slides…</div>`;const n=Math.min(N,Math.max(1,num(ui.slide)||1));
+    return h+`<section class="block"><div class="slidebox" id="slideBox"><img src="${slideUrl(sid,n)}" alt="Slide ${n} of ${N}"></div>
+      <div class="monthbar" style="margin:10px 0 0"><button data-slide="${n-1}" ${n>1?"":"disabled"} aria-label="Previous slide">‹</button><div class="label">Slide ${n} / ${N}<small>Swipe or tap ‹ ›</small></div><button data-slide="${n+1}" ${n<N?"":"disabled"} aria-label="Next slide">›</button></div>
+      <div class="actions"><button class="btn small" data-slidefull="${n}">Open full size</button>
+      <select id="slideJump" aria-label="Go to slide">${Array.from({length:N},(_,i)=>`<option value="${i+1}" ${i+1===n?"selected":""}>Slide ${i+1}</option>`).join("")}</select></div></section>`;}
+  const M=learnMarks(),f=ui.mkFilter||"";
+  const list=D.mustKnows.map((c,i)=>({...c,i,key:sid+"-"+(i+1)})).filter(c=>!f||(f==="no"?M[c.key]!=="y":M[c.key]==="y"));
+  const known=D.mustKnows.filter((c,i)=>M[sid+"-"+(i+1)]==="y").length;
+  h+=`<div class="chips" style="margin:0 0 8px"><button data-mkf="" style="${!f?"background:var(--soft)":""}">All ${D.mustKnows.length}</button><button data-mkf="no" style="${f==="no"?"background:var(--soft)":""}">To learn ${D.mustKnows.length-known}</button><button data-mkf="y" style="${f==="y"?"background:var(--soft)":""}">Know ✓ ${known}</button></div>`;
+  h+=list.map(c=>{const op=ui.mkOpen===c.key;return `<section class="block mk"><button class="mkq" data-mkopen="${c.key}" aria-expanded="${op}"><span class="muted">${c.i+1}.</span> ${esc(c.q)} ${M[c.key]==="y"?'<span class="up">✓</span>':M[c.key]==="n"?'<span class="down">✗</span>':""}</button>
+    ${op?`<ul class="learnlist">${c.a.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>${c.s?`<button class="btn small" data-slide="${c.s}" data-trnpage="session">📽️ Slide ${c.s}</button>`:""}
+    <div class="actions"><button class="btn small primary" data-mkmark="${c.key}|y">Theriyum ✓</button><button class="btn small" data-mkmark="${c.key}|n">Theriyala ✗</button></div>`:""}</section>`;}).join("")||`<div class="empty">Nothing here.</div>`;
+  return h+`<p class="hint">Tap a question, say the answer in your mind, then open it. Marks are saved on this phone.</p>`;
+}
+
 function render(){
   const v=document.getElementById("view");
   const gated=!!ui.gate;
@@ -2398,11 +2477,12 @@ function render(){
   if(gated){document.getElementById("periodWrap").style.display="none";v.innerHTML=viewGate();return;}
   header();
   if(!lyLoaded&&!lyLoading){lyLoading=true;loadLy().then(()=>{lyLoading=false;render();});}
-  document.getElementById("periodWrap").style.display = (ui.tab==="daily"||ui.tab==="st")?"none":"";
+  document.getElementById("periodWrap").style.display = (ui.tab==="daily"||ui.tab==="st"||ui.tab==="learn")?"none":"";
   if(ui.tab==="st"){v.innerHTML=viewStRep();return;}
+  if(ui.tab==="learn"){v.innerHTML=viewLearn();return;}
   if(ui.tab==="daily") ensureDay();
   else if(!weeksReady()){ensureWeeks();v.innerHTML='<div class="empty">Loading…</div>';return;}
-  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily(): viewReport();
+  v.innerHTML = ui.tab==="home"?learnCard(todayISO(),true)+viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+learnCard(ui.day,true)): viewReport();
 }
 
 /* ---------- standalone helpers ---------- */
@@ -2523,6 +2603,15 @@ document.addEventListener("click",e=>{
   if(!canEdit()&&(t.dataset.now||t.dataset.vmdel||t.dataset.remove||t.dataset.restore||t.dataset.sdel||t.dataset.rename||t.dataset.rensave||t.dataset.preset||["saveMonth","fillTotals","clearMonth","addStaff","saveStore","saveLate","vmAdd","x24Import","sohImport","stImport","dsrImport","lyImport","lyClear","futFix","sdelAll","saveMT","incSave","incCopy","pctSave","pctSuggest","pctEqual","exportCsv","backupDl"].includes(t.id)))return;
   if(t.dataset.tab){if(t.dataset.tab==="daily")delete photoCache[ui.day];if(t.dataset.tab==="staff"&&ui.tab==="staff")ui.staffPage="root";go(t.dataset.tab);return;}
   if(t.dataset.go){go(t.dataset.go);return;}
+  if(t.dataset.slidefull){const u=slideUrl(ui.trnSeason&&trn.data[ui.trnSeason]?ui.trnSeason:curSeason().id,+t.dataset.slidefull);const wn=window.open();if(wn){wn.document.write('<title>Slide</title><body style="margin:0;background:#000"><img src="'+u+'" style="width:100%">');wn.document.close();}return;}
+  if(t.dataset.learnopen){ui.learnOpen=t.dataset.learnopen;render();return;}
+  if(t.dataset.learnt){const T=todaysCard(t.dataset.learnt);if(T){t.disabled=true;markLearnt(t.dataset.learnt,T.card);}return;}
+  if(t.dataset.trnseason){ui.trnSeason=t.dataset.trnseason;ui.slide=1;render();return;}
+  if(t.dataset.slide!==undefined){ui.slide=+t.dataset.slide;if(ui.tab!=="learn"||t.dataset.trnpage){ui.trnPage="session";go("learn");}else render();return;}
+  if(t.dataset.trnpage){ui.trnPage=t.dataset.trnpage;render();window.scrollTo(0,0);return;}
+  if(t.dataset.mkf!==undefined){ui.mkFilter=t.dataset.mkf;render();return;}
+  if(t.dataset.mkopen){ui.mkOpen=ui.mkOpen===t.dataset.mkopen?"":t.dataset.mkopen;render();return;}
+  if(t.dataset.mkmark){const [k,v]=t.dataset.mkmark.split("|");setLearnMark(k,v);render();return;}
   if(t.dataset.month&&t.dataset.stay){setCur(t.dataset.month);render();window.scrollTo(0,0);return;}
   if(t.dataset.month){setCur(t.dataset.month);if(ui.tab==="months")ui.tab="home";render();window.scrollTo(0,0);return;}
   if(t.dataset.rep){ui.report=t.dataset.rep;render();return;}
@@ -2658,6 +2747,10 @@ document.addEventListener("click",e=>{
       persistDay(ui.day.slice(0,7),"VM task added");render();break;}
   }
 });
+/* swipe slides */
+{let sx=null;document.addEventListener("touchstart",e=>{sx=e.target.closest&&e.target.closest("#slideBox")?e.touches[0].clientX:null;},{passive:true});
+ document.addEventListener("touchend",e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)<40)return;
+   const b=document.querySelector(`.monthbar [data-slide="${(num(ui.slide)||1)+(dx<0?1:-1)}"]:not([disabled])`);if(b)b.click();},{passive:true});}
 document.addEventListener("change",e=>{
   const el=e.target;
   if(el.id==="vmPhotoFile"&&el.files&&el.files[0]){uploadVmPhoto(el.files[0]);el.value="";return;}
@@ -2665,6 +2758,7 @@ document.addEventListener("change",e=>{
   if(el.id==="backupFile"&&el.files&&el.files[0]){backupRestore(el.files[0]);el.value="";return;}
   if(el.id==="x24File"&&el.files&&el.files[0]){handleX24File(el.files[0]);return;}
   if(el.id==="lyFile"&&el.files&&el.files[0]){handleLyFile(el.files[0]);el.value="";return;}
+  if(el.id==="slideJump"){ui.slide=+el.value;render();return;}
   if(el.id==="dayPick"&&el.value){ui.day=el.value;delete photoCache[ui.day];render();return;}
   if(el.dataset.a){const row=el.closest(".arow");if(!row)return;
     const patch={};patch[el.dataset.a]=el.value;

@@ -1916,7 +1916,23 @@ async function loadStRep(){
   stLoaded=true;return stRep;
 }
 const stWeekCache={};
-function stWeekOf(rep){return weekOfDate(dOf(rep.date||todayISO()));}
+/* the Levi's ST report is made the day after the week ends (Monday), so it belongs to the week of the day before its date */
+function stWeekOfDate(iso){return weekOfDate(dOf(dayAdd(iso,-1)));}
+function stWeekOf(rep){return stWeekOfDate(rep.date||todayISO());}
+let stMig="";
+function stNeedsMig(){const S=state.stWeeks||{};return Object.keys(S).some(k=>S[k]&&S[k].date&&stWeekOfDate(S[k].date)!==k);}
+/* one-time move of weeks saved under the report date's week to the week the report is for */
+async function stMigrate(){
+  if(stMig||!canEdit())return;stMig="running";
+  try{const S=JSON.parse(JSON.stringify(state.stWeeks||{}));const keys=Object.keys(S).sort();
+    for(const k of keys)await loadStWeek(k);
+    const nS={},src={};keys.forEach(k=>{const nk=stWeekOfDate(S[k].date||"");if(!nk)return;if(!nS[nk]||S[k].date>nS[nk].date){nS[nk]=S[k];src[nk]=k;}});
+    const docs={};Object.keys(nS).forEach(nk=>{const d=stWeekCache[src[nk]];if(d&&!d.missing)docs[nk]={date:d.date,store:d.store||"",file:d.file||"",json:d.json||JSON.stringify(d.rows)};});
+    for(const nk of Object.keys(docs)){try{localStorage.setItem(LS_ST+"-"+nk,JSON.stringify(docs[nk]));}catch(e){}if(col)await col.doc("strep-"+nk).set(docs[nk]).catch(()=>{});}
+    Object.keys(stWeekCache).forEach(k=>delete stWeekCache[k]);
+    state.stWeeks=nS;ui.stWeek="";persist("ST weeks fixed");
+  }catch(e){}
+  stMig="done";render();}
 function stSummary(rows){const all=rows.map(stObj).filter(r=>r.sale+r.soh>0);const t=stTotals(all);const gc={};
   [...new Set(all.map(r=>r.gc).filter(Boolean))].forEach(g=>{const x=stTotals(all.filter(r=>r.gc===g));gc[g]=x.st;});return {st:t.st,sale:t.sale,soh:t.soh,gc};}
 function rememberStWeek(rep){if(!canEdit()||!rep||!rep.rows)return;const wk=stWeekOf(rep);
@@ -2093,6 +2109,7 @@ function viewStWeekX(){
 }
 
 function viewStRep(){
+  if(stNeedsMig()&&stMig!=="done"){if(canEdit()){stMigrate();return `<div class="empty">Fixing ST report weeks… one moment.</div>`;}}
   const per=ui.stPer||"week";
   const seg=`<div class="seg" role="group" aria-label="ST period">${[["week","Week"],["month","Month"],["h1","H1"],["h2","H2"]].map(([k,l])=>`<button data-stper="${k}" aria-pressed="${per===k}">${l}</button>`).join("")}</div>`;
   if(per==="week"||!stLoaded) return seg+viewStWeekX();

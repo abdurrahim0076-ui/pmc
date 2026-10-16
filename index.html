@@ -928,7 +928,7 @@ function parseX24(XLSX,wb){
         d.sales+=amt;d.units+=qty;d.tq[tn]=(d.tq[tn]||0)+qty;
         {let pc=c.pc9>=0?String(row[c.pc9]??"").trim().toUpperCase():"";
          if(!/^[0-9A-Z]{5}-[0-9A-Z]{4}$/.test(pc)&&c.code>=0){const pcode=String(row[c.code]??"").trim().toUpperCase();if(/^[0-9A-Z]{9,}$/.test(pcode))pc=pcode.slice(0,5)+"-"+pcode.slice(5,9);}
-         if(/^[0-9A-Z]{5}-[0-9A-Z]{4}$/.test(pc))d.mix.p[pc]=(d.mix.p[pc]||0)+qty;}
+         if(/^[0-9A-Z]{5}-[0-9A-Z]{4}$/.test(pc)){const a=d.mix.p[pc]||(d.mix.p[pc]=[0,0,""]);a[0]+=qty;a[1]+=amt;a[2]=cat+"|"+brick.toUpperCase();}}
         const who=c.who>=0?String(row[c.who]??"").trim():"";
         if(who){const s=d.staff[who]||(d.staff[who]={sales:0,units:0,tq:{}});s.sales+=amt;s.units+=qty;s.tq[tn]=(s.tq[tn]||0)+qty;
           add(d.mix.s[who]||(d.mix.s[who]={}),cat,qty,amt);}
@@ -1907,13 +1907,42 @@ function wallOf(cat,brick,G){cat=String(cat).toUpperCase();brick=String(brick).t
 /* brick-level sales for the dates (only days imported from X24 have bricks) */
 function brickMix(s,e){const wks=weeksCovering(s,e);const miss=wks.filter(w=>!mixCache[w]);
   if(miss.length){Promise.all(miss.map(loadMix)).then(()=>{if(ui.tab==="months")render();});return null;}
-  const si=isoOf(s),ei=isoOf(e),b={};let days=0;
+  const si=isoOf(s),ei=isoOf(e),b={},p={};let days=0;loadWallMap();
   wks.forEach(w=>Object.keys(mixCache[w].days||{}).forEach(dt=>{if(dt<si||dt>ei)return;const d=mixCache[w].days[dt];if(!d.b||!Object.keys(d.b).length)return;days++;
-    Object.keys(d.b).forEach(k=>{const x=b[k]||(b[k]=[0,0]);x[0]+=num(d.b[k][0]);x[1]+=num(d.b[k][1]);});}));
-  return {b,days};}
+    const used={};Object.keys(d.p||{}).forEach(pc=>{const x=d.p[pc];if(!Array.isArray(x)||!x[2])return;const a=p[pc]||(p[pc]=[0,0,x[2]]);a[0]+=num(x[0]);a[1]+=num(x[1]);const u=used[x[2]]||(used[x[2]]=[0,0]);u[0]+=num(x[0]);u[1]+=num(x[1]);});
+    Object.keys(d.b).forEach(k=>{const u=used[k]||[0,0];const q=num(d.b[k][0])-u[0],v=num(d.b[k][1])-u[1];if(Math.abs(q)<0.01&&Math.abs(v)<1)return;const x=b[k]||(b[k]=[0,0]);x[0]+=q;x[1]+=v;});}));
+  return {b,p,days};}
+let wallMap=null,wallMapLoading=false;
+function loadWallMap(){if(wallMap||wallMapLoading)return;wallMapLoading=true;fsGet("wallmap").then(d=>{wallMap=d&&d.json?JSON.parse(d.json):{pc:{},br:{}};}).catch(()=>{wallMap={pc:{},br:{}};}).finally(()=>{wallMapLoading=false;if(ui.tab==="months")render();});}
+async function uploadWallMaster(file){
+  try{const XLSX=await loadXLSX();const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});const pc={},br={};let found=false;
+    for(const n of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false,defval:""});
+      for(let i=0;i<Math.min(15,rows.length);i++){const hd=(rows[i]||[]).map(x=>String(x).trim().toUpperCase());const wi=hd.findIndex(x=>x==="WALL"||x==="WALL NAME"||x==="WALL GROUP");
+        const pi=hd.findIndex(x=>x==="PC9"||x==="PC 9"),bi=hd.findIndex(x=>x==="BRICK");if(wi<0||(pi<0&&bi<0))continue;found=true;
+        for(let r=i+1;r<rows.length;r++){const row=rows[r]||[];const wn=String(row[wi]||"").trim();if(!wn)continue;
+          if(pi>=0){const c=pc9FromName(row[pi]);if(c){pc[c]=wn;continue;}}
+          if(bi>=0){const b=String(row[bi]||"").trim().toUpperCase();if(b)br[b]=wn;}}
+        break;}}
+    if(!found){toast("Need a WALL column and a BRICK or PC9 column");return;}
+    const names=[...new Set([...Object.values(pc),...Object.values(br)])];const G=JSON.parse(JSON.stringify(wallGroups()));let added=0;
+    names.forEach(n=>{if(!G.find(g=>g.name.trim().toUpperCase()===n.toUpperCase())){G.push({id:"wg_"+Math.random().toString(36).slice(2,7),name:n,walls:0,cat:"ANY",kw:""});added++;}});
+    wallMap={pc,br};await fsSet("wallmap",{json:JSON.stringify(wallMap),at:todayISO(),file:file.name});
+    if(added){state.walls=G;persist("Walls saved");}ui.wallDraft=null;
+    const msg=("Brick master saved: "+Object.keys(br).length+" bricks · "+Object.keys(pc).length+" PC9"+(added?" · "+added+" new wall groups (set their wall count)":""));render();setTimeout(()=>toast(msg),2200);
+  }catch(e){toast("Could not read the file: "+(e.message||e));}}
+async function wallTemplate(){
+  const XLSX=await loadXLSX();const G=wallGroups(),seen={};const end=new Date(),start=new Date(end.getFullYear(),end.getMonth(),end.getDate()-90);
+  for(const w of weeksCovering(start,end)){await loadMix(w);Object.values(mixCache[w].days||{}).forEach(d=>Object.keys(d.b||{}).forEach(k=>{seen[k]=(seen[k]||0)+num(d.b[k][1]);}));}
+  const WM=wallMap||{pc:{},br:{}};const rows=[["CATEGORY","BRICK","WALL","PC9"]];
+  Object.keys(seen).sort((a,b)=>seen[b]-seen[a]).forEach(k=>{const [cat,...r]=k.split("|"),b=r.join("|");const g=WM.br[b.toUpperCase()]||((wallOf(cat,b,G)||{}).name)||"";rows.push([cat,b,g,""]);});
+  Object.keys(WM.pc).forEach(pc=>rows.push(["","",WM.pc[pc],pc]));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),"Brick master");XLSX.writeFile(wb,"PMC_brick_master.xlsx");}
 function wallCalc(M){const G=wallGroups(),R={},oth={};G.forEach(g=>R[g.id]={g,q:0,v:0});
-  Object.keys(M.b).forEach(k=>{const [cat,...rest]=k.split("|"),brick=rest.join("|");const g=wallOf(cat,brick,G);const a=M.b[k];
-    if(g){R[g.id].q+=a[0];R[g.id].v+=a[1];}else{const o=oth[k]||(oth[k]=[0,0]);o[0]+=a[0];o[1]+=a[1];}});
+  const WM=wallMap||{pc:{},br:{}},byName=n=>G.find(g=>g.name.trim().toUpperCase()===String(n).trim().toUpperCase())||null;
+  const put=(cat,brick,pc,a)=>{const k=cat+"|"+brick;let g=(pc&&WM.pc[pc]&&byName(WM.pc[pc]))||(WM.br[brick.toUpperCase()]&&byName(WM.br[brick.toUpperCase()]))||wallOf(cat,brick,G);
+    if(g){R[g.id].q+=a[0];R[g.id].v+=a[1];}else{const o=oth[k]||(oth[k]=[0,0]);o[0]+=a[0];o[1]+=a[1];}};
+  Object.keys(M.p||{}).forEach(pc=>{const x=M.p[pc];const [cat,...rest]=x[2].split("|");put(cat,rest.join("|"),pc,x);});
+  Object.keys(M.b).forEach(k=>{const [cat,...rest]=k.split("|");put(cat,rest.join("|"),"",M.b[k]);});
   const rows=G.map(g=>R[g.id]),Q=rows.reduce((x,r)=>x+r.q,0),V=rows.reduce((x,r)=>x+r.v,0),Wn=rows.reduce((x,r)=>x+num(r.g.walls),0)||1;
   rows.forEach(r=>{const w=num(r.g.walls)||0;r.sp=w/Wn;r.vc=V?r.v/V:0;r.qc=Q?r.q/Q:0;r.pv=r.sp?r.vc/r.sp:NaN;r.pq=r.sp?r.qc/r.sp:NaN;r.vw=w?r.v/w:0;r.qw=w?r.q/w:0;});
   return {rows,Q,V,Wn,oth};}
@@ -1928,7 +1957,11 @@ function viewWalls(){
       ${G.map((g,i)=>`<div class="block" style="padding:10px;margin:0 0 8px"><div class="fgrid"><div><label class="f" for="wn${i}">Name</label><input type="text" id="wn${i}" data-wn="${i}" value="${esc(g.name)}"></div><div><label class="f" for="ww${i}">Walls</label><input class="n" id="ww${i}" data-ww="${i}" inputmode="numeric" value="${num(g.walls)||""}"></div>
         <div><label class="f" for="wc${i}">Category</label><select id="wc${i}" data-wc="${i}">${WALL_CATS.map(c=>`<option value="${c}" ${g.cat===c?"selected":""}>${c==="ANY"?"Any":esc(catLabel(c))}</option>`).join("")}</select></div><div><label class="f" for="wk${i}">Brick keywords</label><input type="text" id="wk${i}" data-wk="${i}" value="${esc(g.kw||"")}"></div></div>
         <div class="actions" style="margin-top:6px"><button class="btn small" data-wrm="${i}">Remove</button></div></div>`).join("")}
-      <div class="actions"><button class="btn small" id="wAdd">+ Add group</button><button class="btn small primary" id="wSave" style="flex:1">Save walls</button><button class="btn small" id="wCancel">Cancel</button><button class="btn small" id="wReset">Reset</button></div></section>`;}
+      <div class="actions"><button class="btn small" id="wAdd">+ Add group</button><button class="btn small primary" id="wSave" style="flex:1">Save walls</button><button class="btn small" id="wCancel">Cancel</button><button class="btn small" id="wReset">Reset</button></div></section>
+      <section class="block"><h2>📥 Brick master</h2>${(()=>{loadWallMap();const W=wallMap;const nb=W?Object.keys(W.br).length:0,np=W?Object.keys(W.pc).length:0;
+        return `<p class="hint" style="margin:0 0 8px">${!W?"Loading…":nb||np?"Master in use: "+nb+" bricks · "+np+" PC9. PC9 first, then brick, then the keywords above.":"No master yet. The keywords above are used."}</p>`;})()}
+      <p class="hint" style="margin:0 0 8px">Excel with a <b>WALL</b> column and a <b>BRICK</b> and / or <b>PC9</b> column. WALL must be the group name. A new name makes a new group (set its wall count).</p>
+      <div class="actions"><button class="btn small primary" id="wmUp">Upload brick master</button><button class="btn small" id="wmTpl">Download template</button>${wallMap&&(Object.keys(wallMap.br).length||Object.keys(wallMap.pc).length)?`<button class="btn small danger" id="wmDel">Remove master</button>`:""}</div></section>`;}
   const M=brickMix(s,e);if(!M)return `<div class="empty">Loading…</div>`;
   const tw=wallGroups().reduce((x,g)=>x+num(g.walls),0);
   if(!M.days) return `<section class="block"><h2>🧱 Wall productivity</h2>${needBillsMsg(s,e)}</section>`+(canEdit()?`<div class="actions"><button class="btn small" data-wedit="1">⚙️ Wall setup</button></div>`:"");
@@ -1942,7 +1975,7 @@ function viewWalls(){
     <div class="tscroll"><table><thead><tr><th>Wall group</th><th>Walls</th><th>Sale</th><th>Pcs</th><th>Per wall</th><th>Sale con%</th><th>Pcs con%</th><th>Space con%</th><th>Prod. ₹</th><th>Prod. pcs</th><th>AVU</th></tr></thead><tbody>`+
     rows.map(r=>`<tr><td>${esc(r.g.name)}</td><td>${num(r.g.walls)}</td><td>${inr(r.v)}</td><td>${full(r.q)}</td><td>${inr(r.vw)}<br><small class="muted">${r.qw.toFixed(1)} pcs</small></td><td>${pct(r.vc,1)}</td><td>${pct(r.qc,1)}</td><td>${pct(r.sp,1)}</td><td>${pc(r.pv)}</td><td>${pc(r.pq)}</td><td>${r.q?inr(r.v/r.q):"–"}</td></tr>`).join("")+
     `<tr class="total"><td>Walls</td><td>${C.Wn}</td><td>${inr(C.V)}</td><td>${full(C.Q)}</td><td>${inr(C.V/(C.Wn||1))}</td><td>100%</td><td>100%</td><td>100%</td><td>1.00</td><td>1.00</td><td>${C.Q?inr(C.V/C.Q):"–"}</td></tr></tbody></table></div>
-    <p class="hint">Productivity = con% ÷ space con%. 🟢 1.1+ sells more than its space · 🔴 below 0.9 the space is under-used. From ${M.days} days of X24.</p></section>`;
+    <p class="hint">Productivity = con% ÷ space con%. 🟢 1.1+ sells more than its space · 🔴 below 0.9 the space is under-used. From ${M.days} days of X24${wallMap&&(Object.keys(wallMap.br).length||Object.keys(wallMap.pc).length)?" · brick master in use":""}.</p></section>`;
   /* trend: last 6 weeks */
   const endWk=weekOfDate(e),wks=[];for(let w=endWk,i=0;i<6;i++,w=stepKey(w,-1))wks.unshift(w);
   const TW=wks.map(w=>{const [a,b]=weekRange(w);const m=brickMix(a,b>new Date()?new Date():b);return m&&m.days?wallCalc(m):null;});
@@ -2191,7 +2224,7 @@ function stPeriodRep(pk,per,W){
 function stX24Sales(s,e){const wks=weeksCovering(s,e);const miss=wks.filter(w=>!mixCache[w]);
   if(miss.length){Promise.all(miss.map(loadMix)).then(()=>{if(ui.tab==="st")render();});return null;}
   const si=isoOf(s),ei=isoOf(e),map={};let days=0;
-  wks.forEach(w=>Object.keys(mixCache[w].days||{}).forEach(dt=>{if(dt<si||dt>ei)return;const p=mixCache[w].days[dt].p;if(!p)return;days++;Object.keys(p).forEach(pc=>map[pc]=(map[pc]||0)+num(p[pc]));}));
+  wks.forEach(w=>Object.keys(mixCache[w].days||{}).forEach(dt=>{if(dt<si||dt>ei)return;const p=mixCache[w].days[dt].p;if(!p)return;days++;Object.keys(p).forEach(pc=>{const x=p[pc];map[pc]=(map[pc]||0)+num(Array.isArray(x)?x[0]:x);});}));
   return {map,days};}
 function stX24Build(s,e,refWk){
   const today=new Date();if(e>today)e=today;if(s>e)return {none:true};
@@ -2891,6 +2924,9 @@ document.addEventListener("click",e=>{
   if(t.id==="pcBulk"&&canEdit()){pickFiles("image/*,.json,application/json",true,f=>addPcPhotos(f));return;}
   if(t.dataset.wallby){ui.wallBy=t.dataset.wallby;render();return;}
   if(t.dataset.wallothall){ui.wallOthAll=true;render();return;}
+  if(t.id==="wmUp"&&canEdit()){pickFiles(".xlsx,.xls,.csv",false,f=>uploadWallMaster(f[0]));return;}
+  if(t.id==="wmTpl"){wallTemplate().catch(e=>toast("Could not make the file"));return;}
+  if(t.id==="wmDel"&&canEdit()){askConfirm("Remove the brick master? The keywords will be used again.","Remove",async()=>{wallMap={pc:{},br:{}};await fsSet("wallmap",{json:JSON.stringify(wallMap)});render();});return;}
   if(t.dataset.wedit&&canEdit()){ui.wallEdit=true;ui.wallDraft=null;render();window.scrollTo(0,0);return;}
   if(ui.wallEdit&&(t.id==="wAdd"||t.id==="wSave"||t.id==="wCancel"||t.id==="wReset"||t.dataset.wrm!==undefined)){
     const D=ui.wallDraft||[];document.querySelectorAll("[data-wn]").forEach(i=>{const g=D[+i.dataset.wn];if(g)g.name=i.value.trim();});

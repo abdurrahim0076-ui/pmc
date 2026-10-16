@@ -569,6 +569,9 @@ function normalize(d){
           rosterDef: d.rosterDef&&typeof d.rosterDef==="object"?d.rosterDef:{},
           promos: Array.isArray(d.promos)?d.promos:[],
           stWeeks: d.stWeeks&&typeof d.stWeeks==="object"?d.stWeeks:{},
+          walls: Array.isArray(d.walls)?d.walls:null,
+          wallTotal: num(d.wallTotal)||42,
+          gsa: num(d.gsa)||5965,
           support: Array.isArray(d.support)?d.support:null,
           lastDataDate: typeof d.lastDataDate==="string"?d.lastDataDate:""};
 }
@@ -736,6 +739,18 @@ function header(){
   });
 }
 
+/* dashboard extras: BTM% / WMS% from the sale mix, YTD averages */
+function homeMix(s,e){const wks=weeksCovering(s,e);const miss=wks.filter(w=>!mixCache[w]);
+  if(miss.length){Promise.all(miss.map(loadMix)).then(()=>{if(ui.tab==="home")render();});return null;}
+  const si=isoOf(s),ei=isoOf(e),c={};wks.forEach(w=>Object.keys(mixCache[w].days||{}).forEach(dt=>{if(dt<si||dt>ei)return;const d=mixCache[w].days[dt].c||{};Object.keys(d).forEach(k=>{c[k]=(c[k]||0)+num(d[k][0]);});}));
+  const tot=Object.values(c).reduce((x,v)=>x+v,0),g=k=>c[k]||0;
+  return tot?{btm:(g("MENS BOTTOMS")+g("WOMENS BOTTOMS"))/tot,wms:(g("WOMENS TOPS")+g("WOMENS BOTTOMS"))/tot,tot}:{btm:NaN,wms:NaN,tot:0};}
+function ytdAvgs(k,y){const fs=fyStart(fyOf(k));const [,pe]=periodDates(k,false);const end=pe<new Date()?pe:new Date();
+  const days=Math.max(1,Math.round((end-fs)/864e5)+1);const wks=Math.max(1,days/7);
+  const months=monthKeys(fyOf(k)).filter(m=>{const [a]=fmRange(m);return a<=end;}).length||1;
+  return {wk:y.sales/wks,mo:y.sales/months,wks,months};}
+function vsTxt(v,avg){if(!(v>0)||!(avg>0))return "";const d=v/avg-1;return `<small class="${d>=0?"up":"down"}">${d>=0?"▲":"▼"} ${Math.abs(d*100).toFixed(0)}% vs YTD avg</small>`;}
+
 function viewHome(){
   const k=cur(), m=aggStore(selKeys()), y=aggStore(ytdKeys(k));
   if(isWeek(k)){withYtdTarget(y,k);if(isYtd())withYtdTarget(m,k);}
@@ -756,8 +771,13 @@ function viewHome(){
         <div><b>${pct(m.ach)}</b>Achievement</div>
         <div><b>${signPct(m.l2l)}</b>L2L vs ${esc(isYtd()?"YTD":mShort(k))} LY</div>
         <div><b>${!m.target?"–":m.target>m.salesT?inr(m.target-m.salesT):"Done"}</b>${!m.target?"No target yet":m.target>m.salesT?"To go":"Target"}</div>
+        <div><b>₹${full(Math.round(m.sales/gsa()))}</b>Sale / sq ft</div>
       </div></div>`;
+    const [hs,he0]=periodDates(k,isYtd()),hx=homeMix(hs,he0<new Date()?he0:new Date()),av=ytdAvgs(k,y);
     if(!isYtd()) h+=`<section class="block"><h2>Store KPIs</h2><div class="grid">
+      <div class="kv"><span>📐 Sale / sq ft</span><b>₹${full(Math.round(m.sales/gsa()))}</b><small class="muted">GSA ${full(gsa())} sq ft</small></div>
+      <div class="kv"><span>👖 BTM%</span><b>${hx?pct(hx.btm,1):"…"}</b></div>
+      <div class="kv"><span>👗 WMS%</span><b>${hx?pct(hx.wms,1):"…"}</b></div>
       <div class="kv"><span>ATV</span><b>${isFinite(m.atv)?inr(m.atv):"–"}</b></div>
       <div class="kv"><span>UPT</span><b>${isFinite(m.upt)?m.upt.toFixed(2):"–"}</b></div>
       <div class="kv"><span>AVU</span><b>${isFinite(m.asp)?inr(m.asp):"–"}</b></div>
@@ -778,7 +798,10 @@ function viewHome(){
     <div class="kv"><span>ATV</span><b>${isFinite(y.atv)?inr(y.atv):"–"}</b></div>
     <div class="kv"><span>UPT</span><b>${isFinite(y.upt)?y.upt.toFixed(2):"–"}</b></div>
     <div class="kv"><span>AVU</span><b>${isFinite(y.asp)?inr(y.asp):"–"}</b></div>
-    <div class="kv"><span>${(ui.mode==="week"||isYtd())?"Avg / week":ui.mode==="day"?"Avg / day":"Avg / month"}</span><b>${(()=>{const n=ytdKeys(k).filter(x=>num(rec(x)?.sales)>0).length;return n?inr(y.sales/n):"–";})()}</b></div>
+    <div class="kv"><span>Avg / week</span><b>${(()=>{const a=ytdAvgs(k,y);return y.sales>0?inr(a.wk):"–";})()}</b></div>
+    <div class="kv"><span>Avg / month</span><b>${(()=>{const a=ytdAvgs(k,y);return y.sales>0?inr(a.mo):"–";})()}</b></div>
+    <div class="kv"><span>📐 Sale / sq ft</span><b>${(()=>{const a=ytdAvgs(k,y);return y.sales>0?"₹"+full(Math.round(a.mo/gsa())):"–";})()}</b><small class="muted">per month avg · GSA ${full(gsa())} sq ft</small></div>
+    ${(()=>{const yx=homeMix(fyStart(fyOf(k)),(()=>{const [,pe]=periodDates(k,false);return pe<new Date()?pe:new Date();})());return `<div class="kv"><span>👖 BTM%</span><b>${yx?pct(yx.btm,1):"…"}</b></div><div class="kv"><span>👗 WMS%</span><b>${yx?pct(yx.wms,1):"…"}</b></div>`;})()}
   </div><p class="hint">${isDay(k)?"From "+esc(shortDate(isoOf(fyStart(fyOf(k)))))+" to "+esc(mShort(k)):isWeek(k)?"Week 1 to Week "+weekNo(k):"December to "+esc(MN_FULL[parseKey(k).m-1])}. L2L counts only ${isDay(k)?"days":isWeek(k)?"weeks":"months"} that have last year's sales too.</p></section>`;
   {const yk=ytdKeys(k);const ys=staffWithData(yk).map(s=>({s,a:aggStaff(s.id,yk)})).filter(x=>x.a.sales>0).sort((p,q)=>q.a.sales-p.a.sales);
    const liF=(x,i)=>`<li><span class="pos">${i+1}</span><div class="who"><b>${esc(x.s.name)}</b><small>ATV ${isFinite(x.a.atv)?inr(x.a.atv):"–"} · UPT ${isFinite(x.a.upt)?x.a.upt.toFixed(2):"–"}</small></div><div class="amt"><b>${inr(x.a.sales)}</b><small class="${isFinite(x.a.ach)?(x.a.ach>=1?"up":"down"):"muted"}">${isFinite(x.a.ach)?pct(x.a.ach)+" ach.":""}</small></div></li>`;
@@ -1853,6 +1876,93 @@ function viewAcc(){
     <p class="hint">🟢 at or above store value con% · 🔴 below. Staff = main associate on the bill.${list.length<B.bills.length?" Some days were imported before accessories were tracked — re-import the X24 for full numbers.":""}</p></section>`;
   return h;
 }
+/* 🏬 Store productivity + 🧱 Wall productivity */
+const DEF_WALLS=[
+  {id:"wm1",name:"Men's Baggy / Loose",walls:3,cat:"MENS BOTTOMS",kw:"LOOSE & BAGGY"},
+  {id:"wm2",name:"Men's Straight",walls:5,cat:"MENS BOTTOMS",kw:"STRAIGHT"},
+  {id:"wm3",name:"Men's Slim / Taper",walls:3,cat:"MENS BOTTOMS",kw:"SLIM, TAPER, SKINNY"},
+  {id:"wm4",name:"Men's Redloop",walls:5,cat:"MENS BOTTOMS",kw:"REDLOOP"},
+  {id:"wm5",name:"Men's Chinos",walls:3,cat:"MENS BOTTOMS",kw:"CHINO"},
+  {id:"wm6",name:"Men's Shirt shop",walls:9,cat:"MENS TOPS",kw:"SHIRT SHOP, SUPRA SHIRT"},
+  {id:"ww1",name:"Women's Loose",walls:6,cat:"WOMENS BOTTOMS",kw:"LOOSE"},
+  {id:"ww2",name:"Women's Flare",walls:4,cat:"WOMENS BOTTOMS",kw:"FLARE"},
+  {id:"ww3",name:"Women's Straight",walls:4,cat:"WOMENS BOTTOMS",kw:"STRAIGHT"}];
+const WALL_CATS=["MENS BOTTOMS","MENS TOPS","WOMENS BOTTOMS","WOMENS TOPS","ANY"];
+function wallGroups(){return Array.isArray(state.walls)&&state.walls.length?state.walls:DEF_WALLS;}
+function wallTotal(){return num(state.wallTotal)||42;}
+function gsa(){return num(state.gsa)||5965;}
+function wallOf(cat,brick,G){cat=String(cat).toUpperCase();brick=String(brick).toUpperCase();
+  return G.find(g=>(g.cat==="ANY"||g.cat===cat)&&String(g.kw||"").split(",").map(x=>x.trim().toUpperCase()).filter(Boolean).some(k=>brick.indexOf(k)>-1))||null;}
+/* brick-level sales for the dates (only days imported from X24 have bricks) */
+function brickMix(s,e){const wks=weeksCovering(s,e);const miss=wks.filter(w=>!mixCache[w]);
+  if(miss.length){Promise.all(miss.map(loadMix)).then(()=>{if(ui.tab==="months")render();});return null;}
+  const si=isoOf(s),ei=isoOf(e),b={};let days=0;
+  wks.forEach(w=>Object.keys(mixCache[w].days||{}).forEach(dt=>{if(dt<si||dt>ei)return;const d=mixCache[w].days[dt];if(!d.b||!Object.keys(d.b).length)return;days++;
+    Object.keys(d.b).forEach(k=>{const x=b[k]||(b[k]=[0,0]);x[0]+=num(d.b[k][0]);x[1]+=num(d.b[k][1]);});}));
+  return {b,days};}
+function wallCalc(M){const G=wallGroups(),R={},oth={};G.forEach(g=>R[g.id]={g,q:0,v:0});
+  Object.keys(M.b).forEach(k=>{const [cat,...rest]=k.split("|"),brick=rest.join("|");const g=wallOf(cat,brick,G);const a=M.b[k];
+    if(g){R[g.id].q+=a[0];R[g.id].v+=a[1];}else{const o=oth[k]||(oth[k]=[0,0]);o[0]+=a[0];o[1]+=a[1];}});
+  const rows=G.map(g=>R[g.id]),Q=rows.reduce((x,r)=>x+r.q,0),V=rows.reduce((x,r)=>x+r.v,0),Wn=rows.reduce((x,r)=>x+num(r.g.walls),0)||1;
+  rows.forEach(r=>{const w=num(r.g.walls)||0;r.sp=w/Wn;r.vc=V?r.v/V:0;r.qc=Q?r.q/Q:0;r.pv=r.sp?r.vc/r.sp:NaN;r.pq=r.sp?r.qc/r.sp:NaN;r.vw=w?r.v/w:0;r.qw=w?r.q/w:0;});
+  return {rows,Q,V,Wn,oth};}
+function viewWalls(){
+  const k=cur(),ytd=isYtd(),[s,e0]=periodDates(k,ytd);const e=e0<new Date()?e0:new Date();
+  const ed=canEdit()&&ui.wallEdit;
+  let h="";
+  if(ed){const G=ui.wallDraft||(ui.wallDraft=JSON.parse(JSON.stringify(wallGroups())));const tw=G.reduce((x,g)=>x+num(g.walls),0);
+    return h+`<section class="block"><h2>🧱 Wall setup</h2>
+      <div class="fgrid"><div><label class="f" for="wTot">Walls in store</label><input class="n" id="wTot" inputmode="numeric" value="${wallTotal()}"></div><div><label class="f">Walls in groups</label><b class="${tw===wallTotal()?"up":"down"}" style="display:block;padding:10px 0">${tw} / ${wallTotal()}</b></div></div>
+      <p class="hint">Keywords match the X24 BRICK (comma separated). The first group that matches wins.</p>
+      ${G.map((g,i)=>`<div class="block" style="padding:10px;margin:0 0 8px"><div class="fgrid"><div><label class="f" for="wn${i}">Name</label><input type="text" id="wn${i}" data-wn="${i}" value="${esc(g.name)}"></div><div><label class="f" for="ww${i}">Walls</label><input class="n" id="ww${i}" data-ww="${i}" inputmode="numeric" value="${num(g.walls)||""}"></div>
+        <div><label class="f" for="wc${i}">Category</label><select id="wc${i}" data-wc="${i}">${WALL_CATS.map(c=>`<option value="${c}" ${g.cat===c?"selected":""}>${c==="ANY"?"Any":esc(catLabel(c))}</option>`).join("")}</select></div><div><label class="f" for="wk${i}">Brick keywords</label><input type="text" id="wk${i}" data-wk="${i}" value="${esc(g.kw||"")}"></div></div>
+        <div class="actions" style="margin-top:6px"><button class="btn small" data-wrm="${i}">Remove</button></div></div>`).join("")}
+      <div class="actions"><button class="btn small" id="wAdd">+ Add group</button><button class="btn small primary" id="wSave" style="flex:1">Save walls</button><button class="btn small" id="wCancel">Cancel</button><button class="btn small" id="wReset">Reset</button></div></section>`;}
+  const M=brickMix(s,e);if(!M)return `<div class="empty">Loading…</div>`;
+  const tw=wallGroups().reduce((x,g)=>x+num(g.walls),0);
+  if(!M.days) return `<section class="block"><h2>🧱 Wall productivity</h2>${needBillsMsg(s,e)}</section>`+(canEdit()?`<div class="actions"><button class="btn small" data-wedit="1">⚙️ Wall setup</button></div>`:"");
+  const C=wallCalc(M),by=ui.wallBy||"v";
+  const rows=C.rows.slice().sort((a,b)=>((by==="v"?b.pv:b.pq)||0)-((by==="v"?a.pv:a.pq)||0));
+  const pc=v=>isFinite(v)?`<b class="${v>=1.1?"up":v<0.9?"down":""}">${v.toFixed(2)}</b>`:"–";
+  h+=`<section class="block"><h2>🧱 Wall productivity · ${esc(ytd?ytdLabel():mLong(k))}</h2>
+    <div class="grid"><div class="kv"><span>Wall sale</span><b>${inr(C.V)}</b></div><div class="kv"><span>Wall pcs</span><b>${full(C.Q)}</b></div><div class="kv"><span>Per wall</span><b>${inr(C.V/(C.Wn||1))}</b><small class="muted">${(C.Q/(C.Wn||1)).toFixed(1)} pcs</small></div></div>
+    ${tw!==wallTotal()?`<p class="hint down">Groups have ${tw} walls, store has ${wallTotal()}. Fix it in Wall setup.</p>`:""}
+    <div class="seg" role="group" aria-label="Sort by" style="margin-top:10px"><button data-wallby="v" aria-pressed="${by==="v"}">By sale ₹</button><button data-wallby="q" aria-pressed="${by==="q"}">By pcs</button></div>
+    <div class="tscroll"><table><thead><tr><th>Wall group</th><th>Walls</th><th>Sale</th><th>Pcs</th><th>Per wall</th><th>Sale con%</th><th>Pcs con%</th><th>Space con%</th><th>Prod. ₹</th><th>Prod. pcs</th><th>AVU</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${esc(r.g.name)}</td><td>${num(r.g.walls)}</td><td>${inr(r.v)}</td><td>${full(r.q)}</td><td>${inr(r.vw)}<br><small class="muted">${r.qw.toFixed(1)} pcs</small></td><td>${pct(r.vc,1)}</td><td>${pct(r.qc,1)}</td><td>${pct(r.sp,1)}</td><td>${pc(r.pv)}</td><td>${pc(r.pq)}</td><td>${r.q?inr(r.v/r.q):"–"}</td></tr>`).join("")+
+    `<tr class="total"><td>Walls</td><td>${C.Wn}</td><td>${inr(C.V)}</td><td>${full(C.Q)}</td><td>${inr(C.V/(C.Wn||1))}</td><td>100%</td><td>100%</td><td>100%</td><td>1.00</td><td>1.00</td><td>${C.Q?inr(C.V/C.Q):"–"}</td></tr></tbody></table></div>
+    <p class="hint">Productivity = con% ÷ space con%. 🟢 1.1+ sells more than its space · 🔴 below 0.9 the space is under-used. From ${M.days} days of X24.</p></section>`;
+  /* trend: last 6 weeks */
+  const endWk=weekOfDate(e),wks=[];for(let w=endWk,i=0;i<6;i++,w=stepKey(w,-1))wks.unshift(w);
+  const TW=wks.map(w=>{const [a,b]=weekRange(w);const m=brickMix(a,b>new Date()?new Date():b);return m&&m.days?wallCalc(m):null;});
+  if(TW.filter(Boolean).length>1) h+=`<section class="block"><h2>Week trend · productivity (${by==="v"?"sale":"pcs"})</h2><div class="tscroll"><table><thead><tr><th>Wall group</th>${wks.map(w=>`<th>W${weekNo(w)}</th>`).join("")}</tr></thead><tbody>`+
+    wallGroups().map(g=>`<tr><td>${esc(g.name)}</td>${TW.map(c=>{if(!c)return `<td class="muted">–</td>`;const r=c.rows.find(x=>x.g.id===g.id);return `<td>${pc(by==="v"?r.pv:r.pq)}</td>`;}).join("")}</tr>`).join("")+`</tbody></table></div><p class="hint">See if a VM change moved a wall up or down.</p></section>`;
+  const O=Object.keys(C.oth).map(k=>({k,q:C.oth[k][0],v:C.oth[k][1]})).filter(o=>o.q||o.v).sort((a,b)=>b.v-a.v);
+  if(O.length){const ov=O.reduce((x,o)=>x+o.v,0),oq=O.reduce((x,o)=>x+o.q,0);
+    h+=`<section class="block"><h2>Tables / others · ${inr(ov)} · ${full(oq)} pcs</h2><div class="tscroll"><table><thead><tr><th>Category · Brick</th><th>Sale</th><th>Pcs</th></tr></thead><tbody>`+
+    O.slice(0,ui.wallOthAll?999:12).map(o=>{const [c,...b]=o.k.split("|");return `<tr><td>${esc(catLabel(c))} · ${esc(b.join("|"))}</td><td>${inr(o.v)}</td><td>${full(o.q)}</td></tr>`;}).join("")+`</tbody></table></div>
+    ${O.length>12&&!ui.wallOthAll?`<div class="actions"><button class="btn small" data-wallothall="1">Show all ${O.length}</button></div>`:""}
+    <p class="hint">Not on any wall group (tables, other fixtures). To put one on a wall, add its brick to a group's keywords in Wall setup.</p></section>`;}
+  if(canEdit()) h+=`<div class="actions"><button class="btn small" data-wedit="1">⚙️ Wall setup</button></div>`;
+  return h;
+}
+function viewStoreProd(){
+  const k=cur(),ytd=isYtd(),keys=ytd?ytdKeys(k):[k],A=aggStore(keys),G=gsa();
+  const per=(v,d)=>d>0?v/d:NaN;const tile=(l,v,sub)=>`<div class="kv"><span>${l}</span><b>${v}</b>${sub?`<small class="muted">${sub}</small>`:""}</div>`;
+  let h=`<section class="block"><h2>🏬 Store productivity · ${esc(ytd?ytdLabel():mLong(k))}</h2><div class="grid">
+    ${tile("Sale / sq ft",isFinite(per(A.sales,G))?"₹"+full(Math.round(A.sales/G)):"–","GSA "+full(G)+" sq ft")}
+    ${tile("Sale / walk-in",isFinite(per(A.sales,A.footfall))?"₹"+full(Math.round(A.sales/A.footfall)):"–",A.footfall?full(A.footfall)+" walk-ins":"no walk-ins")}
+    ${tile("Pcs / walk-in",isFinite(per(A.units,A.footfall))?(A.units/A.footfall).toFixed(2):"–")}
+    ${tile("Conv%",pct(A.conv,1))}${tile("ATV",isFinite(A.atv)?inr(A.atv):"–")}${tile("UPT",isFinite(A.upt)?A.upt.toFixed(2):"–")}
+    ${tile("Pcs / sq ft",isFinite(per(A.units,G))?(A.units/G).toFixed(2):"–")}${tile("Sale / wall",isFinite(per(A.sales,wallTotal()))?inr(A.sales/wallTotal()):"–",wallTotal()+" walls")}</div>
+    ${canEdit()?`<div class="fgrid" style="margin-top:10px"><div><label class="f" for="gsaIn">GSA (sq ft)</label><input class="n" id="gsaIn" inputmode="numeric" value="${G}"></div><div style="align-self:end"><button class="btn small" id="gsaSave">Save</button></div></div>`:""}</section>`;
+  const fy=fyOf(k),ms=monthKeys(fy).filter(m=>{const r=aggStore([m]);return r.sales>0;});
+  if(ms.length){const R=ms.map(m=>({m,a:aggStore([m])}));const vals=R.map(r=>r.a.sales/G),hi=Math.max(...vals),lo=Math.min(...vals);
+    h+=`<section class="block"><h2>Month-wise · ${esc(fyName(fy))}</h2><div class="tscroll"><table><thead><tr><th>Month</th><th>Sales</th><th>₹ / sq ft</th><th>Walk-ins</th><th>₹ / walk-in</th><th>Conv%</th><th>ATV</th><th>UPT</th><th>Pcs / walk-in</th></tr></thead><tbody>`+
+    R.map(r=>{const a=r.a,v=a.sales/G;return `<tr><td>${esc(mShort(r.m))}</td><td>${inr(a.sales)}</td><td class="${v===hi?"up":v===lo?"down":""}"><b>₹${full(Math.round(v))}</b></td><td>${a.footfall?full(a.footfall):"–"}</td><td>${a.footfall?"₹"+full(Math.round(a.sales/a.footfall)):"–"}</td><td>${pct(a.conv,1)}</td><td>${isFinite(a.atv)?inr(a.atv):"–"}</td><td>${isFinite(a.upt)?a.upt.toFixed(2):"–"}</td><td>${a.footfall?(a.units/a.footfall).toFixed(2):"–"}</td></tr>`;}).join("")+
+    `</tbody></table></div><p class="hint">🟢 best month · 🔴 lowest month for sale per sq ft. Walk-ins come from the DSR or the footfall you type.</p></section>`;}
+  return h;
+}
 
 function viewReport(){
   const rp=ui.rpage||"";
@@ -1861,10 +1971,14 @@ function viewReport(){
   if(rp==="upt") return back+viewUPT();
   if(rp==="conv") return back+viewConv();
   if(rp==="acc") return back+viewAcc();
+  if(rp==="walls") return back+viewWalls();
+  if(rp==="prod") return back+viewStoreProd();
   const folders=`<div class="rfolders"><button class="folder" data-rpage="promo"><span class="ficon" aria-hidden="true">🎁</span><span class="ftxt"><b>Promo con%</b><small>Slabs · store and staff</small></span></button>
     <button class="folder" data-rpage="upt"><span class="ficon" aria-hidden="true">🧺</span><span class="ftxt"><b>UPT</b><small>MT · MB · WT · WB · Mens · Womens</small></span></button>
     <button class="folder" data-rpage="conv"><span class="ficon" aria-hidden="true">🚶</span><span class="ftxt"><b>Conv%</b><small>Day-wise walk-ins and bills</small></span></button>
-    <button class="folder" data-rpage="acc"><span class="ficon" aria-hidden="true">🎒</span><span class="ftxt"><b>Acc con%</b><small>Belt · Wallet · store and staff</small></span></button></div>`;
+    <button class="folder" data-rpage="acc"><span class="ficon" aria-hidden="true">🎒</span><span class="ftxt"><b>Acc con%</b><small>Belt · Wallet · store and staff</small></span></button>
+    <button class="folder" data-rpage="prod"><span class="ficon" aria-hidden="true">🏬</span><span class="ftxt"><b>Store productivity</b><small>Sale / sq ft · per walk-in</small></span></button>
+    <button class="folder" data-rpage="walls"><span class="ficon" aria-hidden="true">🧱</span><span class="ftxt"><b>Wall productivity</b><small>Con% · space · per wall</small></span></button></div>`;
   return folders+viewReportMain();
 }
 function viewReportMain(){
@@ -2764,6 +2878,21 @@ document.addEventListener("click",e=>{
   if(t.dataset.trndel&&canEdit()){const id=t.dataset.trndel;askConfirm("Delete season "+id+" with its slides?","Delete",()=>trnDelete(id));return;}
   if(t.dataset.pcadd&&canEdit()){const pc=t.dataset.pcadd;pickFiles("image/*",false,f=>addPcPhotos(f,pc));return;}
   if(t.id==="pcBulk"&&canEdit()){pickFiles("image/*,.json,application/json",true,f=>addPcPhotos(f));return;}
+  if(t.dataset.wallby){ui.wallBy=t.dataset.wallby;render();return;}
+  if(t.dataset.wallothall){ui.wallOthAll=true;render();return;}
+  if(t.dataset.wedit&&canEdit()){ui.wallEdit=true;ui.wallDraft=null;render();window.scrollTo(0,0);return;}
+  if(ui.wallEdit&&(t.id==="wAdd"||t.id==="wSave"||t.id==="wCancel"||t.id==="wReset"||t.dataset.wrm!==undefined)){
+    const D=ui.wallDraft||[];document.querySelectorAll("[data-wn]").forEach(i=>{const g=D[+i.dataset.wn];if(g)g.name=i.value.trim();});
+    document.querySelectorAll("[data-ww]").forEach(i=>{const g=D[+i.dataset.ww];if(g)g.walls=num(i.value);});
+    document.querySelectorAll("[data-wc]").forEach(i=>{const g=D[+i.dataset.wc];if(g)g.cat=i.value;});
+    document.querySelectorAll("[data-wk]").forEach(i=>{const g=D[+i.dataset.wk];if(g)g.kw=i.value.toUpperCase();});
+    const wt=document.getElementById("wTot");if(wt)ui.wallTot=num(wt.value);
+    if(t.id==="wAdd"){D.push({id:"wg_"+Math.random().toString(36).slice(2,7),name:"",walls:1,cat:"MENS BOTTOMS",kw:""});render();return;}
+    if(t.dataset.wrm!==undefined){D.splice(+t.dataset.wrm,1);render();return;}
+    if(t.id==="wReset"){ui.wallDraft=JSON.parse(JSON.stringify(DEF_WALLS));render();return;}
+    if(t.id==="wCancel"){ui.wallEdit=false;ui.wallDraft=null;render();return;}
+    state.walls=D.filter(g=>g.name);if(ui.wallTot)state.wallTotal=ui.wallTot;ui.wallEdit=false;ui.wallDraft=null;persist("Walls saved");render();return;}
+  if(t.id==="gsaSave"&&canEdit()){const v=num((document.getElementById("gsaIn")||{}).value);if(v>0){state.gsa=v;persist("GSA saved");render();}return;}
   if(t.dataset.learnopen){ui.learnOpen=t.dataset.learnopen;render();return;}
   if(t.dataset.learnt){const T=todaysCard(t.dataset.learnt);if(T){t.disabled=true;markLearnt(t.dataset.learnt,T.card);}return;}
   if(t.dataset.trnseason){ui.trnSeason=t.dataset.trnseason;ui.slide=1;render();return;}
@@ -2796,7 +2925,7 @@ document.addEventListener("click",e=>{
     for(let dd=1;dd<=nd;dd++){const iso=mk+"-"+pad2(dd);if(iso>today)break;if(!attStatus(d.att[iso]?.[ui.staffId])){(d.att[iso]=d.att[iso]||{})[ui.staffId]={status:"P"};}}
     persistDay(mk,"Marked present");render();return;}
   if(t.dataset.qt&&canEdit()){quickTargets(t.dataset.qt);return;}
-  if(t.dataset.rpage!==undefined){ui.rpage=t.dataset.rpage;render();window.scrollTo(0,0);return;}
+  if(t.dataset.rpage!==undefined){ui.rpage=t.dataset.rpage;ui.wallEdit=false;render();window.scrollTo(0,0);return;}
   if(t.dataset.stper!==undefined){ui.stPer=t.dataset.stper;if(t.dataset.stwk)ui.stWeek=t.dataset.stwk;render();window.scrollTo(0,0);return;}
   if(t.dataset.stpk!==undefined){if(t.dataset.stpk){ui.stPk=t.dataset.stpk;render();}return;}
   if(t.dataset.stw!==undefined){if(t.dataset.stw){ui.stWeek=t.dataset.stw;render();}return;}

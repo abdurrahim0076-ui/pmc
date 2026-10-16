@@ -1952,13 +1952,13 @@ function viewStoreProd(){
   let h=`<section class="block"><h2>🏬 Store productivity · ${esc(ytd?ytdLabel():mLong(k))}</h2><div class="grid">
     ${tile("Sale / sq ft",isFinite(per(A.sales,G))?"₹"+full(Math.round(A.sales/G)):"–","GSA "+full(G)+" sq ft")}
     ${tile("Sale / walk-in",isFinite(per(A.sales,A.footfall))?"₹"+full(Math.round(A.sales/A.footfall)):"–",A.footfall?full(A.footfall)+" walk-ins":"no walk-ins")}
-    ${tile("Pcs / walk-in",isFinite(per(A.units,A.footfall))?(A.units/A.footfall).toFixed(2):"–")}
+    ${tile("Walk-in UPT",isFinite(per(A.units,A.footfall))?(A.units/A.footfall).toFixed(2):"–")}
     ${tile("Conv%",pct(A.conv,1))}${tile("ATV",isFinite(A.atv)?inr(A.atv):"–")}${tile("UPT",isFinite(A.upt)?A.upt.toFixed(2):"–")}
     ${tile("Pcs / sq ft",isFinite(per(A.units,G))?(A.units/G).toFixed(2):"–")}${tile("Sale / wall",isFinite(per(A.sales,wallTotal()))?inr(A.sales/wallTotal()):"–",wallTotal()+" walls")}</div>
     ${canEdit()?`<div class="fgrid" style="margin-top:10px"><div><label class="f" for="gsaIn">GSA (sq ft)</label><input class="n" id="gsaIn" inputmode="numeric" value="${G}"></div><div style="align-self:end"><button class="btn small" id="gsaSave">Save</button></div></div>`:""}</section>`;
   const fy=fyOf(k),ms=monthKeys(fy).filter(m=>{const r=aggStore([m]);return r.sales>0;});
   if(ms.length){const R=ms.map(m=>({m,a:aggStore([m])}));const vals=R.map(r=>r.a.sales/G),hi=Math.max(...vals),lo=Math.min(...vals);
-    h+=`<section class="block"><h2>Month-wise · ${esc(fyName(fy))}</h2><div class="tscroll"><table><thead><tr><th>Month</th><th>Sales</th><th>₹ / sq ft</th><th>Walk-ins</th><th>₹ / walk-in</th><th>Conv%</th><th>ATV</th><th>UPT</th><th>Pcs / walk-in</th></tr></thead><tbody>`+
+    h+=`<section class="block"><h2>Month-wise · ${esc(fyName(fy))}</h2><div class="tscroll"><table><thead><tr><th>Month</th><th>Sales</th><th>₹ / sq ft</th><th>Walk-ins</th><th>₹ / walk-in</th><th>Conv%</th><th>ATV</th><th>UPT</th><th>Walk-in UPT</th></tr></thead><tbody>`+
     R.map(r=>{const a=r.a,v=a.sales/G;return `<tr><td>${esc(mShort(r.m))}</td><td>${inr(a.sales)}</td><td class="${v===hi?"up":v===lo?"down":""}"><b>₹${full(Math.round(v))}</b></td><td>${a.footfall?full(a.footfall):"–"}</td><td>${a.footfall?"₹"+full(Math.round(a.sales/a.footfall)):"–"}</td><td>${pct(a.conv,1)}</td><td>${isFinite(a.atv)?inr(a.atv):"–"}</td><td>${isFinite(a.upt)?a.upt.toFixed(2):"–"}</td><td>${a.footfall?(a.units/a.footfall).toFixed(2):"–"}</td></tr>`;}).join("")+
     `</tbody></table></div><p class="hint">🟢 best month · 🔴 lowest month for sale per sq ft. Walk-ins come from the DSR or the footfall you type.</p></section>`;}
   return h;

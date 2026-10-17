@@ -215,6 +215,14 @@ textarea{width:100%;font:inherit;font-size:14px;padding:10px;border-radius:10px;
 .snag{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line)}.snag.done{opacity:.75}
 .snph{flex:0 0 52px;width:52px;height:52px;border-radius:10px;background:var(--soft);display:grid;place-items:center;font-size:22px;border:0;padding:0;overflow:hidden;cursor:pointer}.snph img{width:100%;height:100%;object-fit:cover}
 .snpill{font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px;color:#fff}.snpill.o{background:var(--bad)}.snpill.c{background:var(--good)}
+.ckrow{display:flex;width:100%;align-items:center;gap:10px;padding:10px 2px;border:0;border-top:1px solid var(--line);background:none;font:inherit;font-size:15px;color:inherit;text-align:left;cursor:pointer}
+.ckrow i{flex:0 0 24px;width:24px;height:24px;border-radius:6px;border:2px solid #b8c2d3;display:grid;place-items:center;font-style:normal;font-weight:800;color:#fff}
+.ckrow.d i{background:var(--good);border-color:var(--good)}.ckrow small{margin-left:auto;color:var(--muted);font-size:12px}.ckrow:disabled{cursor:default;color:inherit}
+.lvrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+.lvpill{font-size:12px;font-weight:700;border-radius:8px;padding:3px 8px}.lvpill.ok{background:var(--good);color:#fff}.lvpill.no{background:var(--soft);color:var(--bad)}
+.celeb{background:linear-gradient(135deg,#fff3f8,#fff);border:1.5px solid #f2a7c6;border-radius:14px;padding:10px 12px;margin:0 0 10px;font-weight:700}
+.starcard{display:flex;align-items:center;gap:14px;margin:0 0 12px;padding:14px;border-radius:18px;background:linear-gradient(135deg,#eef4ff,#fff 60%);border:2px solid #6d8fe0;box-shadow:0 6px 16px rgba(109,143,224,.2)}
+.sframe{flex:0 0 74px;width:74px;height:74px;border-radius:50%;padding:3px;background:conic-gradient(#9fb8f5,#3d5fb8,#9fb8f5,#3d5fb8,#9fb8f5)}.slbl{font-size:12px;font-weight:800;letter-spacing:.05em;color:#3d5fb8}
 .rfolders{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
 .rfolders .folder{padding:12px}.rfolders .folder b{font-size:18px}.rfolders .ficon{font-size:24px}
 .kv small{display:block;font-size:12px}
@@ -581,6 +589,8 @@ function normalize(d){
           stWeeks: d.stWeeks&&typeof d.stWeeks==="object"?d.stWeeks:{},
           walls: Array.isArray(d.walls)?d.walls:null,
           wowLevels: Array.isArray(d.wowLevels)?d.wowLevels:null,
+          chkAccess: Array.isArray(d.chkAccess)?d.chkAccess:[],
+          stars: d.stars&&typeof d.stars==="object"?d.stars:{},
           wallTotal: num(d.wallTotal)||42,
           gsa: num(d.gsa)||5965,
           support: Array.isArray(d.support)?d.support:null,
@@ -731,7 +741,7 @@ function viewAccess(){
     <div style="display:flex;gap:8px;margin-bottom:12px"><input type="text" id="pinIn" inputmode="numeric" value="${esc(a.pin)}" placeholder="e.g. 4821"><button class="btn small primary" id="pinSave">Save PIN</button></div>
     <div class="actions" style="margin:0 0 12px"><button class="btn small" id="copyLink">Copy staff link</button><button class="btn small" id="shareLink">Share on WhatsApp</button></div>
     <h2 style="font-size:16px">Staff with access (${a.members.length})</h2>
-    ${a.members.length?`<ul class="rank">${a.members.map(m=>`<li><div class="who"><b>${esc(m.name||"Unnamed")}</b><small>Joined ${esc(String(m.joinedAt||"").slice(0,10))}</small></div><button class="btn small danger" data-revoke="${esc(m.id)}">Remove access</button></li>`).join("")}</ul>`:`<div class="empty">No one has joined yet. Set a PIN and share the staff link.</div>`}
+    ${a.members.length?`<ul class="rank">${a.members.map(m=>`<li><div class="who"><b>${esc(m.name||"Unnamed")}</b><small>Joined ${esc(String(m.joinedAt||"").slice(0,10))}</small></div><button class="btn small" data-chkacc="${esc(m.id)}" style="${(state.chkAccess||[]).includes(m.id)?"background:var(--good);color:#fff;border-color:var(--good)":""}">${(state.chkAccess||[]).includes(m.id)?"✅ Checklist ON":"Checklist access"}</button><button class="btn small danger" data-revoke="${esc(m.id)}">Remove access</button></li>`).join("")}</ul>`:`<div class="empty">No one has joined yet. Set a PIN and share the staff link.</div>`}
     <p class="hint">Changing the PIN stops new joins with the old PIN. To block someone, remove their access.</p>
     <div class="actions"><button class="btn small" id="signOut">Sign out</button></div></section>`;
 }
@@ -846,13 +856,107 @@ function viewSnags(){
   return h;}
 function snagReadForm(){const D=ui.snagDraft;if(!D)return;const g=id=>{const e=document.getElementById(id);return e?e.value.trim():undefined;};
   const w=g("snWhere"),t=g("snTicket"),o=g("snOther");if(w!==undefined)D.where=w;if(t!==undefined)D.ticket=t;if(o!==undefined)D.other=o;}
+/* ---------- daily operations: checklist (SM / ASM), leave requests, birthdays, star of the week, WhatsApp report ---------- */
+const CHK_ITEMS=["Floor","Wall","Trial room","Cash count"];
+const recs={};const recLoading={};
+function loadRecs(kind){if(recs[kind]||recLoading[kind])return;recLoading[kind]=true;
+  const done=l=>{recs[kind]=l;recLoading[kind]=false;render();};
+  if(!fsdb){let l=[];try{l=JSON.parse(localStorage.getItem("store-perf-recs-"+kind)||"[]");}catch(e){}done(l);return;}
+  fsdb.collection("stores/"+SID+"/vmphotos").where("kind","==",kind).get().then(q=>done(q.docs.map(d=>({id:d.id,...d.data()})))).catch(()=>done([]));}
+function saveLocalRecs(kind){try{localStorage.setItem("store-perf-recs-"+kind,JSON.stringify(recs[kind]));}catch(e){}}
+async function addRec(kind,rec){rec={kind,taskId:"",taskTitle:"",img:"",by:(fbAuth&&fbAuth.currentUser&&fbAuth.currentUser.uid)||"local",name:myName||"Manager",at:nowStamp(),...rec};
+  if(fsdb){const ref=await fsdb.collection("stores/"+SID+"/vmphotos").add(rec);recs[kind].push({id:ref.id,...rec});}else{recs[kind].push({id:kind+"_"+Date.now(),...rec});saveLocalRecs(kind);}}
+async function patchRec(kind,id,patch){const r=recs[kind].find(x=>x.id===id);if(!r)return;if(fsdb)await fsdb.doc("stores/"+SID+"/vmphotos/"+id).update(patch);Object.assign(r,patch);if(!fsdb)saveLocalRecs(kind);}
+async function delRec(kind,id){if(fsdb)await fsdb.doc("stores/"+SID+"/vmphotos/"+id).delete();recs[kind]=recs[kind].filter(x=>x.id!==id);if(!fsdb)saveLocalRecs(kind);}
+function myUid(){return (fbAuth&&fbAuth.currentUser&&fbAuth.currentUser.uid)||"local";}
+function canChk(){return role==="admin"||!fsdb||(role==="staff"&&(state.chkAccess||[]).includes(myUid()));}
+function chkOf(iso){return (recs.chk||[]).filter(r=>r.date===iso);}
+function viewChecklist(iso){loadRecs("chk");
+  let h=`<section class="block" id="chkBox"><h2 style="display:flex;justify-content:space-between;align-items:center">✅ Store checklist <span class="muted" style="font-size:13px;font-weight:600">${recs.chk?chkDone(iso)+"/"+CHK_ITEMS.length+" · ":""}SM, ASM only</span></h2>`;
+  if(!recs.chk)return h+`<div class="empty">Loading…</div></section>`;
+  const R=chkOf(iso),ed=canChk()&&iso<=todayISO();
+  h+=CHK_ITEMS.map(it=>{const r=R.find(x=>x.item===it);
+    return `<button class="ckrow${r?" d":""}" ${ed?`data-chk="${esc(it)}"`:"disabled"}><i>${r?"✓":""}</i><span>${esc(it)}</span><small>${r?esc(r.name+(r.asm?" (ASM)":"")+" · "+String(r.at).split("T")[1]):""}</small></button>`;}).join("");
+  if(!canChk())h+=`<p class="hint">Only the SM and ASM can tick the checklist.</p>`;
+  return h+`</section>`;}
+function chkDone(iso){return CHK_ITEMS.filter(it=>chkOf(iso).some(r=>r.item===it)).length;}
+function viewChecklistReport(){loadRecs("chk");if(!recs.chk)return `<div class="empty">Loading…</div>`;
+  const mk=todayISO().slice(0,7),[y,m]=mk.split("-").map(Number),today=todayISO(),days=[];
+  for(let d=1;d<=new Date(y,m,0).getDate();d++){const iso=mk+"-"+pad2(d);if(iso>today)break;days.push(iso);}
+  const full_=days.filter(d=>chkDone(d)===CHK_ITEMS.length).length;
+  const miss=CHK_ITEMS.map(it=>({it,n:days.filter(d=>!chkOf(d).some(r=>r.item===it)).length}));
+  let h=`<section class="block"><h2>✅ Store checklist · ${esc(MN_FULL[m-1])}</h2>
+    <div class="grid"><div class="kv"><span>Days fully done</span><b class="${full_===days.length?"up":"down"}">${full_} of ${days.length}</b></div>${miss.map(x=>`<div class="kv"><span>${esc(x.it)} missed</span><b class="${x.n?"down":"up"}">${x.n} day${x.n===1?"":"s"}</b></div>`).join("")}</div></section>
+    <section class="block"><h2>Day-wise</h2><div class="tscroll"><table><thead><tr><th>Day</th><th>Done</th>${CHK_ITEMS.map(i=>`<th>${esc(i)}</th>`).join("")}</tr></thead><tbody>`+
+    days.slice().reverse().map(d=>{const R=chkOf(d);return `<tr><td>${esc(dayLabel(d).split(",")[0].slice(0,3))} ${dOf(d).getDate()}</td><td class="${chkDone(d)===CHK_ITEMS.length?"up":"down"}"><b>${chkDone(d)}/${CHK_ITEMS.length}</b></td>${CHK_ITEMS.map(it=>{const r=R.find(x=>x.item===it);return `<td>${r?`✓<br><small class="muted">${esc(String(r.name).split(" ")[0])} ${esc(String(r.at).split("T")[1])}</small>`:`<span class="down">—</span>`}</td>`;}).join("")}</tr>`;}).join("")+
+    `</tbody></table></div></section>`;
+  return h;}
+/* leave requests */
+function staffOptions(sel){return state.staff.filter(s=>s.active!==false).map(s=>`<option value="${s.id}" ${s.id===sel?"selected":""}>${esc(s.name)}</option>`).join("");}
+function viewLeaves(){loadRecs("leave");if(!recs.leave)return "";
+  const today=todayISO(),L=recs.leave.slice().sort((a,b)=>String(a.from).localeCompare(String(b.from)));
+  const pend=L.filter(r=>r.status==="pending"),soon=L.filter(r=>r.status==="approved"&&r.to>=today&&r.from<=dayAdd(today,14));
+  const mine=role==="staff"?L.filter(r=>r.by===myUid()&&r.to>=today):[];
+  const canAsk=canPhoto()||!fsdb;
+  if(!ui.leaveNew&&!pend.length&&!soon.length&&!mine.length)return canAsk?`<div class="actions" style="margin:0 0 10px"><button class="btn small" data-leavenew="1">🌴 Ask leave</button></div>`:"";
+  let h=`<section class="block"><h2 style="display:flex;justify-content:space-between;align-items:center">🌴 Leave requests ${canAsk&&!ui.leaveNew?`<button class="btn small primary" data-leavenew="1">+ Ask leave</button>`:""}</h2>`;
+  if(ui.leaveNew){const me=role==="staff"?(matchStaff(myName)||""):"";
+    h+=`<div class="fgrid"><div><label class="f" for="lvStaff">Staff</label><select id="lvStaff">${staffOptions(me)}</select></div><div><label class="f" for="lvReason">Reason</label><input type="text" id="lvReason" placeholder="e.g. Family function"></div>
+      <div><label class="f" for="lvFrom">From</label><input type="date" id="lvFrom" value="${dayAdd(today,1)}"></div><div><label class="f" for="lvTo">To</label><input type="date" id="lvTo" value="${dayAdd(today,1)}"></div></div>
+      <div class="actions"><button class="btn small primary" data-leavesave="1" style="flex:1">Send request</button><button class="btn small" data-leavecancel="1">Cancel</button></div></section>`;return h;}
+  const rng=r=>r.from===r.to?shortDate(r.from):shortDate(r.from)+" – "+shortDate(r.to);
+  const row=r=>`<div class="lvrow"><div style="min-width:0"><b>${esc(staffName(r.sid)||r.staffName||"")}</b><div class="muted" style="font-size:12px">${esc(rng(r))}${r.reason?" · "+esc(r.reason):""}</div></div><div>${
+    r.status==="pending"?(canEdit()?`<button class="btn small" data-leaveok="${esc(r.id)}" style="color:var(--good)">Approve</button> <button class="btn small" data-leaveno="${esc(r.id)}" style="color:var(--bad)">Reject</button>`:`<span class="muted">Pending</span>`):
+    r.status==="approved"?`<span class="lvpill ok">✓ Approved</span>`:`<span class="lvpill no">Rejected</span>`}</div></div>`;
+  const seen=new Set();[...pend,...soon,...mine].forEach(r=>{if(seen.has(r.id))return;seen.add(r.id);h+=row(r);});
+  return h+`</section>`;}
+async function approveLeave(r){await patchRec("leave",r.id,{status:"approved",decided:nowStamp()});
+  for(let d=r.from;d<=r.to;d=dayAdd(d,1)){const mk=d.slice(0,7);await loadDay(mk);setAttStatus(r.sid,"L",d);}toast("Leave approved · attendance marked L");render();}
+/* birthdays & anniversaries */
+function viewCelebrations(iso){const md=iso.slice(5),y=+iso.slice(0,4),out=[];
+  state.staff.filter(s=>s.active!==false).forEach(s=>{if(s.dob&&String(s.dob).slice(5)===md)out.push(`🎂 ${esc(s.name)}'s birthday`);
+    if(s.doj&&String(s.doj).slice(5)===md){const n=y-+String(s.doj).slice(0,4);if(n>0)out.push(`🎉 ${esc(s.name)} — ${n} year${n>1?"s":""} at Levi's`);}});
+  return out.length?`<div class="celeb">${out.join(" · ")}${iso===todayISO()?" today!":""}</div>`:"";}
+/* star of the week */
+function starWeek(){const k=cur();return isWeek(k)?k:weekOfDate(new Date());}
+function viewStar(){const wk=starWeek(),S=(state.stars||{})[wk];
+  if(ui.starEdit&&canEdit())return `<section class="block"><h2>⭐ Star of the week · W${weekNo(wk)}</h2><div class="fgrid"><div><label class="f" for="stStaff">Staff</label><select id="stStaff">${staffOptions(S&&S.sid)}</select></div><div><label class="f" for="stWhy">Why</label><input type="text" id="stWhy" value="${esc(S&&S.why||"")}" placeholder="e.g. Highest WOW bills"></div></div>
+    <div class="actions"><button class="btn small primary" data-starsave="1" style="flex:1">Save</button>${S?`<button class="btn small danger" data-stardel="1">Remove</button>`:""}<button class="btn small" data-starcancel="1">Cancel</button></div></section>`;
+  if(!S)return canEdit()?`<div class="actions" style="margin:0 0 10px"><button class="btn small" data-staredit="1">⭐ Pick star of the week (W${weekNo(wk)})</button></div>`:"";
+  const s=state.staff.find(x=>x.id===S.sid);if(!s)return "";
+  return `<section class="starcard"><div class="sframe">${sAv(s,"tph")}</div><div style="min-width:0;flex:1"><div class="slbl">⭐ STAR OF THE WEEK · W${weekNo(wk)}</div><div class="tname">${esc(s.name)}</div>${S.why?`<div class="tsub">"${esc(S.why)}"</div>`:""}</div>${canEdit()?`<button class="btn small" data-staredit="1" aria-label="Change star">✏️</button>`:""}</section>`;}
+/* daily WhatsApp report */
+async function buildDailyReport(iso){
+  const mk=iso.slice(0,7);await loadX24(mk);const d=(x24Cache[mk]&&x24Cache[mk].days[iso])||{};
+  const fm=monthOfDate(dOf(iso)),[fs]=fmRange(fm);await Promise.all([...new Set(datesBetween(fs,dOf(iso)).map(x=>x.slice(0,7)))].map(loadX24));const mt=aggStore(datesBetween(fs,dOf(iso)).map(x=>typeof x==="string"?x:isoOf(x)));const fr=rec(fm)||{};
+  const wk=weekOfDate(dOf(iso));await loadBills(wk);const [wsD]=weekRange(wk);await Promise.all([...new Set(datesBetween(wsD,dOf(iso)).map(x=>x.slice(0,7)))].map(loadX24));
+  const wt=aggStore(datesBetween(wsD,dOf(iso))),wr=rec(wk)||{};const bl=(billCache[wk]&&billCache[wk].days[iso])||[];
+  const L=wowLevels(),wow=bl.filter(b=>b[1]>=L[0]).length;
+  const sales=num(d.sales),bills=num(d.bills),units=num(d.units),ff=num(d.footfall),tg=num(d.target);
+  const top=Object.keys(d.staff||{}).map(id=>({n:staffName(id),v:num(d.staff[id].sales)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,3);
+  const k=v=>"₹"+(v>=1e5?(v/1e5).toFixed(2)+" L":v>=1e3?Math.round(v/1e3)+"k":full(Math.round(v)));
+  const lines=[`*${state.storeName||"Levi's PMC"} · ${dayLabel(iso)}*`,
+    `Sale ${k(sales)}${tg?" · Target "+k(tg)+" · Ach "+Math.round(sales/tg*100)+"%":""}`,
+    `WTD (W${weekNo(wk)}) ${k(wt.sales)}${num(wr.target)?" / "+k(num(wr.target))+" · "+Math.round(wt.sales/num(wr.target)*100)+"%":""}`,
+    `MTD ${k(mt.sales)}${num(fr.target)?" / "+k(num(fr.target))+" · "+Math.round(mt.sales/num(fr.target)*100)+"%":""}`,
+    `Bills ${bills} · ATV ${bills?k(sales/bills):"–"} · UPT ${bills?(units/bills).toFixed(2):"–"}${ff?" · Conv "+(bills/ff*100).toFixed(1)+"%":""}`,
+    `WOW bills ${wow}`];
+  if(top.length)lines.push("Top: "+top.map(x=>x.n.split(" ")[0]+" "+k(x.v)).join(" · "));
+  if(recs.chk)lines.push(`Checklist ${chkDone(iso)}/${CHK_ITEMS.length}`);
+  return lines.join("\n");}
+async function openDailyReport(iso){loadRecs("chk");loadSnags();toast("Preparing…");const txt=await buildDailyReport(iso);
+  let o=document.getElementById("repBox");if(!o){o=document.createElement("div");o.id="repBox";o.className="overlay";document.body.appendChild(o);o.addEventListener("click",e=>{if(e.target===o||e.target.dataset.repclose!==undefined)o.hidden=true;});}
+  o.innerHTML=`<div class="dialog" style="max-width:480px;padding:14px"><h2 style="margin:0 0 10px">📲 Daily report</h2><textarea id="repTxt" rows="9" style="width:100%;font-family:system-ui;font-size:14px;background:#e7fbe0;border-radius:10px;padding:10px">${esc(txt)}</textarea>
+    <div class="actions"><a class="btn small primary" style="background:#25D366;border-color:#25D366;flex:1;text-align:center" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener" id="repWa">Send on WhatsApp</a><button class="btn small" data-repcopy="1">Copy</button><button class="btn small" data-repclose="1">Close</button></div>
+    <p class="hint">You can edit the text before sending.</p></div>`;
+  o.hidden=false;const ta=document.getElementById("repTxt");ta.addEventListener("input",()=>{document.getElementById("repWa").href="https://wa.me/?text="+encodeURIComponent(ta.value);});}
 
 function viewHome(){
   const k=cur(), m=aggStore(selKeys()), y=aggStore(ytdKeys(k));
   if(isWeek(k)){withYtdTarget(y,k);if(isYtd())withYtdTarget(m,k);}
   const has=isYtd()?m.sales>0:!!rec(k);
   const fill=Math.max(0,Math.min(1,isFinite(m.ach)?m.ach:0));
-  let h=snagAlert()+`<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small" data-teamopen="1">👥 Team photo</button></div>`;
+  let h=snagAlert()+`<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small" data-repday="dash">📲 Daily report</button><button class="btn small" data-teamopen="1">👥 Team photo</button></div>`;
   if(!has){
     h+=`<div class="hero"><div class="lbl">${esc(isYtd()?ytdLabel():mLong(k))}</div><div class="big">No sales yet</div>
       <div class="of">Add this month's numbers to see KPIs and L2L.</div>
@@ -868,7 +972,7 @@ function viewHome(){
         <div><b>${signPct(m.l2l)}</b>L2L vs ${esc(isYtd()?"YTD":mShort(k))} LY</div>
         <div><b>${!m.target?"–":m.target>m.salesT?inr(m.target-m.salesT):"Done"}</b>${!m.target?"No target yet":m.target>m.salesT?"To go":"Target"}</div>
         <div><b>₹${full(Math.round(m.sales/gsa()))}</b>Sale / sq ft</div>
-      </div></div>`+topPerformer(selKeys(),isYtd()?"YTD":mShort(k));
+      </div></div>`+topPerformer(selKeys(),isYtd()?"YTD":mShort(k))+viewStar();
     const [hs,he0]=periodDates(k,isYtd()),hx=homeMix(hs,he0<new Date()?he0:new Date()),av=ytdAvgs(k,y);
     if(!isYtd()) h+=`<section class="block"><h2>Store KPIs</h2><div class="grid">
       <div class="kv"><span>📐 Sale / sq ft</span><b>₹${full(Math.round(m.sales/gsa()))}</b><small class="muted">GSA ${full(gsa())} sq ft</small></div>
@@ -1717,6 +1821,7 @@ function viewTeam(){
   if(!act.length) h+=`<div class="empty">No staff yet. Add your first team member above.</div>`;
   else h+=`<ul class="rank">`+act.map(s=>ui.renameId===s.id?
     `<li style="flex-wrap:wrap"><input type="text" id="renName" value="${esc(s.name)}" style="flex:2;min-width:140px"><select id="renRole" style="flex:1;min-width:110px">${roleOpts(s.role||"")}</select>
+      <label class="f" style="flex-basis:100%;margin:6px 0 0">Birthday · Joined Levi's</label><input type="date" id="renDob" value="${esc(s.dob||"")}" style="flex:1;min-width:130px"><input type="date" id="renDoj" value="${esc(s.doj||"")}" style="flex:1;min-width:130px">
       <button class="btn small primary" data-rensave="${s.id}">Save</button><button class="btn small" data-rencancel="1">Cancel</button></li>`:
     `<li><div class="who"><b>${esc(s.name)}</b><small>${esc(s.role||"No role set")}</small></div>
       <button class="btn small" data-rename="${s.id}">Edit</button><button class="btn small danger" data-remove="${s.id}">Remove</button></li>`).join("")+`</ul>`;
@@ -2162,6 +2267,7 @@ function viewReport(){
   if(rp==="walls") return back+viewWalls();
   if(rp==="wow") return back+viewWow();
   if(rp==="snag") return back+viewSnags();
+  if(rp==="chk") return back+viewChecklistReport();
   if(rp==="prod") return back+viewStoreProd();
   const folders=`<div class="rfolders"><button class="folder" data-rpage="promo"><span class="ficon" aria-hidden="true">🎁</span><span class="ftxt"><b>Promo con%</b><small>Slabs · store and staff</small></span></button>
     <button class="folder" data-rpage="upt"><span class="ficon" aria-hidden="true">🧺</span><span class="ftxt"><b>UPT</b><small>MT · MB · WT · WB · Mens · Womens</small></span></button>
@@ -2169,6 +2275,7 @@ function viewReport(){
     <button class="folder" data-rpage="acc"><span class="ficon" aria-hidden="true">🎒</span><span class="ftxt"><b>Acc con%</b><small>Belt · Wallet · store and staff</small></span></button>
     <button class="folder" data-rpage="prod"><span class="ficon" aria-hidden="true">🏬</span><span class="ftxt"><b>Store productivity</b><small>Sale / sq ft · per walk-in</small></span></button>
     <button class="folder" data-rpage="snag"><span class="ficon" aria-hidden="true">🛠️</span><span class="ftxt"><b>Store issues</b><small>AC · light · repairs · open / cleared</small></span></button>
+    <button class="folder" data-rpage="chk"><span class="ficon" aria-hidden="true">✅</span><span class="ftxt"><b>Store checklist</b><small>Floor · wall · trial room · cash</small></span></button>
     <button class="folder" data-rpage="wow"><span class="ficon" aria-hidden="true">🤩</span><span class="ftxt"><b>WOW bills</b><small>13k · 20k · 30k · 40k+ bills</small></span></button>
     <button class="folder" data-rpage="walls"><span class="ficon" aria-hidden="true">🧱</span><span class="ftxt"><b>Wall productivity</b><small>Con% · space · per wall</small></span></button></div>`;
   return folders+viewReportMain();
@@ -2939,7 +3046,7 @@ function render(){
   if(ui.tab==="learn"){v.innerHTML=viewLearn();return;}
   if(ui.tab==="daily") ensureDay();
   else if(!weeksReady()){ensureWeeks();v.innerHTML='<div class="empty">Loading…</div>';return;}
-  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+learnCard(ui.day,true))+viewSnags(): viewReport();
+  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+viewCelebrations(ui.day)+`<div class="actions" style="margin:0 0 10px;justify-content:flex-end"><button class="btn small" data-repday="day">📲 Daily report</button></div>`+learnCard(ui.day,true)+viewLeaves())+viewChecklist(ui.day)+viewSnags(): viewReport();
 }
 
 /* ---------- standalone helpers ---------- */
@@ -3070,6 +3177,23 @@ document.addEventListener("click",e=>{
   if(t.dataset.trndel&&canEdit()){const id=t.dataset.trndel;askConfirm("Delete season "+id+" with its slides?","Delete",()=>trnDelete(id));return;}
   if(t.dataset.pcadd&&canEdit()){const pc=t.dataset.pcadd;pickFiles("image/*",false,f=>addPcPhotos(f,pc));return;}
   if(t.id==="pcBulk"&&canEdit()){pickFiles("image/*,.json,application/json",true,f=>addPcPhotos(f));return;}
+  if(t.dataset.repday){openDailyReport(t.dataset.repday==="day"?ui.day:(state.lastDataDate&&state.lastDataDate<=todayISO()?state.lastDataDate:todayISO()));return;}
+  if(t.dataset.repcopy){const ta=document.getElementById("repTxt");if(ta){ta.select();try{navigator.clipboard.writeText(ta.value);}catch(e){document.execCommand("copy");}toast("Copied ✓");}return;}
+  if(t.dataset.chk&&canChk()){const it=t.dataset.chk,iso=ui.day,r=chkOf(iso).find(x=>x.item===it);t.disabled=true;
+    (r?delRec("chk",r.id):addRec("chk",{date:iso,item:it,asm:role==="staff"})).then(()=>render()).catch(e=>{toast(/permission/i.test(String(e.code||e.message))?"Not allowed. Update the database rules.":"Could not save");render();});return;}
+  if(t.dataset.chkacc&&canEdit()){const id=t.dataset.chkacc,a=new Set(state.chkAccess||[]);a.has(id)?a.delete(id):a.add(id);state.chkAccess=[...a];persist(a.has(id)?"Checklist access ON":"Checklist access OFF");render();return;}
+  if(t.dataset.leavenew){ui.leaveNew=true;render();return;}
+  if(t.dataset.leavecancel){ui.leaveNew=false;render();return;}
+  if(t.dataset.leavesave){const g=id=>(document.getElementById(id)||{}).value||"";const sid=g("lvStaff"),from=g("lvFrom"),to=g("lvTo")||g("lvFrom");
+    if(!sid||!from||to<from){toast("Check the staff and dates");return;}t.disabled=true;
+    addRec("leave",{date:from,from,to,sid,staffName:staffName(sid),reason:g("lvReason").trim(),status:"pending"}).then(()=>{ui.leaveNew=false;toast("Leave request sent ✓");render();}).catch(e=>{t.disabled=false;toast(/permission/i.test(String(e.code||e.message))?"Not allowed. Update the database rules.":"Could not send");});return;}
+  if(t.dataset.leaveok&&canEdit()){const r=recs.leave.find(x=>x.id===t.dataset.leaveok);if(r){t.disabled=true;approveLeave(r).catch(()=>toast("Could not save"));}return;}
+  if(t.dataset.leaveno&&canEdit()){patchRec("leave",t.dataset.leaveno,{status:"rejected",decided:nowStamp()}).then(()=>render());return;}
+  if(t.dataset.staredit&&canEdit()){ui.starEdit=true;render();return;}
+  if(t.dataset.starcancel){ui.starEdit=false;render();return;}
+  if(t.dataset.starsave&&canEdit()){const sid=(document.getElementById("stStaff")||{}).value,why=((document.getElementById("stWhy")||{}).value||"").trim();if(!sid)return;
+    state.stars=Object.assign({},state.stars,{[starWeek()]:{sid,why}});ui.starEdit=false;persist("Star of the week saved ⭐");render();return;}
+  if(t.dataset.stardel&&canEdit()){const s2=Object.assign({},state.stars);delete s2[starWeek()];state.stars=s2;ui.starEdit=false;persist("Removed");render();return;}
   if(t.dataset.snagview){go("daily");ui.day=todayISO();ui.snagF="open";render();setTimeout(()=>{const b=document.getElementById("snagBox");if(b)b.scrollIntoView({behavior:"smooth"});},300);return;}
   if(t.dataset.snagnew&&canSnag()){ui.snagNew=true;ui.snagDraft=null;render();return;}
   if(t.dataset.snagcancel){ui.snagNew=false;ui.snagDraft=null;render();return;}
@@ -3203,7 +3327,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.restore){const s=state.staff.find(x=>x.id===t.dataset.restore);if(s){s.active=true;persist(s.name+" restored");render();}return;}
   if(t.dataset.rename){ui.renameId=t.dataset.rename;render();const i=document.getElementById("renName");if(i)i.focus();return;}
   if(t.dataset.rencancel){ui.renameId=null;render();return;}
-  if(t.dataset.rensave){const s=state.staff.find(x=>x.id===t.dataset.rensave);const n=document.getElementById("renName").value.trim();if(s&&n){s.name=n;s.role=document.getElementById("renRole").value||"";persist("Saved");}ui.renameId=null;render();return;}
+  if(t.dataset.rensave){const s=state.staff.find(x=>x.id===t.dataset.rensave);const n=document.getElementById("renName").value.trim();if(s&&n){s.name=n;s.role=document.getElementById("renRole").value||"";const dob=document.getElementById("renDob"),doj=document.getElementById("renDoj");if(dob)s.dob=dob.value||"";if(doj)s.doj=doj.value||"";persist("Saved");}ui.renameId=null;render();return;}
   if(t.dataset.spage){ui.staffPage=t.dataset.spage;ui.renameId=null;render();window.scrollTo(0,0);return;}
   if(t.dataset.person){ui.staffPage="person";ui.staffId=t.dataset.person;render();window.scrollTo(0,0);return;}
   switch(t.id){

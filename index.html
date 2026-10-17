@@ -625,7 +625,9 @@ function fbCol(){
   const base="stores/"+SID+"/data/";
   return {doc:id=>{const r=fsdb.doc(base+id);return {
     get:async()=>{const s=await r.get();return {exists:s.exists,data:()=>s.data()};},
-    set:d=>r.set(d)};}};
+    set:(d,o)=>o?r.set(d,o):r.set(d),
+    delete:()=>r.delete(),
+    onSnapshot:(ok,er)=>r.onSnapshot(s=>ok({exists:s.exists,data:()=>s.data()}),er)};}};
 }
 async function migrateFiscal(){
   if(!canEdit()||(state.settings&&state.settings.cal==="5-4-4"))return;
@@ -789,8 +791,9 @@ let staffPh=null,staffPhLoading=false,teamPh=undefined;
 let phCol=null,phUnsub=[];
 function loadStaffPh(){
   /* live: follows the current database (re-attaches after login), so a photo added on one phone shows on every phone */
-  if(col){if(phCol===col)return;phCol=col;phUnsub.forEach(f=>{try{f();}catch(e){}});
+  if(col){if(phCol===col)return;phCol=col;phUnsub.forEach(f=>{try{f();}catch(e){}});phUnsub=[];
     const c=col,fb=()=>{if(phCol!==c)return;Promise.all([fsGet("staffphotos"),fsGet("teamphoto")]).then(([a,b])=>{staffPh=(a&&a.img)||{};teamPh=(b&&b.img)||"";render();}).catch(()=>{});};
+    if(typeof c.doc("staffphotos").onSnapshot!=="function"){fb();return;}
     phUnsub=[c.doc("staffphotos").onSnapshot(sn=>{staffPh=(sn.exists&&sn.data().img)||{};render();},fb),
              c.doc("teamphoto").onSnapshot(sn=>{teamPh=(sn.exists&&sn.data().img)||"";},()=>{})];return;}
   if(staffPh||staffPhLoading)return;staffPhLoading=true;

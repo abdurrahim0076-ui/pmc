@@ -999,6 +999,7 @@ function viewHome(){
       <div class="kv"><span>👖 BTM%</span><b>${hx?pct(hx.btm,1):"…"}</b></div>
       <div class="kv"><span>👗 WMS%</span><b>${hx?pct(hx.wms,1):"…"}</b></div>
       ${npTile(npBetween(hs,he0<new Date()?he0:new Date()),"Tailor shop")}
+      ${promoTile(hs,he0<new Date()?he0:new Date())}
       <div class="kv"><span>ATV</span><b>${isFinite(m.atv)?inr(m.atv):"–"}</b></div>
       <div class="kv"><span>UPT</span><b>${isFinite(m.upt)?m.upt.toFixed(2):"–"}</b></div>
       <div class="kv"><span>AVU</span><b>${isFinite(m.asp)?inr(m.asp):"–"}</b></div>
@@ -1984,7 +1985,7 @@ function persistBills(wk){
 }
 function billsBetween(s,e){
   const wks=weeksCovering(s,e);const miss=wks.filter(w=>!billCache[w]);
-  if(miss.length){Promise.all(miss.map(loadBills)).then(()=>{if(ui.tab==="months")render();});return null;}
+  if(miss.length){Promise.all(miss.map(loadBills)).then(()=>{if(ui.tab==="months"||ui.tab==="home")render();});return null;}
   const si=isoOf(s),ei=isoOf(e);const out=[];let days=0;
   wks.forEach(w=>Object.keys(billCache[w].days).forEach(dt=>{if(dt<si||dt>ei)return;days++;billCache[w].days[dt].forEach(b=>out.push(b));}));
   return {bills:out,days};
@@ -1995,6 +1996,13 @@ function needBillsMsg(s,e){return `<div class="empty">No bill-level data for ${e
 
 /* 🎁 Promo con% */
 const DEF_SLABS=[{min:8999,free:1000},{min:12999,free:2000},{min:17999,free:4000}];
+/* dashboard tile: promo bills ÷ all bills in the selected week/month (same rule as Report → Promo con%) */
+function promoTile(s,e){const sel=promoSel();if(!sel)return "";
+  const slabs=(sel.slabs||[]).filter(x=>num(x.min)>0);if(!slabs.length)return "";
+  const lo=Math.min(...slabs.map(x=>num(x.min)));const B=billsBetween(s,e);
+  let pb=0,n=0;if(B&&B.bills)B.bills.forEach(b=>{if(b[1]<=0)return;n++;if(b[1]>=lo)pb++;});
+  if(B&&!n)return "";
+  return `<button class="kv" data-gopromo="1" style="text-align:left;font:inherit;color:inherit;border:0;cursor:pointer"><span>🎁 Promo con%</span><b>${!B?"…":pct(pb/n,1)}</b><small class="muted">${B?full(pb)+" / "+full(n)+" bills":""}</small></button>`;}
 function promoSel(){const P=state.promos||[];return P.find(p=>p.id===ui.promoId)||P[P.length-1]||null;}
 function viewPromo(){
   const P=state.promos||[],sel=promoSel(),ed=canEdit();
@@ -3294,6 +3302,7 @@ document.addEventListener("click",e=>{
     for(let dd=1;dd<=nd;dd++){const iso=mk+"-"+pad2(dd);if(iso>today)break;if(!attStatus(d.att[iso]?.[ui.staffId])){(d.att[iso]=d.att[iso]||{})[ui.staffId]={status:"P"};}}
     persistDay(mk,"Marked present");render();return;}
   if(t.dataset.qt&&canEdit()){quickTargets(t.dataset.qt);return;}
+  if(t.dataset.gopromo){ui.rpage="promo";go("months");return;}
   if(t.dataset.rpage!==undefined){ui.rpage=t.dataset.rpage;ui.wallEdit=false;ui.wowEdit=false;render();window.scrollTo(0,0);return;}
   if(t.dataset.stper!==undefined){ui.stPer=t.dataset.stper;if(t.dataset.stwk)ui.stWeek=t.dataset.stwk;render();window.scrollTo(0,0);return;}
   if(t.dataset.stpk!==undefined){if(t.dataset.stpk){ui.stPk=t.dataset.stpk;render();}return;}

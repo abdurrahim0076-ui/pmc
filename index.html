@@ -786,7 +786,12 @@ function npTile(t,label){return `<div class="kv"><span>👖 ${label}</span><b>${
 
 /* staff photos + team photo (manager adds; saved in the database) */
 let staffPh=null,staffPhLoading=false,teamPh=undefined;
+let staffPhLive=false;
 function loadStaffPh(){if(staffPh||staffPhLoading)return;staffPhLoading=true;
+  /* live: a photo added on one phone shows on every other phone without reopening the app */
+  if(col&&!staffPhLive){staffPhLive=true;
+    col.doc("staffphotos").onSnapshot(sn=>{staffPh=(sn.exists&&sn.data().img)||{};staffPhLoading=false;render();},()=>{});
+    col.doc("teamphoto").onSnapshot(sn=>{teamPh=(sn.exists&&sn.data().img)||"";},()=>{});return;}
   Promise.all([fsGet("staffphotos"),fsGet("teamphoto")]).then(([a,b])=>{staffPh=(a&&a.img)||{};teamPh=(b&&b.img)||"";}).catch(()=>{staffPh={};teamPh="";}).finally(()=>{staffPhLoading=false;render();});}
 function sAv(s,cls){loadStaffPh();const ph=staffPh&&staffPh[s.id];const ini=String(s.name||"").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
   return ph?`<img class="${cls||"sav"}" src="${ph}" alt="">`:`<span class="${cls||"sav"} ini" aria-hidden="true">${esc(ini)}</span>`;}

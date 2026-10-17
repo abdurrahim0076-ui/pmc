@@ -2161,12 +2161,14 @@ function viewReport(){
   if(rp==="acc") return back+viewAcc();
   if(rp==="walls") return back+viewWalls();
   if(rp==="wow") return back+viewWow();
+  if(rp==="snag") return back+viewSnags();
   if(rp==="prod") return back+viewStoreProd();
   const folders=`<div class="rfolders"><button class="folder" data-rpage="promo"><span class="ficon" aria-hidden="true">🎁</span><span class="ftxt"><b>Promo con%</b><small>Slabs · store and staff</small></span></button>
     <button class="folder" data-rpage="upt"><span class="ficon" aria-hidden="true">🧺</span><span class="ftxt"><b>UPT</b><small>MT · MB · WT · WB · Mens · Womens</small></span></button>
     <button class="folder" data-rpage="conv"><span class="ficon" aria-hidden="true">🚶</span><span class="ftxt"><b>Conv%</b><small>Day-wise walk-ins and bills</small></span></button>
     <button class="folder" data-rpage="acc"><span class="ficon" aria-hidden="true">🎒</span><span class="ftxt"><b>Acc con%</b><small>Belt · Wallet · store and staff</small></span></button>
     <button class="folder" data-rpage="prod"><span class="ficon" aria-hidden="true">🏬</span><span class="ftxt"><b>Store productivity</b><small>Sale / sq ft · per walk-in</small></span></button>
+    <button class="folder" data-rpage="snag"><span class="ficon" aria-hidden="true">🛠️</span><span class="ftxt"><b>Store issues</b><small>AC · light · repairs · open / cleared</small></span></button>
     <button class="folder" data-rpage="wow"><span class="ficon" aria-hidden="true">🤩</span><span class="ftxt"><b>WOW bills</b><small>13k · 20k · 30k · 40k+ bills</small></span></button>
     <button class="folder" data-rpage="walls"><span class="ficon" aria-hidden="true">🧱</span><span class="ftxt"><b>Wall productivity</b><small>Con% · space · per wall</small></span></button></div>`;
   return folders+viewReportMain();
@@ -2937,7 +2939,7 @@ function render(){
   if(ui.tab==="learn"){v.innerHTML=viewLearn();return;}
   if(ui.tab==="daily") ensureDay();
   else if(!weeksReady()){ensureWeeks();v.innerHTML='<div class="empty">Loading…</div>';return;}
-  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+learnCard(ui.day,true)+viewSnags()): viewReport();
+  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+learnCard(ui.day,true))+viewSnags(): viewReport();
 }
 
 /* ---------- standalone helpers ---------- */

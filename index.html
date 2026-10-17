@@ -211,6 +211,10 @@ textarea{width:100%;font:inherit;font-size:14px;padding:10px;border-radius:10px;
 .tph{width:100%;height:100%;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#fff;border:3px solid #fff;font-family:"Barlow Condensed",Barlow,sans-serif;font-size:28px;font-weight:700;color:#8a5a00}
 .tcrown{position:absolute;right:-6px;bottom:-4px;font-size:28px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25))}
 .tlbl{font-size:12px;font-weight:800;letter-spacing:.06em;color:#a66a00}.tname{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:26px;font-weight:700;line-height:1.1;color:#1a2233}.tsub{font-size:13px;color:#5a6478;margin-top:2px}
+.snagalert{display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:#fff3f0;border:1.5px solid var(--bad);border-radius:14px;padding:10px 12px;margin:0 0 10px;font:inherit;font-weight:700;color:var(--bad);cursor:pointer}
+.snag{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line)}.snag.done{opacity:.75}
+.snph{flex:0 0 52px;width:52px;height:52px;border-radius:10px;background:var(--soft);display:grid;place-items:center;font-size:22px;border:0;padding:0;overflow:hidden;cursor:pointer}.snph img{width:100%;height:100%;object-fit:cover}
+.snpill{font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px;color:#fff}.snpill.o{background:var(--bad)}.snpill.c{background:var(--good)}
 .rfolders{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
 .rfolders .folder{padding:12px}.rfolders .folder b{font-size:18px}.rfolders .ficon{font-size:24px}
 .kv small{display:block;font-size:12px}
@@ -787,13 +791,68 @@ function topPerformer(keys,label){const r=staffWithData(keys).map(s=>({s,a:aggSt
   return `<section class="topper"><div class="tframe">${sAv(r.s,"tph")}<span class="tcrown" aria-hidden="true">🏆</span></div>
     <div class="tinfo"><div class="tlbl">TOP PERFORMER · ${esc(label)}</div><div class="tname">${esc(r.s.name)}</div>
     <div class="tsub">${inr(r.a.sales)} · ATV ${isFinite(r.a.atv)?inr(r.a.atv):"–"} · UPT ${isFinite(r.a.upt)?r.a.upt.toFixed(2):"–"}${isFinite(r.a.ach)?" · "+pct(r.a.ach)+" ach.":""}</div></div></section>`;}
+/* 🛠️ Store issues (snag list) — saved with the VM photo records (kind "snag") so staff can add them */
+const SNAG_CATS=[["AC","❄️"],["Light","💡"],["Trial room","🚪"],["POS / Printer","🖨️"],["CCTV","📹"],["Door / Shutter","🔐"],["Plumbing","🚰"],["Fixture","🪑"],["Other","🔧"]];
+let snags=null,snagsLoading=false;const LS_SNAG="store-perf-snags";
+function canSnag(){return canPhoto()||!fsdb;}
+function snagIcon(c){const x=SNAG_CATS.find(a=>a[0]===c);return x?x[1]:"🔧";}
+function loadSnags(force){if((snags&&!force)||snagsLoading)return;snagsLoading=true;
+  const done=l=>{snags=l.sort((a,b)=>String(b.at).localeCompare(String(a.at)));snagsLoading=false;render();};
+  if(!fsdb){let l=[];try{l=JSON.parse(localStorage.getItem(LS_SNAG)||"[]");}catch(e){}done(l);return;}
+  fsdb.collection("stores/"+SID+"/vmphotos").where("kind","==","snag").get().then(q=>done(q.docs.map(d=>({id:d.id,...d.data()})))).catch(()=>done([]));}
+function saveLocalSnags(){try{localStorage.setItem(LS_SNAG,JSON.stringify(snags));}catch(e){toast("Phone storage full");}}
+async function addSnag(rec){
+  if(fsdb){const ref=await fsdb.collection("stores/"+SID+"/vmphotos").add(rec);snags.unshift({id:ref.id,...rec});}
+  else{snags.unshift({id:"sn_"+Date.now(),...rec});saveLocalSnags();}}
+async function patchSnag(id,patch){const s=snags.find(x=>x.id===id);if(!s)return;
+  if(fsdb)await fsdb.doc("stores/"+SID+"/vmphotos/"+id).update(patch);Object.assign(s,patch);if(!fsdb)saveLocalSnags();}
+async function delSnag(id){if(fsdb)await fsdb.doc("stores/"+SID+"/vmphotos/"+id).delete();snags=snags.filter(x=>x.id!==id);if(!fsdb)saveLocalSnags();}
+function nowStamp(){const d=new Date();return isoOf(d)+"T"+nowHM();}
+function stampDate(t){const [d,h]=String(t||"").split("T");const [y,m,dd]=d.split("-").map(Number);const [hh,mm]=(h||"0:0").split(":").map(Number);return new Date(y,m-1,dd,hh||0,mm||0);}
+function durTxt(ms){const m=Math.max(0,Math.round(ms/6e4));if(m<60)return m+"m";const h=Math.floor(m/60);if(h<24)return h+"h "+(m%60)+"m";const d=Math.floor(h/24);return d+"d "+(h%24)+"h";}
+function openTxt(t){const d=Math.floor((new Date(new Date().getFullYear(),new Date().getMonth(),new Date().getDate())-new Date(stampDate(t).getFullYear(),stampDate(t).getMonth(),stampDate(t).getDate()))/864e5);return d<=0?"today":d===1?"1 day":d+" days";}
+function stampTxt(t){const d=stampDate(t);return d.getDate()+" "+MN[d.getMonth()]+" "+String(t).split("T")[1];}
+function snagAlert(){if(!canSnag()&&!fsdb)return "";loadSnags();if(!snags)return "";const o=snags.filter(x=>x.status!=="cleared");if(!o.length)return "";
+  const old=o.reduce((a,b)=>String(a.at)<String(b.at)?a:b);
+  return `<button class="snagalert" data-snagview="1"><span>🛠️ ${o.length} store issue${o.length>1?"s":""} open · oldest ${esc(openTxt(old.at))}</span><span class="btn small">View ›</span></button>`;}
+function viewSnags(){
+  loadSnags();
+  let h=`<section class="block" id="snagBox"><h2 style="display:flex;justify-content:space-between;align-items:center">🛠️ Store issues ${canSnag()&&!ui.snagNew?`<button class="btn small primary" data-snagnew="1">+ Add issue</button>`:""}</h2>`;
+  if(!snags)return h+`<div class="empty">Loading…</div></section>`;
+  if(ui.snagNew){const D=ui.snagDraft||(ui.snagDraft={cat:"AC",where:"",ticket:"",img:""});
+    h+=`<div class="chips" style="margin-top:0">${SNAG_CATS.map(([c,i])=>`<button data-snagcat="${esc(c)}" style="${D.cat===c?"background:var(--denim-2);color:#fff":""}">${i} ${esc(c)}</button>`).join("")}</div>
+      ${D.cat==="Other"?`<label class="f" for="snOther">What is the problem</label><input type="text" id="snOther" value="${esc(D.other||"")}" placeholder="e.g. Mannequin broken">`:""}
+      <label class="f" for="snWhere" style="margin-top:8px">Where</label><input type="text" id="snWhere" value="${esc(D.where)}" placeholder="e.g. Men's floor, Trial room 2, Wall 14">
+      <label class="f" for="snTicket" style="margin-top:8px">Ticket / complaint no. (optional)</label><input type="text" id="snTicket" value="${esc(D.ticket)}">
+      <div class="actions"><button class="btn small" data-snagphoto="1">📷 ${D.img?"Change photo":"Add photo"}</button>${D.img?`<img src="${D.img}" alt="" style="height:44px;border-radius:8px">`:""}</div>
+      <div class="actions"><button class="btn small primary" data-snagsave="1" style="flex:1">Save issue</button><button class="btn small" data-snagcancel="1">Cancel</button></div></section>`;
+    return h;}
+  const f=ui.snagF||"open",open=snags.filter(x=>x.status!=="cleared"),cl=snags.filter(x=>x.status==="cleared");
+  const list=f==="open"?open:f==="cleared"?cl:snags;
+  h+=`<div class="chips" style="margin-top:0">${[["open","Open "+open.length],["cleared","Cleared "+cl.length],["all","All"]].map(([k,l])=>`<button data-snagf="${k}" style="${f===k?"background:var(--denim-2);color:#fff":""}">${l}</button>`).join("")}</div>`;
+  if(!list.length)h+=`<div class="empty">${f==="open"?"No open issues 👍":"Nothing here."}</div>`;
+  const sorted=f==="open"?list.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))):list;
+  h+=sorted.map(x=>{const isC=x.status==="cleared";const title=(x.cat==="Other"&&x.other?x.other:x.cat)+(x.where?" · "+x.where:"");
+    return `<div class="snag${isC?" done":""}">${x.img?`<button class="snph" data-snagimg="${esc(x.id)}"><img src="${x.img}" alt=""></button>`:`<span class="snph">${snagIcon(x.cat)}</span>`}
+      <div style="flex:1;min-width:0"><b>${esc(title)}</b><div class="muted" style="font-size:12px">Raised ${esc(stampTxt(x.at))} · ${esc(x.name||"")}${x.ticket?" · Ticket "+esc(x.ticket):""}${isC?" → Cleared "+esc(stampTxt(x.clearedAt))+(x.note?" · \""+esc(x.note)+"\"":""):""}</div>
+      ${ui.snagClear===x.id?`<div class="actions"><input type="text" id="snNote" placeholder="What was done (optional)" style="flex:1"><button class="btn small primary" data-snagdone="${esc(x.id)}">Save</button><button class="btn small" data-snagclear="">✕</button></div>`:
+      `<div class="actions" style="margin-top:4px;align-items:center"><span class="snpill ${isC?"c":"o"}">${isC?"CLEARED · "+esc(durTxt(stampDate(x.clearedAt)-stampDate(x.at))):"OPEN · "+esc(openTxt(x.at))}</span><span style="flex:1"></span>
+        ${canEdit()&&!isC?`<button class="btn small" data-snagclear="${esc(x.id)}">Mark cleared</button>`:""}${canEdit()&&isC?`<button class="btn small" data-snagreopen="${esc(x.id)}">Reopen</button>`:""}${canEdit()?`<button class="btn small" data-snagdel="${esc(x.id)}" aria-label="Delete">🗑</button>`:""}</div>`}</div></div>`;}).join("");
+  const mk=todayISO().slice(0,7),mo=snags.filter(x=>String(x.at).slice(0,7)===mk),mc=mo.filter(x=>x.status==="cleared"&&x.clearedAt);
+  const avg=mc.length?mc.reduce((a,x)=>a+(stampDate(x.clearedAt)-stampDate(x.at)),0)/mc.length:NaN;
+  const cnt={};mo.forEach(x=>cnt[x.cat]=(cnt[x.cat]||0)+1);const rep=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
+  h+=`<h2 style="margin-top:14px">${esc(MN_FULL[+mk.slice(5)-1])} summary</h2><div class="grid"><div class="kv"><span>Issues</span><b>${mo.length}</b></div><div class="kv"><span>Avg clear</span><b>${isFinite(avg)?esc(durTxt(avg)):"–"}</b></div><div class="kv"><span>Most repeated</span><b>${rep&&cnt[rep]>1?esc(rep)+" ×"+cnt[rep]:"–"}</b></div></div>
+    <p class="hint">Anyone in the team can add an issue. Only the manager can mark it cleared or delete it.</p></section>`;
+  return h;}
+function snagReadForm(){const D=ui.snagDraft;if(!D)return;const g=id=>{const e=document.getElementById(id);return e?e.value.trim():undefined;};
+  const w=g("snWhere"),t=g("snTicket"),o=g("snOther");if(w!==undefined)D.where=w;if(t!==undefined)D.ticket=t;if(o!==undefined)D.other=o;}
 
 function viewHome(){
   const k=cur(), m=aggStore(selKeys()), y=aggStore(ytdKeys(k));
   if(isWeek(k)){withYtdTarget(y,k);if(isYtd())withYtdTarget(m,k);}
   const has=isYtd()?m.sales>0:!!rec(k);
   const fill=Math.max(0,Math.min(1,isFinite(m.ach)?m.ach:0));
-  let h=`<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small" data-teamopen="1">👥 Team photo</button></div>`;
+  let h=snagAlert()+`<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small" data-teamopen="1">👥 Team photo</button></div>`;
   if(!has){
     h+=`<div class="hero"><div class="lbl">${esc(isYtd()?ytdLabel():mLong(k))}</div><div class="big">No sales yet</div>
       <div class="of">Add this month's numbers to see KPIs and L2L.</div>
@@ -2581,7 +2640,7 @@ function loadPhotos(iso){
   if(photoCache[iso]||photoLoading[iso]||!fsdb)return;
   photoLoading[iso]=true;
   fsdb.collection("stores/"+SID+"/vmphotos").where("date","==",iso).get()
-    .then(q=>{photoCache[iso]=q.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.kind!=="learn").sort((a,b)=>String(a.at).localeCompare(String(b.at)));})
+    .then(q=>{photoCache[iso]=q.docs.map(d=>({id:d.id,...d.data()})).filter(x=>!x.kind).sort((a,b)=>String(a.at).localeCompare(String(b.at)));})
     .catch(e=>{photoCache[iso]=[];photoCache[iso].err=e.message||String(e);})
     .finally(()=>{delete photoLoading[iso];if(ui.tab==="daily")render();});
 }
@@ -2878,7 +2937,7 @@ function render(){
   if(ui.tab==="learn"){v.innerHTML=viewLearn();return;}
   if(ui.tab==="daily") ensureDay();
   else if(!weeksReady()){ensureWeeks();v.innerHTML='<div class="empty">Loading…</div>';return;}
-  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+learnCard(ui.day,true)): viewReport();
+  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+learnCard(ui.day,true)+viewSnags()): viewReport();
 }
 
 /* ---------- standalone helpers ---------- */
@@ -3009,6 +3068,22 @@ document.addEventListener("click",e=>{
   if(t.dataset.trndel&&canEdit()){const id=t.dataset.trndel;askConfirm("Delete season "+id+" with its slides?","Delete",()=>trnDelete(id));return;}
   if(t.dataset.pcadd&&canEdit()){const pc=t.dataset.pcadd;pickFiles("image/*",false,f=>addPcPhotos(f,pc));return;}
   if(t.id==="pcBulk"&&canEdit()){pickFiles("image/*,.json,application/json",true,f=>addPcPhotos(f));return;}
+  if(t.dataset.snagview){go("daily");ui.day=todayISO();ui.snagF="open";render();setTimeout(()=>{const b=document.getElementById("snagBox");if(b)b.scrollIntoView({behavior:"smooth"});},300);return;}
+  if(t.dataset.snagnew&&canSnag()){ui.snagNew=true;ui.snagDraft=null;render();return;}
+  if(t.dataset.snagcancel){ui.snagNew=false;ui.snagDraft=null;render();return;}
+  if(t.dataset.snagcat){snagReadForm();ui.snagDraft.cat=t.dataset.snagcat;render();return;}
+  if(t.dataset.snagphoto){snagReadForm();pickFiles("image/*",false,async f=>{try{ui.snagDraft.img=await compressImage(f[0]);}catch(e){toast("Could not read the photo");}render();});return;}
+  if(t.dataset.snagsave&&canSnag()){snagReadForm();const D=ui.snagDraft;if(D.cat==="Other"&&!D.other){toast("Type what the problem is");return;}
+    const at=nowStamp();const rec={kind:"snag",date:at.slice(0,10),at,cat:D.cat,other:D.other||"",where:D.where||"",ticket:D.ticket||"",img:D.img||"",status:"open",
+      by:(fbAuth&&fbAuth.currentUser&&fbAuth.currentUser.uid)||"local",name:myName||"Manager",taskId:"",taskTitle:"🛠️ "+(D.cat==="Other"?D.other:D.cat)};
+    t.disabled=true;addSnag(rec).then(()=>{ui.snagNew=false;ui.snagDraft=null;ui.snagF="open";toast("Issue saved ✓");render();}).catch(e=>{t.disabled=false;toast(/permission/i.test(String(e.code||e.message))?"Not allowed. Update the database rules.":"Could not save");});return;}
+  if(t.dataset.snagf){ui.snagF=t.dataset.snagf;render();return;}
+  if(t.dataset.snagclear!==undefined&&canEdit()){ui.snagClear=t.dataset.snagclear;render();const n=document.getElementById("snNote");if(n)n.focus();return;}
+  if(t.dataset.snagdone&&canEdit()){const id=t.dataset.snagdone,note=((document.getElementById("snNote")||{}).value||"").trim();
+    patchSnag(id,{status:"cleared",clearedAt:nowStamp(),note}).then(()=>{ui.snagClear="";toast("Marked cleared ✓");render();}).catch(()=>toast("Could not save"));return;}
+  if(t.dataset.snagreopen&&canEdit()){patchSnag(t.dataset.snagreopen,{status:"open",clearedAt:"",note:""}).then(()=>render());return;}
+  if(t.dataset.snagdel&&canEdit()){const id=t.dataset.snagdel;askConfirm("Delete this issue?","Delete",()=>delSnag(id).then(()=>render()));return;}
+  if(t.dataset.snagimg){const x=(snags||[]).find(s=>s.id===t.dataset.snagimg);if(x&&x.img){const wn=window.open();if(wn){wn.document.write('<title>Issue photo</title><body style="margin:0;background:#000"><img src="'+x.img+'" style="width:100%">');wn.document.close();}}return;}
   if(t.dataset.teamopen){openTeamPhoto();return;}
   if(t.dataset.teamup&&canEdit()){pickFiles("image/*",false,f=>saveTeamPhoto(f[0]));return;}
   if(t.dataset.sphoto&&canEdit()){const id=t.dataset.sphoto;pickFiles("image/*",false,f=>saveStaffPhoto(id,f[0]));return;}

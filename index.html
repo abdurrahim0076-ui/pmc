@@ -570,6 +570,7 @@ function normalize(d){
           promos: Array.isArray(d.promos)?d.promos:[],
           stWeeks: d.stWeeks&&typeof d.stWeeks==="object"?d.stWeeks:{},
           walls: Array.isArray(d.walls)?d.walls:null,
+          wowLevels: Array.isArray(d.wowLevels)?d.wowLevels:null,
           wallTotal: num(d.wallTotal)||42,
           gsa: num(d.gsa)||5965,
           support: Array.isArray(d.support)?d.support:null,
@@ -757,7 +758,7 @@ function npBetween(s,e){const mks=[];for(let d=new Date(s.getFullYear(),s.getMon
   const si=isoOf(s),ei=isoOf(e),t={q:0,v:0,b:0,days:0};
   mks.forEach(m=>Object.keys(x24Cache[m].days||{}).forEach(dt=>{if(dt<si||dt>ei)return;const n=x24Cache[m].days[dt].np;if(!n)return;t.days++;t.q+=num(n[0]);t.v+=num(n[1]);t.b+=num(n[2]);}));
   return t;}
-function npTile(t,label){return `<div class="kv"><span>👖 ${label}</span><b>${!t?"…":t.days?inr(t.v):"–"}</b><small class="muted">${t&&t.days?full(t.q)+" pcs · "+full(t.b)+" bills":t?"Import X24 again to see it":""}</small></div>`;}
+function npTile(t,label){return `<div class="kv"><span>👖 ${label}</span><b>${!t?"…":t.days?inr(t.v):"–"}</b><small class="muted">${t&&t.days?full(t.q)+" QTY · "+full(t.b)+" bills":t?"Import X24 again to see it":""}</small></div>`;}
 
 function viewHome(){
   const k=cur(), m=aggStore(selKeys()), y=aggStore(ytdKeys(k));
@@ -1519,9 +1520,10 @@ function staffConBlock(sid,k,ytd){
   let h=`<section class="block"><h2>📊 Con% · ${esc(ytd?"YTD":mLong(k))}</h2><div class="grid">
     ${pr?tile("🎁 Promo con%",r(M.pb,M.pBills),r(S.pb,S.pBills),true,M.pb+"/"+M.pBills+" bills"):""}
     ${tile("🧍 SUPT (1-pc bills)",r(M.single,M.bills),r(S.single,S.bills),false,M.single+"/"+M.bills+" bills")}
-    ${tile("👖 BTM con%",r(M.mb+M.wb,M.app),r(S.mb+S.wb,S.app),true,(M.mb+M.wb)+" pcs")}
-    ${tile("👗 WMS%",r(M.wt+M.wb,M.app),r(S.wt+S.wb,S.app),true,(M.wt+M.wb)+" pcs")}
+    ${tile("👖 BTM con%",r(M.mb+M.wb,M.app),r(S.mb+S.wb,S.app),true,(M.mb+M.wb)+" QTY")}
+    ${tile("👗 WMS%",r(M.wt+M.wb,M.app),r(S.wt+S.wb,S.app),true,(M.wt+M.wb)+" QTY")}
     ${tile("🎒 Acc con%",r(M.a.av,M.a.val),r(S.a.av,S.a.val),true,"🪢 "+M.a.bq+" · 👛 "+M.a.wq)}
+    ${(()=>{const L=wowLevels();const mw=wowCalc(mine,L),sw=wowCalc(all,L);return tile("🤩 WOW bills "+kfmt(L[0]),r(mw.lv[0].n,mw.T.n),r(sw.lv[0].n,sw.T.n),true,mw.lv[0].n+"/"+mw.T.n+" bills · UPT "+(mw.lv[0].n?(mw.lv[0].q/mw.lv[0].n).toFixed(2):"–"));})()}
     </div>`;
   if(pr&&M.slabs.length) h+=`<div class="tscroll" style="margin-top:10px"><table><thead><tr><th>${esc(pr.name||"Promo")}</th>${M.slabs.map((x,i)=>`<th>S${i+1}<br><small>₹${full(x.min)}+</small></th>`).join("")}<th>Total</th></tr></thead><tbody>
     <tr><td>${esc(staffName(sid))}</td>${M.sl.map(n=>`<td>${n||"–"}${n?`<br><small class="muted">${pct(n/M.pb,1)}</small>`:""}</td>`).join("")}<td><b>${M.pb}</b></td></tr>
@@ -1529,7 +1531,7 @@ function staffConBlock(sid,k,ytd){
   h+=`<div class="tscroll" style="margin-top:10px"><table><thead><tr><th>UPT</th><th>Total</th><th>MT</th><th>MB</th><th>WT</th><th>WB</th></tr></thead><tbody>
     <tr><td>${esc(staffName(sid))}</td><td>${u(M.app,M.bills)}</td><td>${u(M.mt,M.cMT)}</td><td>${u(M.mb,M.cMB)}</td><td>${u(M.wt,M.cWT)}</td><td>${u(M.wb,M.cWB)}</td></tr>
     <tr class="total"><td>Store</td><td>${u(S.app,S.bills)}</td><td>${u(S.mt,S.cMT)}</td><td>${u(S.mb,S.cMB)}</td><td>${u(S.wt,S.cWT)}</td><td>${u(S.wb,S.cWB)}</td></tr></tbody></table></div>
-    <p class="hint">🟢 better than store · 🔴 worse (for SUPT, lower is better). SUPT = bills with only 1 piece ÷ bills. BTM = MB + WB pcs ÷ all pcs. WMS = WT + WB pcs ÷ all pcs. Acc con% = accessory value ÷ total value. Promo slab % = slab bills ÷ promo bills. From bill-level X24 data.</p></section>`;
+    <p class="hint">🟢 better than store · 🔴 worse (for SUPT, lower is better). SUPT = bills with only 1 piece ÷ bills. BTM = MB + WB QTY ÷ all QTY. WMS = WT + WB QTY ÷ all QTY. Acc con% = accessory value ÷ total value. Promo slab % = slab bills ÷ promo bills. From bill-level X24 data.</p></section>`;
   return h;
 }
 
@@ -1832,7 +1834,7 @@ function viewUPT(){
     <section class="block"><h2>Staff-wise ${mode==="upt"?"UPT":"attach %"}</h2><div class="tscroll"><table><thead><tr><th>Staff</th>${UPT_G.map(g=>`<th>${g[0]}</th>`).join("")}<th>Bills</th></tr></thead><tbody>`+
     `<tr class="total"><td>Store</td>${store.map(x=>`<td>${mode==="upt"?(isFinite(x.upt)?x.upt.toFixed(2):"–"):pct(x.att)}</td>`).join("")}<td>${full(store[0].bills)}</td></tr>`+
     rows.map(r=>`<tr><td>${esc(staffName(r.id))}</td>${r.g.map((x,i)=>cell(x,store[i])).join("")}<td>${full(r.g[0].bills)}</td></tr>`).join("")+
-    `</tbody></table></div><p class="hint">🟢 5% or more above store · 🔴 5% or more below.</p></section>`;
+    `</tbody></table></div><p class="hint">🟢 5% or more above store · 🔴 5% or more below.</p></section>`+billSizeBlock(B);
   return h;
 }
 
@@ -1874,14 +1876,14 @@ function viewAcc(){
   const by={};list.forEach(b=>(by[b[0]]=by[b[0]]||[]).push(b));
   const rows=Object.keys(by).filter(id=>id).map(id=>({id,a:accCalc(by[id])})).filter(r=>r.a.bills).sort((x,y)=>(y.a.av/(y.a.val||1))-(x.a.av/(x.a.val||1))||y.a.aq-x.a.aq);
   const cl=(v,r)=>!r?"":v>=r?"up":"down";
-  const part=(icon,n,q,v,bb)=>`<div class="kv"><span>${icon} ${n}</span><b>${full(q)} pcs</b><small class="muted">${inr(v)} · ${pc(v,T.val)} value${bb==null?"":" · "+pc(bb,T.bills)+" of bills"}</small></div>`;
+  const part=(icon,n,q,v,bb)=>`<div class="kv"><span>${icon} ${n}</span><b>${full(q)} QTY</b><small class="muted">${inr(v)} · ${pc(v,T.val)} value${bb==null?"":" · "+pc(bb,T.bills)+" of bills"}</small></div>`;
   let h=`<section class="block"><h2>🎒 Acc con% · ${esc(isYtd()?ytdLabel():mLong(k))}</h2>
     <div class="grid"><div class="kv"><span>Acc con% (value)</span><b class="up">${pc(T.av,T.val)}</b><small class="muted">${inr(T.av)} of ${inr(T.val)}</small></div>
-    <div class="kv"><span>Acc con% (qty)</span><b>${pc(T.aq,T.aq+T.app)}</b><small class="muted">${full(T.aq)} of ${full(T.aq+T.app)} pcs</small></div>
+    <div class="kv"><span>Acc con% (qty)</span><b>${pc(T.aq,T.aq+T.app)}</b><small class="muted">${full(T.aq)} of ${full(T.aq+T.app)} QTY</small></div>
     <div class="kv"><span>Acc attach %</span><b>${pc(T.ab,T.bills)}</b><small class="muted">${full(T.ab)} of ${full(T.bills)} bills</small></div>
     ${part("🪢","Belt",T.bq,T.bv,T.bb)}${part("👛","Wallet",T.wq,T.wv,T.wb)}${part("🧢","Others",T.oq,T.ov,null)}</div>
     <p class="hint">Value con% = accessory sales ÷ total sales (apparel + accessories). Attach % = bills with an accessory ÷ all bills. Main sales and KPIs stay apparel-only. From ${B.days} days of bill data.</p></section>
-    <section class="block"><h2>Staff-wise</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Acc pcs</th><th>Acc ₹</th><th>Value con%</th><th>Qty con%</th><th>Attach %</th><th>🪢 Belt</th><th>👛 Wallet</th><th>Others</th></tr></thead><tbody>`+
+    <section class="block"><h2>Staff-wise</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Acc QTY</th><th>Acc ₹</th><th>Value con%</th><th>Qty con%</th><th>Attach %</th><th>🪢 Belt</th><th>👛 Wallet</th><th>Others</th></tr></thead><tbody>`+
     rows.map(r=>{const a=r.a;return `<tr><td>${esc(staffName(r.id))}</td><td>${a.aq||"–"}</td><td>${a.av?inr(a.av):"–"}</td><td class="${cl(a.av/(a.val||1),T.av/(T.val||1))}"><b>${pc(a.av,a.val)}</b></td><td>${pc(a.aq,a.aq+a.app)}</td><td>${pc(a.ab,a.bills)}</td><td>${a.bq||"–"}</td><td>${a.wq||"–"}</td><td>${a.oq||"–"}</td></tr>`;}).join("")+
     `<tr class="total"><td>Store</td><td>${full(T.aq)}</td><td>${inr(T.av)}</td><td>${pc(T.av,T.val)}</td><td>${pc(T.aq,T.aq+T.app)}</td><td>${pc(T.ab,T.bills)}</td><td>${full(T.bq)}</td><td>${full(T.wq)}</td><td>${full(T.oq)}</td></tr></tbody></table></div>
     <p class="hint">🟢 at or above store value con% · 🔴 below. Staff = main associate on the bill.${list.length<B.bills.length?" Some days were imported before accessories were tracked — re-import the X24 for full numbers.":""}</p></section>`;
@@ -1969,21 +1971,21 @@ function viewWalls(){
   const rows=C.rows.slice().sort((a,b)=>((by==="v"?b.pv:b.pq)||0)-((by==="v"?a.pv:a.pq)||0));
   const pc=v=>isFinite(v)?`<b class="${v>=1.1?"up":v<0.9?"down":""}">${v.toFixed(2)}</b>`:"–";
   h+=`<section class="block"><h2>🧱 Wall productivity · ${esc(ytd?ytdLabel():mLong(k))}</h2>
-    <div class="grid"><div class="kv"><span>Wall sale</span><b>${inr(C.V)}</b></div><div class="kv"><span>Wall pcs</span><b>${full(C.Q)}</b></div><div class="kv"><span>Per wall</span><b>${inr(C.V/(C.Wn||1))}</b><small class="muted">${(C.Q/(C.Wn||1)).toFixed(1)} pcs</small></div></div>
+    <div class="grid"><div class="kv"><span>Wall sale</span><b>${inr(C.V)}</b></div><div class="kv"><span>Wall QTY</span><b>${full(C.Q)}</b></div><div class="kv"><span>Per wall</span><b>${inr(C.V/(C.Wn||1))}</b><small class="muted">${(C.Q/(C.Wn||1)).toFixed(1)} QTY</small></div></div>
     ${tw!==wallTotal()?`<p class="hint down">Groups have ${tw} walls, store has ${wallTotal()}. Fix it in Wall setup.</p>`:""}
-    <div class="seg" role="group" aria-label="Sort by" style="margin-top:10px"><button data-wallby="v" aria-pressed="${by==="v"}">By sale ₹</button><button data-wallby="q" aria-pressed="${by==="q"}">By pcs</button></div>
-    <div class="tscroll"><table><thead><tr><th>Wall group</th><th>Walls</th><th>Sale</th><th>Pcs</th><th>Per wall</th><th>Sale con%</th><th>Pcs con%</th><th>Space con%</th><th>Prod. ₹</th><th>Prod. pcs</th><th>AVU</th></tr></thead><tbody>`+
-    rows.map(r=>`<tr><td>${esc(r.g.name)}</td><td>${num(r.g.walls)}</td><td>${inr(r.v)}</td><td>${full(r.q)}</td><td>${inr(r.vw)}<br><small class="muted">${r.qw.toFixed(1)} pcs</small></td><td>${pct(r.vc,1)}</td><td>${pct(r.qc,1)}</td><td>${pct(r.sp,1)}</td><td>${pc(r.pv)}</td><td>${pc(r.pq)}</td><td>${r.q?inr(r.v/r.q):"–"}</td></tr>`).join("")+
+    <div class="seg" role="group" aria-label="Sort by" style="margin-top:10px"><button data-wallby="v" aria-pressed="${by==="v"}">By sale ₹</button><button data-wallby="q" aria-pressed="${by==="q"}">By QTY</button></div>
+    <div class="tscroll"><table><thead><tr><th>Wall group</th><th>Walls</th><th>Sale</th><th>QTY</th><th>Per wall</th><th>Sale con%</th><th>QTY con%</th><th>Space con%</th><th>Prod. ₹</th><th>Prod. QTY</th><th>AVU</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${esc(r.g.name)}</td><td>${num(r.g.walls)}</td><td>${inr(r.v)}</td><td>${full(r.q)}</td><td>${inr(r.vw)}<br><small class="muted">${r.qw.toFixed(1)} QTY</small></td><td>${pct(r.vc,1)}</td><td>${pct(r.qc,1)}</td><td>${pct(r.sp,1)}</td><td>${pc(r.pv)}</td><td>${pc(r.pq)}</td><td>${r.q?inr(r.v/r.q):"–"}</td></tr>`).join("")+
     `<tr class="total"><td>Walls</td><td>${C.Wn}</td><td>${inr(C.V)}</td><td>${full(C.Q)}</td><td>${inr(C.V/(C.Wn||1))}</td><td>100%</td><td>100%</td><td>100%</td><td>1.00</td><td>1.00</td><td>${C.Q?inr(C.V/C.Q):"–"}</td></tr></tbody></table></div>
     <p class="hint">Productivity = con% ÷ space con%. 🟢 1.1+ sells more than its space · 🔴 below 0.9 the space is under-used. From ${M.days} days of X24${wallMap&&(Object.keys(wallMap.br).length||Object.keys(wallMap.pc).length)?" · brick master in use":""}.</p></section>`;
   /* trend: last 6 weeks */
   const endWk=weekOfDate(e),wks=[];for(let w=endWk,i=0;i<6;i++,w=stepKey(w,-1))wks.unshift(w);
   const TW=wks.map(w=>{const [a,b]=weekRange(w);const m=brickMix(a,b>new Date()?new Date():b);return m&&m.days?wallCalc(m):null;});
-  if(TW.filter(Boolean).length>1) h+=`<section class="block"><h2>Week trend · productivity (${by==="v"?"sale":"pcs"})</h2><div class="tscroll"><table><thead><tr><th>Wall group</th>${wks.map(w=>`<th>W${weekNo(w)}</th>`).join("")}</tr></thead><tbody>`+
+  if(TW.filter(Boolean).length>1) h+=`<section class="block"><h2>Week trend · productivity (${by==="v"?"sale":"QTY"})</h2><div class="tscroll"><table><thead><tr><th>Wall group</th>${wks.map(w=>`<th>W${weekNo(w)}</th>`).join("")}</tr></thead><tbody>`+
     wallGroups().map(g=>`<tr><td>${esc(g.name)}</td>${TW.map(c=>{if(!c)return `<td class="muted">–</td>`;const r=c.rows.find(x=>x.g.id===g.id);return `<td>${pc(by==="v"?r.pv:r.pq)}</td>`;}).join("")}</tr>`).join("")+`</tbody></table></div><p class="hint">See if a VM change moved a wall up or down.</p></section>`;
   const O=Object.keys(C.oth).map(k=>({k,q:C.oth[k][0],v:C.oth[k][1]})).filter(o=>o.q||o.v).sort((a,b)=>b.v-a.v);
   if(O.length){const ov=O.reduce((x,o)=>x+o.v,0),oq=O.reduce((x,o)=>x+o.q,0);
-    h+=`<section class="block"><h2>Tables / others · ${inr(ov)} · ${full(oq)} pcs</h2><div class="tscroll"><table><thead><tr><th>Category · Brick</th><th>Sale</th><th>Pcs</th></tr></thead><tbody>`+
+    h+=`<section class="block"><h2>Tables / others · ${inr(ov)} · ${full(oq)} QTY</h2><div class="tscroll"><table><thead><tr><th>Category · Brick</th><th>Sale</th><th>QTY</th></tr></thead><tbody>`+
     O.slice(0,ui.wallOthAll?999:12).map(o=>{const [c,...b]=o.k.split("|");return `<tr><td>${esc(catLabel(c))} · ${esc(b.join("|"))}</td><td>${inr(o.v)}</td><td>${full(o.q)}</td></tr>`;}).join("")+`</tbody></table></div>
     ${O.length>12&&!ui.wallOthAll?`<div class="actions"><button class="btn small" data-wallothall="1">Show all ${O.length}</button></div>`:""}
     <p class="hint">Not on any wall group (tables, other fixtures). To put one on a wall, add its brick to a group's keywords in Wall setup.</p></section>`;}
@@ -1998,7 +2000,7 @@ function viewStoreProd(){
     ${tile("Sale / walk-in",isFinite(per(A.sales,A.footfall))?"₹"+full(Math.round(A.sales/A.footfall)):"–",A.footfall?full(A.footfall)+" walk-ins":"no walk-ins")}
     ${tile("Walk-in UPT",isFinite(per(A.units,A.footfall))?(A.units/A.footfall).toFixed(2):"–")}
     ${tile("Conv%",pct(A.conv,1))}${tile("ATV",isFinite(A.atv)?inr(A.atv):"–")}${tile("UPT",isFinite(A.upt)?A.upt.toFixed(2):"–")}
-    ${tile("Pcs / sq ft",isFinite(per(A.units,G))?(A.units/G).toFixed(2):"–")}${tile("Sale / wall",isFinite(per(A.sales,wallTotal()))?inr(A.sales/wallTotal()):"–",wallTotal()+" walls")}</div>
+    ${tile("QTY / sq ft",isFinite(per(A.units,G))?(A.units/G).toFixed(2):"–")}${tile("Sale / wall",isFinite(per(A.sales,wallTotal()))?inr(A.sales/wallTotal()):"–",wallTotal()+" walls")}</div>
     ${canEdit()?`<div class="fgrid" style="margin-top:10px"><div><label class="f" for="gsaIn">GSA (sq ft)</label><input class="n" id="gsaIn" inputmode="numeric" value="${G}"></div><div style="align-self:end"><button class="btn small" id="gsaSave">Save</button></div></div>`:""}</section>`;
   const fy=fyOf(k),ms=monthKeys(fy).filter(m=>{const r=aggStore([m]);return r.sales>0;});
   if(ms.length){const R=ms.map(m=>({m,a:aggStore([m])}));const vals=R.map(r=>r.a.sales/G),hi=Math.max(...vals),lo=Math.min(...vals);
@@ -2006,6 +2008,52 @@ function viewStoreProd(){
     R.map(r=>{const a=r.a,v=a.sales/G;return `<tr><td>${esc(mShort(r.m))}</td><td>${inr(a.sales)}</td><td class="${v===hi?"up":v===lo?"down":""}"><b>₹${full(Math.round(v))}</b></td><td>${a.footfall?full(a.footfall):"–"}</td><td>${a.footfall?"₹"+full(Math.round(a.sales/a.footfall)):"–"}</td><td>${pct(a.conv,1)}</td><td>${isFinite(a.atv)?inr(a.atv):"–"}</td><td>${isFinite(a.upt)?a.upt.toFixed(2):"–"}</td><td>${a.footfall?(a.units/a.footfall).toFixed(2):"–"}</td></tr>`;}).join("")+
     `</tbody></table></div><p class="hint">🟢 best month · 🔴 lowest month for sale per sq ft. Walk-ins come from the DSR or the footfall you type.</p></section>`;}
   return h;
+}
+/* 🤩 WOW bills: bills at or above each value level (bill row: [id,total,MT,MB,WT,WB,…]) */
+const DEF_WOW=[13000,20000,30000,40000];
+function wowLevels(){return (Array.isArray(state.wowLevels)&&state.wowLevels.length?state.wowLevels:DEF_WOW).map(num).filter(x=>x>0).sort((a,b)=>a-b);}
+function bq(b){return num(b[2])+num(b[3])+num(b[4])+num(b[5]);}
+function wowCalc(list,L){const all=list.filter(b=>b[1]>0);const T={n:all.length,v:all.reduce((x,b)=>x+b[1],0),q:all.reduce((x,b)=>x+bq(b),0)};
+  return {T,lv:L.map(l=>{const ls=all.filter(b=>b[1]>=l);return {l,n:ls.length,v:ls.reduce((x,b)=>x+b[1],0),q:ls.reduce((x,b)=>x+bq(b),0)};})};}
+function kfmt(l){return "₹"+(l>=1000?(l/1000).toFixed(l%1000?1:0)+"k":full(l))+"+";}
+function viewWow(){
+  const k=cur(),[s,e0]=periodDates(k,isYtd());const e=e0<new Date()?e0:new Date();
+  let h="";const ed=canEdit()&&ui.wowEdit;
+  if(ed){const L=ui.wowDraft||(ui.wowDraft=wowLevels().slice());
+    return `<section class="block"><h2>🤩 WOW bill levels</h2><div class="tscroll"><table><thead><tr><th>#</th><th>Bill value from (₹)</th><th></th></tr></thead><tbody>${L.map((l,i)=>`<tr><td>${i+1}</td><td><input class="n" data-wowl="${i}" inputmode="numeric" value="${l||""}"></td><td><button class="btn small" data-wowrm="${i}">×</button></td></tr>`).join("")}</tbody></table></div>
+      <div class="actions"><button class="btn small" id="wowAdd">+ Add level</button><button class="btn small primary" id="wowSave" style="flex:1">Save</button><button class="btn small" id="wowCancel">Cancel</button></div></section>`;}
+  const B=billsBetween(s,e);if(!B)return `<div class="empty">Loading…</div>`;
+  if(!B.bills.length)return `<section class="block"><h2>🤩 WOW bills</h2>${needBillsMsg(s,e)}</section>`;
+  const L=wowLevels(),S=wowCalc(B.bills,L),pc=(a,b)=>b?pct(a/b,1):"–",u=(q,n)=>n?(q/n).toFixed(2):"–",atv=(v,n)=>n?inr(v/n):"–";
+  h+=`<section class="block"><h2>🤩 WOW bills · ${esc(isYtd()?ytdLabel():mLong(k))}</h2><div class="tscroll"><table><thead><tr><th>Bill value</th><th>Bills</th><th>Bills con%</th><th>Value</th><th>Value con%</th><th>UPT</th><th>ATV</th></tr></thead><tbody>`+
+    S.lv.map(x=>`<tr><td><b>${kfmt(x.l)}</b></td><td>${full(x.n)}</td><td><b>${pc(x.n,S.T.n)}</b></td><td>${inr(x.v)}</td><td>${pc(x.v,S.T.v)}</td><td><b>${u(x.q,x.n)}</b></td><td>${atv(x.v,x.n)}</td></tr>`).join("")+
+    `<tr class="total"><td>All bills</td><td>${full(S.T.n)}</td><td>100%</td><td>${inr(S.T.v)}</td><td>100%</td><td>${u(S.T.q,S.T.n)}</td><td>${atv(S.T.v,S.T.n)}</td></tr></tbody></table></div>
+    <p class="hint">Single bill total (all items, returns netted). ${kfmt(L[0])} counts every bill from ${kfmt(L[0]).slice(0,-1)} up, so it includes the bigger levels too. UPT = apparel QTY ÷ those bills. From ${B.days} days of bill data.</p>
+    ${canEdit()?`<div class="actions"><button class="btn small" data-wowedit="1">⚙️ Change levels</button></div>`:""}</section>`;
+  const by={};B.bills.forEach(b=>{if(b[0])(by[b[0]]=by[b[0]]||[]).push(b);});
+  const rows=Object.keys(by).map(id=>({id,c:wowCalc(by[id],L)})).filter(r=>r.c.T.n).sort((a,b)=>(b.c.lv[0].n/b.c.T.n)-(a.c.lv[0].n/a.c.T.n)||b.c.lv[0].n-a.c.lv[0].n);
+  const cl=(a,n,ref)=>!n||!isFinite(ref)?"":(a/n>=ref?"up":"down");
+  h+=`<section class="block"><h2>Staff-wise</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Bills</th>${L.map(l=>`<th>${kfmt(l)}</th>`).join("")}<th>WOW UPT<br><small>${kfmt(L[0])}</small></th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${esc(staffName(r.id))}</td><td>${full(r.c.T.n)}</td>${r.c.lv.map((x,i)=>`<td class="${x.n?cl(x.n,r.c.T.n,S.lv[i].n/S.T.n):""}">${x.n?x.n+`<br><small>${pc(x.n,r.c.T.n)}</small>`:"–"}</td>`).join("")}<td>${u(r.c.lv[0].q,r.c.lv[0].n)}</td></tr>`).join("")+
+    `<tr class="total"><td>Store</td><td>${full(S.T.n)}</td>${S.lv.map(x=>`<td>${x.n}<br><small>${pc(x.n,S.T.n)}</small></td>`).join("")}<td>${u(S.lv[0].q,S.lv[0].n)}</td></tr></tbody></table></div>
+    <p class="hint">🟢 at or above the store's bills con% for that level · 🔴 below. Staff = main associate on the bill.</p></section>`;
+  return h;
+}
+/* 🧺 bill size: bills with 1 / 2 / 3 / 4+ apparel QTY */
+function billSize(list){const all=list.filter(b=>bq(b)>0);const g=[0,0,0,0],v=[0,0,0,0];all.forEach(b=>{const i=Math.min(4,Math.round(bq(b)))-1;if(i<0)return;g[i]++;v[i]+=Math.max(0,b[1]);});
+  return {n:all.length,v:v.reduce((x,y)=>x+y,0),g,gv:v};}
+function billSizeBlock(B){
+  const S=billSize(B.bills),lab=["1 UPT","2 UPT","3 UPT","4+ UPT"],pc=(a,b)=>b?pct(a/b,1):"–";
+  const by={};B.bills.forEach(b=>{if(b[0])(by[b[0]]=by[b[0]]||[]).push(b);});
+  const rows=Object.keys(by).map(id=>({id,c:billSize(by[id])})).filter(r=>r.c.n).sort((a,b)=>(a.c.g[0]/a.c.n)-(b.c.g[0]/b.c.n));
+  const ref=S.g.map(x=>S.n?x/S.n:NaN);
+  return `<section class="block"><h2>Bill size</h2><div class="tscroll"><table><thead><tr><th>Bill</th><th>Bills</th><th>Bills con%</th><th>Value con%</th></tr></thead><tbody>`+
+    lab.map((l,i)=>`<tr><td><b>${l}</b></td><td>${full(S.g[i])}</td><td><b>${pc(S.g[i],S.n)}</b></td><td>${pc(S.gv[i],S.v)}</td></tr>`).join("")+
+    `<tr class="total"><td>All</td><td>${full(S.n)}</td><td>100%</td><td>100%</td></tr></tbody></table></div>
+    <h2 style="margin-top:14px">Staff-wise bill size</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Bills</th>${lab.map(l=>`<th>${l}</th>`).join("")}</tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${esc(staffName(r.id))}</td><td>${full(r.c.n)}</td>${r.c.g.map((x,i)=>{const v=x/r.c.n;const c=!isFinite(ref[i])?"":i===0?(v<=ref[i]?"up":"down"):i===3?(v>=ref[i]?"up":"down"):"";return `<td class="${c}">${x?pct(v,0):"–"}</td>`;}).join("")}</tr>`).join("")+
+    `<tr class="total"><td>Store</td><td>${full(S.n)}</td>${S.g.map(x=>`<td>${pc(x,S.n)}</td>`).join("")}</tr></tbody></table></div>
+    <p class="hint">UPT here = apparel QTY in one bill. 1 UPT: 🟢 fewer than the store · 🔴 more (no add-on). 4+ UPT: 🟢 more than the store.</p></section>`;
 }
 
 function viewReport(){
@@ -2016,12 +2064,14 @@ function viewReport(){
   if(rp==="conv") return back+viewConv();
   if(rp==="acc") return back+viewAcc();
   if(rp==="walls") return back+viewWalls();
+  if(rp==="wow") return back+viewWow();
   if(rp==="prod") return back+viewStoreProd();
   const folders=`<div class="rfolders"><button class="folder" data-rpage="promo"><span class="ficon" aria-hidden="true">🎁</span><span class="ftxt"><b>Promo con%</b><small>Slabs · store and staff</small></span></button>
     <button class="folder" data-rpage="upt"><span class="ficon" aria-hidden="true">🧺</span><span class="ftxt"><b>UPT</b><small>MT · MB · WT · WB · Mens · Womens</small></span></button>
     <button class="folder" data-rpage="conv"><span class="ficon" aria-hidden="true">🚶</span><span class="ftxt"><b>Conv%</b><small>Day-wise walk-ins and bills</small></span></button>
     <button class="folder" data-rpage="acc"><span class="ficon" aria-hidden="true">🎒</span><span class="ftxt"><b>Acc con%</b><small>Belt · Wallet · store and staff</small></span></button>
     <button class="folder" data-rpage="prod"><span class="ficon" aria-hidden="true">🏬</span><span class="ftxt"><b>Store productivity</b><small>Sale / sq ft · per walk-in</small></span></button>
+    <button class="folder" data-rpage="wow"><span class="ficon" aria-hidden="true">🤩</span><span class="ftxt"><b>WOW bills</b><small>13k · 20k · 30k · 40k+ bills</small></span></button>
     <button class="folder" data-rpage="walls"><span class="ficon" aria-hidden="true">🧱</span><span class="ftxt"><b>Wall productivity</b><small>Con% · space · per wall</small></span></button></div>`;
   return folders+viewReportMain();
 }
@@ -2269,7 +2319,7 @@ function viewStWeekX(){
   const P=stWeekBuild(stepKey(sel,-1),W);
   const maxSt=Math.max(0.0001,...stw.map(w=>W[w].st||0));
   const chart=stw.length>1?`<div class="chart wk" role="img" aria-label="ST report % by week" style="height:90px">${stw.map(w=>`<button class="col${w===sel?" sel":""}" data-stw="${esc(w)}" aria-label="Week ${weekNo(w)}: ${pct(W[w].st,1)}"><div class="stack"><div class="s" style="height:${((W[w].st||0)/maxSt*100).toFixed(1)}%"></div></div><span class="m">W${weekNo(w)}</span></button>`).join("")}</div>`:"";
-  const hint=B.src==="x24"?`Week ST% = pieces sold this week (X24) ÷ (sold + SOH in the W${weekNo(B.baseWk)} ST report).${B.out?" "+full(B.out)+" pcs sold of PC9s not in that ST report are left out.":""} Bars: ST% of each uploaded ST report.`:B.src==="stdelta"?`Week ST% = pieces sold this week (this week's ST report sale minus the W${weekNo(B.prevWk)} report) ÷ (sold + SOH now). Bars: ST% of each uploaded ST report.`:`No X24 and no report for the week before, so this is the ST report as it is (sale since REC IN).`;
+  const hint=B.src==="x24"?`Week ST% = pieces sold this week (X24) ÷ (sold + SOH in the W${weekNo(B.baseWk)} ST report).${B.out?" "+full(B.out)+" QTY sold of PC9s not in that ST report are left out.":""} Bars: ST% of each uploaded ST report.`:B.src==="stdelta"?`Week ST% = pieces sold this week (this week's ST report sale minus the W${weekNo(B.prevWk)} report) ÷ (sold + SOH now). Bars: ST% of each uploaded ST report.`:`No X24 and no report for the week before, so this is the ST report as it is (sale since REC IN).`;
   const wkOnly=B.src==="x24"||B.src==="stdelta";
   const top=stTopBlock("Week "+weekNo(sel)+" ("+rangeText(sel)+")",B.rep.rows,P&&P.rep&&(P.src==="st")===(B.src==="st")?P.rep.rows:null,"W"+weekNo(stepKey(sel,-1)),hint,chart);
   const keep=stRep;stRep=B.rep;if(wkOnly){stMinSale=2;stPeriodNote="Week "+weekNo(sel);}let body;try{body=viewStRepCore();}finally{stRep=keep;stMinSale=5;stPeriodNote="";}
@@ -2298,7 +2348,7 @@ function viewStRep(){
   const pk=stPrevKey(sel,pp),PP=(pp==="month"?keys.includes(pk):!!Object.keys(W).find(w=>stPerKey(w,pp)===pk))?getP(pk):null,PT=PP&&PP.rep?stSummary(PP.rep.rows):null;
   const dl=(a,b)=>{if(!isFinite(a)||!isFinite(b))return "";const d=(a-b)*100;return `<small class="${d>=0?"up":"down"}">${d>=0?"▲":"▼"} ${Math.abs(d).toFixed(1)}% vs ${pp==="month"?"last month":esc(pk.slice(-2))}</small>`;};
   const maxSt=Math.max(0.0001,...P.weeks.map(w=>W[w].st||0));
-  if(P.x24){const top=stTopBlock(stPerLabel(sel,pp),P.rep.rows,PP&&PP.rep?PP.rep.rows:null,"last month",`Month ST% = pieces sold in the month (X24) ÷ (sold + SOH in the W${weekNo(P.x24.baseWk)} ST report).${P.x24.out?" "+full(P.x24.out)+" pcs sold of PC9s not in that ST report are left out.":""}`,"");
+  if(P.x24){const top=stTopBlock(stPerLabel(sel,pp),P.rep.rows,PP&&PP.rep?PP.rep.rows:null,"last month",`Month ST% = pieces sold in the month (X24) ÷ (sold + SOH in the W${weekNo(P.x24.baseWk)} ST report).${P.x24.out?" "+full(P.x24.out)+" QTY sold of PC9s not in that ST report are left out.":""}`,"");
     const keep=stRep;stRep=P.rep;stPeriodNote=stPerLabel(sel,pp);let body;try{body=viewStRepCore();}finally{stRep=keep;stPeriodNote="";}
     return seg+bar+top+body.replace("sale since the style came in (REC IN)","sale this month from X24");}
   const top=`<section class="block"><h2>${esc(stPerLabel(sel,pp))}</h2><div class="grid"><div class="kv"><span>Store ST%</span><b>${pct(T.st,1)}</b>${PT?dl(T.st,PT.st):""}</div>
@@ -2922,6 +2972,13 @@ document.addEventListener("click",e=>{
   if(t.dataset.trndel&&canEdit()){const id=t.dataset.trndel;askConfirm("Delete season "+id+" with its slides?","Delete",()=>trnDelete(id));return;}
   if(t.dataset.pcadd&&canEdit()){const pc=t.dataset.pcadd;pickFiles("image/*",false,f=>addPcPhotos(f,pc));return;}
   if(t.id==="pcBulk"&&canEdit()){pickFiles("image/*,.json,application/json",true,f=>addPcPhotos(f));return;}
+  if(t.dataset.wowedit&&canEdit()){ui.wowEdit=true;ui.wowDraft=null;render();return;}
+  if(ui.wowEdit&&(t.id==="wowAdd"||t.id==="wowSave"||t.id==="wowCancel"||t.dataset.wowrm!==undefined)){
+    const D=ui.wowDraft||[];document.querySelectorAll("[data-wowl]").forEach(i=>{D[+i.dataset.wowl]=num(i.value);});
+    if(t.id==="wowAdd"){D.push((D[D.length-1]||0)+10000);render();return;}
+    if(t.dataset.wowrm!==undefined){D.splice(+t.dataset.wowrm,1);render();return;}
+    if(t.id==="wowCancel"){ui.wowEdit=false;render();return;}
+    const L=D.filter(x=>x>0).sort((a,b)=>a-b);if(!L.length){toast("Add at least one level");return;}state.wowLevels=L;ui.wowEdit=false;persist("WOW levels saved");render();return;}
   if(t.dataset.wallby){ui.wallBy=t.dataset.wallby;render();return;}
   if(t.dataset.wallothall){ui.wallOthAll=true;render();return;}
   if(t.id==="wmUp"&&canEdit()){pickFiles(".xlsx,.xls,.csv",false,f=>uploadWallMaster(f[0]));return;}
@@ -2972,7 +3029,7 @@ document.addEventListener("click",e=>{
     for(let dd=1;dd<=nd;dd++){const iso=mk+"-"+pad2(dd);if(iso>today)break;if(!attStatus(d.att[iso]?.[ui.staffId])){(d.att[iso]=d.att[iso]||{})[ui.staffId]={status:"P"};}}
     persistDay(mk,"Marked present");render();return;}
   if(t.dataset.qt&&canEdit()){quickTargets(t.dataset.qt);return;}
-  if(t.dataset.rpage!==undefined){ui.rpage=t.dataset.rpage;ui.wallEdit=false;render();window.scrollTo(0,0);return;}
+  if(t.dataset.rpage!==undefined){ui.rpage=t.dataset.rpage;ui.wallEdit=false;ui.wowEdit=false;render();window.scrollTo(0,0);return;}
   if(t.dataset.stper!==undefined){ui.stPer=t.dataset.stper;if(t.dataset.stwk)ui.stWeek=t.dataset.stwk;render();window.scrollTo(0,0);return;}
   if(t.dataset.stpk!==undefined){if(t.dataset.stpk){ui.stPk=t.dataset.stpk;render();}return;}
   if(t.dataset.stw!==undefined){if(t.dataset.stw){ui.stWeek=t.dataset.stw;render();}return;}

@@ -1551,7 +1551,7 @@ function staffConBlock(sid,k,ytd){
     ${tile("👖 BTM con%",r(M.mb+M.wb,M.app),r(S.mb+S.wb,S.app),true,(M.mb+M.wb)+" QTY")}
     ${tile("👗 WMS%",r(M.wt+M.wb,M.app),r(S.wt+S.wb,S.app),true,(M.wt+M.wb)+" QTY")}
     ${tile("🎒 Acc con%",r(M.a.av,M.a.val),r(S.a.av,S.a.val),true,"🪢 "+M.a.bq+" · 👛 "+M.a.wq)}
-    ${(()=>{const L=wowLevels();const mw=wowCalc(mine,L),sw=wowCalc(all,L);return tile("🤩 WOW bills "+kfmt(L[0]),r(mw.lv[0].n,mw.T.n),r(sw.lv[0].n,sw.T.n),true,mw.lv[0].n+"/"+mw.T.n+" bills · UPT "+(mw.lv[0].n?(mw.lv[0].q/mw.lv[0].n).toFixed(2):"–"));})()}
+    ${(()=>{const L=wowLevels();const mw=wowCalc(mine,L),sw=wowCalc(all,L);return tile("🤩 WOW con% "+kfmt(L[0]),r(mw.lv[0].n,mw.T.n),r(sw.lv[0].n,sw.T.n),true,mw.lv[0].n+"/"+mw.T.n+" bills · UPT "+(mw.lv[0].n?(mw.lv[0].q/mw.lv[0].n).toFixed(2):"–"));})()}
     </div>`;
   if(pr&&M.slabs.length) h+=`<div class="tscroll" style="margin-top:10px"><table><thead><tr><th>${esc(pr.name||"Promo")}</th>${M.slabs.map((x,i)=>`<th>S${i+1}<br><small>₹${full(x.min)}+</small></th>`).join("")}<th>Total</th></tr></thead><tbody>
     <tr><td>${esc(staffName(sid))}</td>${M.sl.map(n=>`<td>${n||"–"}${n?`<br><small class="muted">${pct(n/M.pb,1)}</small>`:""}</td>`).join("")}<td><b>${M.pb}</b></td></tr>
@@ -2053,19 +2053,27 @@ function viewWow(){
       <div class="actions"><button class="btn small" id="wowAdd">+ Add level</button><button class="btn small primary" id="wowSave" style="flex:1">Save</button><button class="btn small" id="wowCancel">Cancel</button></div></section>`;}
   const B=billsBetween(s,e);if(!B)return `<div class="empty">Loading…</div>`;
   if(!B.bills.length)return `<section class="block"><h2>🤩 WOW bills</h2>${needBillsMsg(s,e)}</section>`;
-  const L=wowLevels(),S=wowCalc(B.bills,L),pc=(a,b)=>b?pct(a/b,1):"–",u=(q,n)=>n?(q/n).toFixed(2):"–",atv=(v,n)=>n?inr(v/n):"–";
-  h+=`<section class="block"><h2>🤩 WOW bills · ${esc(isYtd()?ytdLabel():mLong(k))}</h2><div class="tscroll"><table><thead><tr><th>Bill value</th><th>Bills</th><th>Bills con%</th><th>Value</th><th>Value con%</th><th>UPT</th><th>ATV</th></tr></thead><tbody>`+
-    S.lv.map(x=>`<tr><td><b>${kfmt(x.l)}</b></td><td>${full(x.n)}</td><td><b>${pc(x.n,S.T.n)}</b></td><td>${inr(x.v)}</td><td>${pc(x.v,S.T.v)}</td><td><b>${u(x.q,x.n)}</b></td><td>${atv(x.v,x.n)}</td></tr>`).join("")+
-    `<tr class="total"><td>All bills</td><td>${full(S.T.n)}</td><td>100%</td><td>${inr(S.T.v)}</td><td>100%</td><td>${u(S.T.q,S.T.n)}</td><td>${atv(S.T.v,S.T.n)}</td></tr></tbody></table></div>
-    <p class="hint">Single bill total (all items, returns netted). ${kfmt(L[0])} counts every bill from ${kfmt(L[0]).slice(0,-1)} up, so it includes the bigger levels too. UPT = apparel QTY ÷ those bills. From ${B.days} days of bill data.</p>
+  const L=wowLevels(),pc=(a,b)=>b?pct(a/b,1):"–",u=(q,n)=>n?(q/n).toFixed(2):"–",atv=(v,n)=>n?inr(v/n):"–";
+  const bandsOf=list=>{const all=list.filter(b=>b[1]>0),w=all.filter(b=>b[1]>=L[0]);
+    const bands=L.map((l,i)=>{const hi=L[i+1]||Infinity;const x=w.filter(b=>b[1]>=l&&b[1]<hi);return {l,hi,n:x.length,v:x.reduce((a,b)=>a+b[1],0),q:x.reduce((a,b)=>a+bq(b),0)};});
+    return {n:all.length,v:all.reduce((a,b)=>a+b[1],0),q:all.reduce((a,b)=>a+bq(b),0),wn:w.length,wv:w.reduce((a,b)=>a+b[1],0),wq:w.reduce((a,b)=>a+bq(b),0),bands};};
+  const S=bandsOf(B.bills);
+  const bl=x=>x.hi===Infinity?kfmt(x.l):kfmt(x.l).slice(0,-1)+" – "+kfmt(x.hi).slice(1,-1);
+  h+=`<section class="block"><h2>🤩 WOW bills · ${esc(isYtd()?ytdLabel():mLong(k))}</h2>
+    <div class="grid"><div class="kv"><span>Overall bills</span><b>${full(S.n)}</b></div><div class="kv"><span>WOW bills (${kfmt(L[0])})</span><b>${full(S.wn)}</b></div><div class="kv"><span>WOW bills con%</span><b class="up">${pc(S.wn,S.n)}</b><small class="muted">${full(S.wn)} ÷ ${full(S.n)}</small></div>
+    <div class="kv"><span>WOW value con%</span><b>${pc(S.wv,S.v)}</b><small class="muted">${inr(S.wv)} of ${inr(S.v)}</small></div><div class="kv"><span>WOW UPT</span><b>${u(S.wq,S.wn)}</b><small class="muted">All bills ${u(S.q,S.n)}</small></div><div class="kv"><span>WOW ATV</span><b>${atv(S.wv,S.wn)}</b><small class="muted">All bills ${atv(S.v,S.n)}</small></div></div>
+    <h2 style="margin-top:14px">Inside WOW bills</h2><div class="tscroll"><table><thead><tr><th>Bill value</th><th>Bills</th><th>Con% of WOW</th><th>Value</th><th>Value con%</th><th>UPT</th><th>ATV</th></tr></thead><tbody>`+
+    S.bands.map(x=>`<tr><td><b>${bl(x)}</b></td><td>${full(x.n)}</td><td><b>${pc(x.n,S.wn)}</b></td><td>${inr(x.v)}</td><td>${pc(x.v,S.wv)}</td><td><b>${u(x.q,x.n)}</b></td><td>${atv(x.v,x.n)}</td></tr>`).join("")+
+    `<tr class="total"><td>WOW total</td><td>${full(S.wn)}</td><td>100%</td><td>${inr(S.wv)}</td><td>100%</td><td>${u(S.wq,S.wn)}</td><td>${atv(S.wv,S.wn)}</td></tr></tbody></table></div>
+    <p class="hint">WOW bills con% = WOW bills ÷ overall bills. "Con% of WOW" = that band's bills ÷ WOW bills (adds up to 100%). Single bill total (all items, returns netted). UPT = apparel QTY ÷ bills. From ${B.days} days of bill data.</p>
     ${canEdit()?`<div class="actions"><button class="btn small" data-wowedit="1">⚙️ Change levels</button></div>`:""}</section>`;
   const by={};B.bills.forEach(b=>{if(b[0])(by[b[0]]=by[b[0]]||[]).push(b);});
-  const rows=Object.keys(by).map(id=>({id,c:wowCalc(by[id],L)})).filter(r=>r.c.T.n).sort((a,b)=>(b.c.lv[0].n/b.c.T.n)-(a.c.lv[0].n/a.c.T.n)||b.c.lv[0].n-a.c.lv[0].n);
-  const cl=(a,n,ref)=>!n||!isFinite(ref)?"":(a/n>=ref?"up":"down");
-  h+=`<section class="block"><h2>Staff-wise</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Bills</th>${L.map(l=>`<th>${kfmt(l)}</th>`).join("")}<th>WOW UPT<br><small>${kfmt(L[0])}</small></th></tr></thead><tbody>`+
-    rows.map(r=>`<tr><td>${esc(staffName(r.id))}</td><td>${full(r.c.T.n)}</td>${r.c.lv.map((x,i)=>`<td class="${x.n?cl(x.n,r.c.T.n,S.lv[i].n/S.T.n):""}">${x.n?x.n+`<br><small>${pc(x.n,r.c.T.n)}</small>`:"–"}</td>`).join("")}<td>${u(r.c.lv[0].q,r.c.lv[0].n)}</td></tr>`).join("")+
-    `<tr class="total"><td>Store</td><td>${full(S.T.n)}</td>${S.lv.map(x=>`<td>${x.n}<br><small>${pc(x.n,S.T.n)}</small></td>`).join("")}<td>${u(S.lv[0].q,S.lv[0].n)}</td></tr></tbody></table></div>
-    <p class="hint">🟢 at or above the store's bills con% for that level · 🔴 below. Staff = main associate on the bill.</p></section>`;
+  const rows=Object.keys(by).map(id=>({id,c:bandsOf(by[id])})).filter(r=>r.c.n).sort((a,b)=>(b.c.wn/b.c.n)-(a.c.wn/a.c.n)||b.c.wn-a.c.wn);
+  const ref=S.n?S.wn/S.n:NaN;
+  h+=`<section class="block"><h2>Staff-wise</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Bills</th><th>WOW bills</th><th>WOW con%</th>${S.bands.map(x=>`<th>${bl(x)}</th>`).join("")}<th>WOW UPT</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${esc(staffName(r.id))}</td><td>${full(r.c.n)}</td><td>${full(r.c.wn)}</td><td class="${isFinite(ref)?(r.c.wn/r.c.n>=ref?"up":"down"):""}"><b>${pc(r.c.wn,r.c.n)}</b></td>${r.c.bands.map(x=>`<td>${x.n?x.n+`<br><small class="muted">${pc(x.n,r.c.wn)}</small>`:"–"}</td>`).join("")}<td>${u(r.c.wq,r.c.wn)}</td></tr>`).join("")+
+    `<tr class="total"><td>Store</td><td>${full(S.n)}</td><td>${full(S.wn)}</td><td>${pc(S.wn,S.n)}</td>${S.bands.map(x=>`<td>${x.n}<br><small>${pc(x.n,S.wn)}</small></td>`).join("")}<td>${u(S.wq,S.wn)}</td></tr></tbody></table></div>
+    <p class="hint">WOW con% = staff's WOW bills ÷ staff's bills. 🟢 at or above the store · 🔴 below. Band % = share of that staff's WOW bills. Staff = main associate on the bill.</p></section>`;
   return h;
 }
 /* 🧺 bill size: bills with 1 / 2 / 3 / 4+ apparel QTY */

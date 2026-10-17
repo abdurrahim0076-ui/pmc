@@ -223,6 +223,10 @@ textarea{width:100%;font:inherit;font-size:14px;padding:10px;border-radius:10px;
 .celeb{background:linear-gradient(135deg,#fff3f8,#fff);border:1.5px solid #f2a7c6;border-radius:14px;padding:10px 12px;margin:0 0 10px;font-weight:700}
 .starcard{display:flex;align-items:center;gap:14px;margin:0 0 12px;padding:14px;border-radius:18px;background:linear-gradient(135deg,#eef4ff,#fff 60%);border:2px solid #6d8fe0;box-shadow:0 6px 16px rgba(109,143,224,.2)}
 .sframe{flex:0 0 74px;width:74px;height:74px;border-radius:50%;padding:3px;background:conic-gradient(#9fb8f5,#3d5fb8,#9fb8f5,#3d5fb8,#9fb8f5)}.slbl{font-size:12px;font-weight:800;letter-spacing:.05em;color:#3d5fb8}
+.leaders{display:flex;gap:10px;justify-content:space-around;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 8px;margin:0 0 10px}
+.ld{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;flex:1}.ld b{font-size:14px;line-height:1.2;margin-top:6px;overflow-wrap:anywhere}.ld small{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.03em}
+.ldph{border:0;background:none;padding:0;cursor:pointer;border-radius:50%}
+.ldimg{width:62px;height:62px;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:var(--soft);border:3px solid var(--thread);font-family:"Barlow Condensed",Barlow,sans-serif;font-size:22px;font-weight:700;color:var(--muted)}
 .rfolders{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
 .rfolders .folder{padding:12px}.rfolders .folder b{font-size:18px}.rfolders .ficon{font-size:24px}
 .kv small{display:block;font-size:12px}
@@ -876,7 +880,8 @@ function viewChecklist(iso){loadRecs("chk");
   if(!recs.chk)return h+`<div class="empty">Loading…</div></section>`;
   const R=chkOf(iso),ed=canChk()&&iso<=todayISO();
   h+=CHK_ITEMS.map(it=>{const r=R.find(x=>x.item===it);
-    return `<button class="ckrow${r?" d":""}" ${ed?`data-chk="${esc(it)}"`:"disabled"}><i>${r?"✓":""}</i><span>${esc(it)}</span><small>${r?esc(r.name+(r.asm?" (ASM)":"")+" · "+String(r.at).split("T")[1]):""}</small></button>`;}).join("");
+    return `<button class="ckrow${r?" d":""}" ${ed?`data-chk="${esc(it)}"`:"disabled"}><i>${r?"✓":""}</i><span>${esc(it)}</span><small>${r?esc(r.name+(r.lrole?" ("+r.lrole+")":r.asm?" (ASM)":"")+" · "+String(r.at).split("T")[1]):""}</small></button>`+
+      (ui.chkPick===it&&!r?`<div class="actions" style="margin:2px 0 8px 34px"><span class="muted" style="align-self:center;font-size:13px">Checked by:</span>${leaders(["SM","ASM"]).map(x=>`<button class="btn small primary" data-chk="${esc(it)}" data-chkby="${esc(x.id)}">${esc(x.name)} (${esc(x.role)})</button>`).join("")}</div>`:"");}).join("");
   if(!canChk())h+=`<p class="hint">Only the SM and ASM can tick the checklist.</p>`;
   return h+`</section>`;}
 function chkDone(iso){return CHK_ITEMS.filter(it=>chkOf(iso).some(r=>r.item===it)).length;}
@@ -951,12 +956,17 @@ async function openDailyReport(iso){loadRecs("chk");loadSnags();toast("Preparing
     <p class="hint">You can edit the text before sending.</p></div>`;
   o.hidden=false;const ta=document.getElementById("repTxt");ta.addEventListener("input",()=>{document.getElementById("repWa").href="https://wa.me/?text="+encodeURIComponent(ta.value);});}
 
+/* store leaders from Week plan → Support team: SM, ASM, Denim designer */
+function leaders(roles){roles=roles||["SM","ASM","Denim designer"];const L=supportList();return roles.map(r=>L.find(x=>x.role===r&&x.name)).filter(Boolean);}
+function viewLeaders(){const L=leaders();if(!L.length)return canEdit()?`<p class="hint" style="margin:0 0 8px">Add SM, ASM and Denim designer names in Staff → Week plan → Support team to show them here.</p>`:"";
+  return `<section class="block" style="padding:10px 14px"><details class="fold"${foldAttr("leaders")}>${foldSum("👔 Store leaders",esc(L.map(x=>x.name.split(" ")[0]).join(" · ")))}<div class="leaders" style="border:0;margin:6px 0 0;padding:6px 0 0">${L.map(x=>`<div class="ld">${canEdit()?`<button class="ldph" data-ldphoto="${esc(x.id)}" aria-label="Photo for ${esc(x.name)}">${sAv(x,"ldimg")}</button>`:sAv(x,"ldimg")}<b>${esc(x.name)}</b><small>${esc(x.role==="Denim designer"?"Denim Designer":x.role)}</small></div>`).join("")}</div></details></section>`;}
+
 function viewHome(){
   const k=cur(), m=aggStore(selKeys()), y=aggStore(ytdKeys(k));
   if(isWeek(k)){withYtdTarget(y,k);if(isYtd())withYtdTarget(m,k);}
   const has=isYtd()?m.sales>0:!!rec(k);
   const fill=Math.max(0,Math.min(1,isFinite(m.ach)?m.ach:0));
-  let h=snagAlert()+`<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small" data-repday="dash">📲 Daily report</button><button class="btn small" data-teamopen="1">👥 Team photo</button></div>`;
+  let h=viewLeaders()+snagAlert()+`<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small" data-repday="dash">📲 Daily report</button><button class="btn small" data-teamopen="1">👥 Team photo</button></div>`;
   if(!has){
     h+=`<div class="hero"><div class="lbl">${esc(isYtd()?ytdLabel():mLong(k))}</div><div class="big">No sales yet</div>
       <div class="of">Add this month's numbers to see KPIs and L2L.</div>
@@ -3179,8 +3189,10 @@ document.addEventListener("click",e=>{
   if(t.id==="pcBulk"&&canEdit()){pickFiles("image/*,.json,application/json",true,f=>addPcPhotos(f));return;}
   if(t.dataset.repday){openDailyReport(t.dataset.repday==="day"?ui.day:(state.lastDataDate&&state.lastDataDate<=todayISO()?state.lastDataDate:todayISO()));return;}
   if(t.dataset.repcopy){const ta=document.getElementById("repTxt");if(ta){ta.select();try{navigator.clipboard.writeText(ta.value);}catch(e){document.execCommand("copy");}toast("Copied ✓");}return;}
-  if(t.dataset.chk&&canChk()){const it=t.dataset.chk,iso=ui.day,r=chkOf(iso).find(x=>x.item===it);t.disabled=true;
-    (r?delRec("chk",r.id):addRec("chk",{date:iso,item:it,asm:role==="staff"})).then(()=>render()).catch(e=>{toast(/permission/i.test(String(e.code||e.message))?"Not allowed. Update the database rules.":"Could not save");render();});return;}
+  if(t.dataset.chk&&canChk()){const it=t.dataset.chk,iso=ui.day,r=chkOf(iso).find(x=>x.item===it);
+    if(!r&&leaders(["SM","ASM"]).length&&!t.dataset.chkby){ui.chkPick=ui.chkPick===it?"":it;render();return;}
+    const L=leaders(["SM","ASM"]),who=t.dataset.chkby?L.find(x=>x.id===t.dataset.chkby):null;ui.chkPick="";t.disabled=true;
+    (r?delRec("chk",r.id):addRec("chk",{date:iso,item:it,asm:who?who.role==="ASM":role==="staff",...(who?{name:who.name,lrole:who.role}:{})})).then(()=>render()).catch(e=>{toast(/permission/i.test(String(e.code||e.message))?"Not allowed. Update the database rules.":"Could not save");render();});return;}
   if(t.dataset.chkacc&&canEdit()){const id=t.dataset.chkacc,a=new Set(state.chkAccess||[]);a.has(id)?a.delete(id):a.add(id);state.chkAccess=[...a];persist(a.has(id)?"Checklist access ON":"Checklist access OFF");render();return;}
   if(t.dataset.leavenew){ui.leaveNew=true;render();return;}
   if(t.dataset.leavecancel){ui.leaveNew=false;render();return;}
@@ -3210,6 +3222,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.snagreopen&&canEdit()){patchSnag(t.dataset.snagreopen,{status:"open",clearedAt:"",note:""}).then(()=>render());return;}
   if(t.dataset.snagdel&&canEdit()){const id=t.dataset.snagdel;askConfirm("Delete this issue?","Delete",()=>delSnag(id).then(()=>render()));return;}
   if(t.dataset.snagimg){const x=(snags||[]).find(s=>s.id===t.dataset.snagimg);if(x&&x.img){const wn=window.open();if(wn){wn.document.write('<title>Issue photo</title><body style="margin:0;background:#000"><img src="'+x.img+'" style="width:100%">');wn.document.close();}}return;}
+  if(t.dataset.ldphoto&&canEdit()){const id=t.dataset.ldphoto;pickFiles("image/*",false,f=>saveStaffPhoto(id,f[0]));return;}
   if(t.dataset.teamopen){openTeamPhoto();return;}
   if(t.dataset.teamup&&canEdit()){pickFiles("image/*",false,f=>saveTeamPhoto(f[0]));return;}
   if(t.dataset.sphoto&&canEdit()){const id=t.dataset.sphoto;pickFiles("image/*",false,f=>saveStaffPhoto(id,f[0]));return;}

@@ -205,6 +205,12 @@ textarea{width:100%;font:inherit;font-size:14px;padding:10px;border-radius:10px;
 .slidethumb{display:block;border:1px solid var(--line);border-radius:10px;padding:0;overflow:hidden;background:none;cursor:pointer;width:100%;max-width:360px;margin:6px 0}.slidethumb img{display:block;width:100%;height:auto}
 .slidebox{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;touch-action:pan-y}.slidebox img{display:block;width:100%;height:auto}
 .mk{padding:10px 12px}.mkq{display:block;width:100%;text-align:left;background:none;border:0;padding:4px 0;font:inherit;font-weight:700;color:inherit;cursor:pointer}
+.sav{flex:0 0 34px;width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--soft);display:inline-grid;place-items:center;font-size:12px;font-weight:700;color:var(--muted);margin-right:8px}
+.topper{display:flex;align-items:center;gap:16px;margin:0 0 12px;padding:16px;border-radius:18px;background:linear-gradient(135deg,#fff8e6,#ffffff 55%,#fff3d1);border:2px solid #E8A33D;box-shadow:0 6px 18px rgba(232,163,61,.25)}
+.tframe{position:relative;flex:0 0 92px;width:92px;height:92px;border-radius:50%;padding:4px;background:conic-gradient(#f7d774,#c8891c,#f7d774,#b5761a,#f7d774)}
+.tph{width:100%;height:100%;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#fff;border:3px solid #fff;font-family:"Barlow Condensed",Barlow,sans-serif;font-size:28px;font-weight:700;color:#8a5a00}
+.tcrown{position:absolute;right:-6px;bottom:-4px;font-size:28px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25))}
+.tlbl{font-size:12px;font-weight:800;letter-spacing:.06em;color:#a66a00}.tname{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:26px;font-weight:700;line-height:1.1;color:#1a2233}.tsub{font-size:13px;color:#5a6478;margin-top:2px}
 .rfolders{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
 .rfolders .folder{padding:12px}.rfolders .folder b{font-size:18px}.rfolders .ficon{font-size:24px}
 .kv small{display:block;font-size:12px}
@@ -760,12 +766,34 @@ function npBetween(s,e){const mks=[];for(let d=new Date(s.getFullYear(),s.getMon
   return t;}
 function npTile(t,label){return `<div class="kv"><span>👖 ${label}</span><b>${!t?"…":t.days?inr(t.v):"–"}</b><small class="muted">${t&&t.days?full(t.q)+" QTY · "+full(t.b)+" bills":t?"Import X24 again to see it":""}</small></div>`;}
 
+/* staff photos + team photo (manager adds; saved in the database) */
+let staffPh=null,staffPhLoading=false,teamPh=undefined;
+function loadStaffPh(){if(staffPh||staffPhLoading)return;staffPhLoading=true;
+  Promise.all([fsGet("staffphotos"),fsGet("teamphoto")]).then(([a,b])=>{staffPh=(a&&a.img)||{};teamPh=(b&&b.img)||"";}).catch(()=>{staffPh={};teamPh="";}).finally(()=>{staffPhLoading=false;render();});}
+function sAv(s,cls){loadStaffPh();const ph=staffPh&&staffPh[s.id];const ini=String(s.name||"").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+  return ph?`<img class="${cls||"sav"}" src="${ph}" alt="">`:`<span class="${cls||"sav"} ini" aria-hidden="true">${esc(ini)}</span>`;}
+async function saveStaffPhoto(id,file){try{const d=await smallPhoto(file);await fsSet("staffphotos",{img:{[id]:d}},true);staffPh=staffPh||{};staffPh[id]=d;toast("Photo saved ✓");render();}catch(e){toast("Could not save: "+(e.message||e));}}
+async function removeStaffPhoto(id){staffPh=staffPh||{};delete staffPh[id];await fsSet("staffphotos",{img:staffPh});render();}
+async function saveTeamPhoto(file){try{const d=await compressImage(file);await fsSet("teamphoto",{img:d,at:todayISO()});teamPh=d;toast("Team photo saved ✓");openTeamPhoto();}catch(e){toast("Could not save: "+(e.message||e));}}
+function openTeamPhoto(){loadStaffPh();let o=document.getElementById("teamBox");if(!o){o=document.createElement("div");o.id="teamBox";o.className="overlay";document.body.appendChild(o);
+    o.addEventListener("click",e=>{if(e.target===o||e.target.dataset.teamclose!==undefined)o.hidden=true;});}
+  const n=state.staff.filter(x=>x.active!==false).length;
+  o.innerHTML=`<div class="dialog" style="max-width:640px;padding:12px">${teamPh?`<img src="${teamPh}" alt="Team photo" style="width:100%;border-radius:10px;display:block">`:`<div class="empty">No team photo yet.</div>`}
+    <p style="margin:10px 0 0"><b>${esc(state.storeName||"Levi's PMC")} Team</b> · ${n} members</p>
+    <div class="actions">${canEdit()?`<button class="btn small" data-teamup="1">📷 ${teamPh?"Change":"Add"} team photo</button>`:""}<button class="btn small primary" data-teamclose="1" style="flex:1">Close</button></div></div>`;
+  o.hidden=false;}
+function topPerformer(keys,label){const r=staffWithData(keys).map(s=>({s,a:aggStaff(s.id,keys)})).filter(x=>x.a.sales>0).sort((p,q)=>q.a.sales-p.a.sales)[0];
+  if(!r)return "";
+  return `<section class="topper"><div class="tframe">${sAv(r.s,"tph")}<span class="tcrown" aria-hidden="true">🏆</span></div>
+    <div class="tinfo"><div class="tlbl">TOP PERFORMER · ${esc(label)}</div><div class="tname">${esc(r.s.name)}</div>
+    <div class="tsub">${inr(r.a.sales)} · ATV ${isFinite(r.a.atv)?inr(r.a.atv):"–"} · UPT ${isFinite(r.a.upt)?r.a.upt.toFixed(2):"–"}${isFinite(r.a.ach)?" · "+pct(r.a.ach)+" ach.":""}</div></div></section>`;}
+
 function viewHome(){
   const k=cur(), m=aggStore(selKeys()), y=aggStore(ytdKeys(k));
   if(isWeek(k)){withYtdTarget(y,k);if(isYtd())withYtdTarget(m,k);}
   const has=isYtd()?m.sales>0:!!rec(k);
   const fill=Math.max(0,Math.min(1,isFinite(m.ach)?m.ach:0));
-  let h="";
+  let h=`<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small" data-teamopen="1">👥 Team photo</button></div>`;
   if(!has){
     h+=`<div class="hero"><div class="lbl">${esc(isYtd()?ytdLabel():mLong(k))}</div><div class="big">No sales yet</div>
       <div class="of">Add this month's numbers to see KPIs and L2L.</div>
@@ -781,7 +809,7 @@ function viewHome(){
         <div><b>${signPct(m.l2l)}</b>L2L vs ${esc(isYtd()?"YTD":mShort(k))} LY</div>
         <div><b>${!m.target?"–":m.target>m.salesT?inr(m.target-m.salesT):"Done"}</b>${!m.target?"No target yet":m.target>m.salesT?"To go":"Target"}</div>
         <div><b>₹${full(Math.round(m.sales/gsa()))}</b>Sale / sq ft</div>
-      </div></div>`;
+      </div></div>`+topPerformer(selKeys(),isYtd()?"YTD":mShort(k));
     const [hs,he0]=periodDates(k,isYtd()),hx=homeMix(hs,he0<new Date()?he0:new Date()),av=ytdAvgs(k,y);
     if(!isYtd()) h+=`<section class="block"><h2>Store KPIs</h2><div class="grid">
       <div class="kv"><span>📐 Sale / sq ft</span><b>₹${full(Math.round(m.sales/gsa()))}</b><small class="muted">GSA ${full(gsa())} sq ft</small></div>
@@ -814,7 +842,7 @@ function viewHome(){
     ${(()=>{const yx=homeMix(fyStart(fyOf(k)),(()=>{const [,pe]=periodDates(k,false);return pe<new Date()?pe:new Date();})());const ye=(()=>{const [,pe]=periodDates(k,false);return pe<new Date()?pe:new Date();})();return `<div class="kv"><span>👖 BTM%</span><b>${yx?pct(yx.btm,1):"…"}</b></div><div class="kv"><span>👗 WMS%</span><b>${yx?pct(yx.wms,1):"…"}</b></div>`+npTile(npBetween(fyStart(fyOf(k)),ye),"Tailor YTD");})()}
   </div><p class="hint">${isDay(k)?"From "+esc(shortDate(isoOf(fyStart(fyOf(k)))))+" to "+esc(mShort(k)):isWeek(k)?"Week 1 to Week "+weekNo(k):"December to "+esc(MN_FULL[parseKey(k).m-1])}. L2L counts only ${isDay(k)?"days":isWeek(k)?"weeks":"months"} that have last year's sales too.</p></section>`;
   {const yk=ytdKeys(k);const ys=staffWithData(yk).map(s=>({s,a:aggStaff(s.id,yk)})).filter(x=>x.a.sales>0).sort((p,q)=>q.a.sales-p.a.sales);
-   const liF=(x,i)=>`<li><span class="pos">${i+1}</span><div class="who"><b>${esc(x.s.name)}</b><small>ATV ${isFinite(x.a.atv)?inr(x.a.atv):"–"} · UPT ${isFinite(x.a.upt)?x.a.upt.toFixed(2):"–"}</small></div><div class="amt"><b>${inr(x.a.sales)}</b><small class="${isFinite(x.a.ach)?(x.a.ach>=1?"up":"down"):"muted"}">${isFinite(x.a.ach)?pct(x.a.ach)+" ach.":""}</small></div></li>`;
+   const liF=(x,i)=>`<li><span class="pos">${i+1}</span>${sAv(x.s)}<div class="who"><b>${esc(x.s.name)}</b><small>ATV ${isFinite(x.a.atv)?inr(x.a.atv):"–"} · UPT ${isFinite(x.a.upt)?x.a.upt.toFixed(2):"–"}</small></div><div class="amt"><b>${inr(x.a.sales)}</b><small class="${isFinite(x.a.ach)?(x.a.ach>=1?"up":"down"):"muted"}">${isFinite(x.a.ach)?pct(x.a.ach)+" ach.":""}</small></div></li>`;
    if(ys.length) h+=`<section class="block"><h2>YTD top staff</h2><ul class="rank">`+ys.slice(0,3).map(liF).join("")+`</ul>`+(ys.length>3?`<details class="fold sub"${foldAttr("ytdall")} style="margin-top:8px">`+foldSub(`Show all (${ys.length})`)+`<ul class="rank">`+ys.slice(3).map((x,i)=>liF(x,i+3)).join("")+`</ul></details>`:"")+`</section>`;}
 
   // chart
@@ -831,7 +859,7 @@ function viewHome(){
   const list=staffWithData([k]).map(s=>({s,a:aggStaff(s.id,[k])})).filter(x=>x.a.sales>0).sort((a,b)=>b.a.sales-a.a.sales).slice(0,3);
   if(list.length&&!isYtd()){
     h+=`<section class="block"><h2>Top staff · ${esc(mShort(k))}</h2><ul class="rank">`+
-      list.map((x,i)=>`<li><span class="pos">${i+1}</span><div class="who"><b>${esc(x.s.name)}</b><small>ATV ${isFinite(x.a.atv)?inr(x.a.atv):"–"} · UPT ${isFinite(x.a.upt)?x.a.upt.toFixed(2):"–"}</small></div>
+      list.map((x,i)=>`<li><span class="pos">${i+1}</span>${sAv(x.s)}<div class="who"><b>${esc(x.s.name)}</b><small>ATV ${isFinite(x.a.atv)?inr(x.a.atv):"–"} · UPT ${isFinite(x.a.upt)?x.a.upt.toFixed(2):"–"}</small></div>
       <div class="amt"><b>${inr(x.a.sales)}</b><small class="${isFinite(x.a.ach)?(x.a.ach>=1?"up":"down"):"muted"}">${pct(x.a.ach)} of target</small></div></li>`).join("")+
       `</ul><div class="actions"><button class="btn small" data-go="staff">See all staff</button></div></section>`;
   }
@@ -1332,7 +1360,7 @@ function viewStaff(){
   if(pg==="inc") return viewIncentive();
   if(pg==="roster") return viewRoster();
   const active=state.staff.filter(s=>s.active!==false).length;
-  return `<div class="folders">
+  return `<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small" data-teamopen="1">👥 Team photo</button></div><div class="folders">
     <button class="folder" data-spage="perf"><span class="ficon" aria-hidden="true">📁</span><span class="ftxt"><b>Staff performance</b><small>${active} staff · ranking, KPIs, history, sale mix</small></span><span class="chev" aria-hidden="true">›</span></button>
     <button class="folder" data-spage="roster"><span class="ficon" aria-hidden="true">🗓️</span><span class="ftxt"><b>Week plan</b><small>Shifts and week offs · Mon–Sun every week</small></span><span class="chev" aria-hidden="true">›</span></button>
     <button class="folder" data-spage="inc"><span class="ficon" aria-hidden="true">💰</span><span class="ftxt"><b>Incentives</b><small>Monthly scheme · Men's/Women's Tops & Bottoms · staff payout</small></span><span class="chev" aria-hidden="true">›</span></button>
@@ -1487,7 +1515,7 @@ function viewStaffPerf(){
   if(!rows.length) h+=`<div class="empty">No staff yet.</div><div class="actions"><button class="btn small primary" data-spage="team">Add staff</button></div>`;
   else h+=`<ul class="rank">`+rows.map((r,i)=>{const a=r.a,contrib=totalSales>0?a.sales/totalSales:NaN;
     return `<li><button class="rowbtn" data-person="${r.s.id}" aria-label="Open ${esc(r.s.name)}">
-      <span class="pos">${i+1}</span>
+      <span class="pos">${i+1}</span>${sAv(r.s)}
       <span class="who"><b>${esc(r.s.name)}${r.s.active===false?' <small class="muted">(left)</small>':""}</b>
         <small>${r.s.role?esc(r.s.role)+" · ":""}ATV ${isFinite(a.atv)?inr(a.atv):"–"} · UPT ${isFinite(a.upt)?a.upt.toFixed(2):"–"} · ${isFinite(contrib)?pct(contrib,1):"–"}</small>
         <span class="minibar"><i style="width:${(a.sales/max*100).toFixed(1)}%"></i></span></span>
@@ -1550,7 +1578,8 @@ function viewPerson(){
     const inc=staffIncentive(s.id,k,ytd);
     const realRank=a.sales>0&&rank;
     return `<div class="hero"><div style="display:flex;align-items:center;gap:14px">
-      <div class="avatar" aria-hidden="true">${esc(ini)}</div>
+      <div style="text-align:center">${(()=>{loadStaffPh();const ph=staffPh&&staffPh[s.id];return ph?`<img class="avatar" src="${ph}" alt="" style="object-fit:cover;padding:0">`:`<div class="avatar" aria-hidden="true">${esc(ini)}</div>`;})()}
+        ${canEdit()?`<button class="btn small" data-sphoto="${s.id}" style="margin-top:6px;padding:3px 8px;font-size:12px">📷</button>${staffPh&&staffPh[s.id]?`<button class="btn small" data-sphotorm="${s.id}" style="margin-top:6px;padding:3px 8px;font-size:12px" aria-label="Remove photo">✕</button>`:""}`:""}</div>
       <div style="min-width:0"><div class="lbl">${esc(s.role||"Staff")}${s.active===false?" · left":""} · ${esc(ytd?"YTD":mLong(k))}</div>
       <div class="big" style="font-size:32px;margin:2px 0 0">${esc(s.name)}</div></div></div>
       <div class="row" style="margin-top:14px"><div><b>${inr(a.sales)}</b>Sales</div><div><b>${pct(a.ach)}</b>Achievement</div><div><b>${realRank?"#"+rank+" of "+ranked.filter(x=>x.v>0).length:"–"}</b>Rank</div></div>
@@ -2972,6 +3001,10 @@ document.addEventListener("click",e=>{
   if(t.dataset.trndel&&canEdit()){const id=t.dataset.trndel;askConfirm("Delete season "+id+" with its slides?","Delete",()=>trnDelete(id));return;}
   if(t.dataset.pcadd&&canEdit()){const pc=t.dataset.pcadd;pickFiles("image/*",false,f=>addPcPhotos(f,pc));return;}
   if(t.id==="pcBulk"&&canEdit()){pickFiles("image/*,.json,application/json",true,f=>addPcPhotos(f));return;}
+  if(t.dataset.teamopen){openTeamPhoto();return;}
+  if(t.dataset.teamup&&canEdit()){pickFiles("image/*",false,f=>saveTeamPhoto(f[0]));return;}
+  if(t.dataset.sphoto&&canEdit()){const id=t.dataset.sphoto;pickFiles("image/*",false,f=>saveStaffPhoto(id,f[0]));return;}
+  if(t.dataset.sphotorm&&canEdit()){const id=t.dataset.sphotorm;askConfirm("Remove this photo?","Remove",()=>removeStaffPhoto(id));return;}
   if(t.dataset.wowedit&&canEdit()){ui.wowEdit=true;ui.wowDraft=null;render();return;}
   if(ui.wowEdit&&(t.id==="wowAdd"||t.id==="wowSave"||t.id==="wowCancel"||t.dataset.wowrm!==undefined)){
     const D=ui.wowDraft||[];document.querySelectorAll("[data-wowl]").forEach(i=>{D[+i.dataset.wowl]=num(i.value);});

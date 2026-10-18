@@ -318,6 +318,64 @@ details.fold.sub>summary{padding:8px 10px;border-radius:10px;background:var(--so
 details.fold.sub>summary .farrow{background:var(--surface)}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 @media (max-width:370px){.grid{grid-template-columns:repeat(2,1fr)} .hero .big{font-size:40px}}
+/* 🎮 game zone, winners wall, celebration */
+.gzcards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gzcard{font:inherit;color:var(--ink);background:var(--soft);border:2px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left;cursor:pointer}
+.gzcard .gzic{font-size:30px}.gzcard b{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:22px}.gzcard small{font-size:13px}
+.gzcard:active{transform:scale(.98)}
+.gzwin{border:2px solid var(--thread);background:linear-gradient(135deg,color-mix(in srgb,var(--thread) 16%,var(--surface)),var(--surface))}
+.gzstrip{display:flex;gap:12px;align-items:center;width:100%;font:inherit;color:inherit;text-align:left;background:linear-gradient(100deg,color-mix(in srgb,var(--thread) 18%,var(--surface)),var(--surface));border:2px solid var(--thread);border-radius:18px;padding:10px 12px;margin:0 0 12px;cursor:pointer}
+.gzstrip img{width:58px;height:58px;border-radius:14px;object-fit:cover;border:3px solid var(--thread);flex:none}
+.gzstrip b{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:20px;display:block;line-height:1.1}.gzstrip small{color:var(--muted);font-weight:600;display:block}
+.gzlk{margin-left:auto;font-weight:800;color:#d3202f;white-space:nowrap}
+.gzpost{display:flex;flex-direction:column;gap:8px}.gzwho{display:flex;justify-content:space-between;align-items:baseline}.gzwho b{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:20px}.gzwho small{color:var(--muted)}
+.gzframe{position:relative;border-radius:16px;overflow:hidden;border:5px solid var(--thread);aspect-ratio:1;background:#000;max-width:100%}
+.gzframe img{width:100%;height:100%;object-fit:cover;display:block}
+.gzrib{position:absolute;top:10px;left:10px;background:#d3202f;color:#fff;font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:16px;letter-spacing:.04em;border-radius:8px;padding:2px 10px}
+.gzbadge{position:absolute;left:10px;right:10px;bottom:10px;display:flex;justify-content:space-between;gap:8px;background:rgba(15,20,35,.82);color:#fff;border-radius:12px;padding:7px 10px;font-weight:800;font-size:14px}
+.gzlikes{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.gzlike{font:inherit;font-weight:800;border-radius:999px;padding:7px 14px;border:2px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;font-variant-numeric:tabular-nums}
+.gzlike[aria-pressed="true"]{border-color:#d3202f;color:#d3202f}
+.tceleb{margin-top:8px}
+.gzov{position:fixed;inset:0;z-index:40;background:#0d1a14;color:#f4f1ec;font-family:Barlow,system-ui,sans-serif}
+.gzapp{position:relative;height:100%;max-width:480px;margin:0 auto;display:flex;flex-direction:column;background:#0d1a14;padding-top:env(safe-area-inset-top,0px)}
+.gzstage{position:relative;flex:1 1 auto;min-height:200px}.gzstage canvas,.cbov canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.gzboard{position:absolute;top:8px;left:10px;right:52px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.gzsc{background:rgba(8,14,11,.86);border-radius:10px;padding:5px 10px;font-variant-numeric:tabular-nums}
+.gzsc .t{font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:12px;letter-spacing:.08em;color:#f2b632}.gzsc .v{font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:24px;line-height:1.05}
+.gzballs{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;justify-content:flex-end;max-width:180px}
+.gzballs i{width:14px;height:14px;border-radius:50%;background:#2a3a31;font-style:normal;font-size:9px;font-weight:800;display:grid;place-items:center}
+.gzballs i.r6{background:#f2b632;color:#1a1300}.gzballs i.r4{background:#4aa3ff;color:#001a33}.gzballs i.w{background:#ff5a5a;color:#fff}
+.gzx{position:absolute;top:8px;right:10px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(8,14,11,.86);color:#f4f1ec;font-size:16px;cursor:pointer}
+.gzbig{position:absolute;left:0;right:0;top:40%;text-align:center;font-family:"Barlow Condensed",Impact,sans-serif;font-weight:700;font-size:68px;line-height:1;pointer-events:none;opacity:0;transform:scale(.6);transition:opacity .18s,transform .25s cubic-bezier(.2,1.6,.4,1);text-shadow:0 4px 0 rgba(0,0,0,.45)}
+.gzbig.show{opacity:1;transform:scale(1)}.gzbig small{display:block;font-family:Barlow,sans-serif;font-weight:800;font-size:16px;color:#f4f1ec;margin-top:6px;text-shadow:none}
+.gzdeck{flex:0 0 auto;background:#13241b;border-top:3px solid #f2b632;padding:12px 14px max(14px,env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+.gzdeck small{font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:13px;letter-spacing:.08em;color:#f2b632}
+.gzdeck p{margin:2px 0 0;font-size:19px;font-weight:800;line-height:1.25}
+.gzshots{display:grid;gap:8px}
+.gzshot{font:inherit;font-weight:800;font-size:16px;text-align:left;color:#f4f1ec;background:#1c3327;border:2px solid #2c4436;border-radius:12px;padding:11px 14px;cursor:pointer;display:flex;gap:10px;align-items:center;min-height:48px}
+.gzshot b{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:16px;color:#f2b632;width:16px;flex:none}
+.gzshot.ok{background:#1e5a37;border-color:#3fcf7a}.gzshot.no{background:#5a1e24;border-color:#ff5a5a}.gzshot.dim{opacity:.45}
+.gzhint,.gzdeck p.gzhint{font-size:13px;font-weight:600;color:#9fb3a7;text-align:center;margin:0}
+.gzend{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px 16px;background:radial-gradient(120% 70% at 50% 20%,rgba(31,107,58,.6),rgba(13,26,20,.98) 70%);overflow-y:auto}
+.gzlogo{font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:20px;letter-spacing:.14em;color:#f2b632}
+.gzfinal{font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:64px;line-height:1}
+.gzstats{display:flex;gap:18px;color:#9fb3a7;font-weight:700}.gzstats b{display:block;color:#f4f1ec;font-size:22px}
+.gzreview{width:100%;max-width:360px;text-align:left;background:#14271d;border-radius:14px;padding:12px 14px;font-size:15px}
+.gzreview h3{margin:0 0 8px;font-size:13px;letter-spacing:.08em;color:#f2b632}.gzreview ul{margin:0;padding-left:18px}.gzreview li{margin:0 0 8px}.gzreview span{color:#3fcf7a;font-weight:800}
+.gzrow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.gzgo{font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:22px;color:#fff;background:#d3202f;border:0;border-radius:14px;padding:12px 28px;cursor:pointer;box-shadow:0 4px 0 #8e1520}
+.gzbtn{font:inherit;font-weight:800;font-size:15px;color:#f4f1ec;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.25);border-radius:12px;padding:10px 16px;cursor:pointer}
+.cbov .gzapp{display:block}
+.gzend[hidden],.gzov[hidden]{display:none}
+.cbcard{position:absolute;left:16px;right:16px;bottom:76px;text-align:center;background:linear-gradient(180deg,rgba(23,11,16,.2),rgba(23,11,16,.92) 30%);border-radius:18px;padding:18px 12px 16px;opacity:0;transform:translateY(30px) scale(.96);transition:opacity .5s,transform .6s cubic-bezier(.2,1.4,.4,1);pointer-events:none;color:#fff8ec}
+.cbcard.show{opacity:1;transform:none}
+.cbcard .c1{font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:clamp(18px,6.2vw,28px);white-space:nowrap;color:#f4c04e}
+.cbcard .nm{font-family:"Barlow Condensed",Barlow,sans-serif;font-weight:700;font-size:38px;line-height:1.05;margin-top:6px;text-transform:uppercase}
+.cbcard .st{font-weight:700;font-size:16px;color:#d9c3b3;margin-top:6px}
+.cbcard .tg{display:inline-block;margin-top:10px;background:#c8102e;color:#fff;font-weight:800;font-size:13px;letter-spacing:.06em;border-radius:999px;padding:4px 12px}
+.cbbar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:10px;justify-content:center;padding:12px 16px max(16px,env(safe-area-inset-bottom,0px))}
+@media (prefers-reduced-motion:reduce){.gzbig,.cbcard{transition:none}}
 </style>
 </head>
 <body>
@@ -787,20 +845,20 @@ function npBetween(s,e){const mks=[];for(let d=new Date(s.getFullYear(),s.getMon
 function npTile(t,label){return `<div class="kv"><span>👖 ${label}</span><b>${!t?"…":t.days?inr(t.v):"–"}</b><small class="muted">${t&&t.days?full(t.q)+" QTY · "+full(t.b)+" bills":t?"Import X24 again to see it":""}</small></div>`;}
 
 /* staff photos + team photo (manager adds; saved in the database) */
-let staffPh=null,staffPhLoading=false,teamPh=undefined;
+let staffPh=null,staffPhLoading=false,teamPh=undefined,staffFace={};
 let phCol=null,phUnsub=[];
 function loadStaffPh(){
   /* live: follows the current database (re-attaches after login), so a photo added on one phone shows on every phone */
   if(col){if(phCol===col)return;phCol=col;phUnsub.forEach(f=>{try{f();}catch(e){}});phUnsub=[];
-    const c=col,fb=()=>{if(phCol!==c)return;Promise.all([fsGet("staffphotos"),fsGet("teamphoto")]).then(([a,b])=>{staffPh=(a&&a.img)||{};teamPh=(b&&b.img)||"";render();}).catch(()=>{});};
+    const c=col,fb=()=>{if(phCol!==c)return;Promise.all([fsGet("staffphotos"),fsGet("teamphoto")]).then(([a,b])=>{staffPh=(a&&a.img)||{};staffFace=(a&&a.face)||{};teamPh=(b&&b.img)||"";render();}).catch(()=>{});};
     if(typeof c.doc("staffphotos").onSnapshot!=="function"){fb();return;}
-    phUnsub=[c.doc("staffphotos").onSnapshot(sn=>{staffPh=(sn.exists&&sn.data().img)||{};render();},fb),
+    phUnsub=[c.doc("staffphotos").onSnapshot(sn=>{staffPh=(sn.exists&&sn.data().img)||{};staffFace=(sn.exists&&sn.data().face)||{};render();},fb),
              c.doc("teamphoto").onSnapshot(sn=>{teamPh=(sn.exists&&sn.data().img)||"";},()=>{})];return;}
   if(staffPh||staffPhLoading)return;staffPhLoading=true;
-  Promise.all([fsGet("staffphotos"),fsGet("teamphoto")]).then(([a,b])=>{staffPh=(a&&a.img)||{};teamPh=(b&&b.img)||"";}).catch(()=>{staffPh={};teamPh="";}).finally(()=>{staffPhLoading=false;render();});}
+  Promise.all([fsGet("staffphotos"),fsGet("teamphoto")]).then(([a,b])=>{staffPh=(a&&a.img)||{};staffFace=(a&&a.face)||{};teamPh=(b&&b.img)||"";}).catch(()=>{staffPh={};teamPh="";}).finally(()=>{staffPhLoading=false;render();});}
 function sAv(s,cls){loadStaffPh();const ph=staffPh&&staffPh[s.id];const ini=String(s.name||"").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
   return ph?`<img class="${cls||"sav"}" src="${ph}" alt="">`:`<span class="${cls||"sav"} ini" aria-hidden="true">${esc(ini)}</span>`;}
-async function saveStaffPhoto(id,file){try{const d=await smallPhoto(file);await fsSet("staffphotos",{img:{[id]:d}},true);staffPh=staffPh||{};staffPh[id]=d;toast("Photo saved ✓");render();}catch(e){toast("Could not save: "+(e.message||e));}}
+async function saveStaffPhoto(id,file){try{const d=await smallPhoto(file);await fsSet("staffphotos",{img:{[id]:d}},true);staffPh=staffPh||{};staffPh[id]=d;toast("Photo saved ✓");render();faceCrop(d,f=>saveStaffFace(id,f));}catch(e){toast("Could not save: "+(e.message||e));}}
 async function removeStaffPhoto(id){staffPh=staffPh||{};delete staffPh[id];await fsSet("staffphotos",{img:staffPh});render();}
 async function saveTeamPhoto(file){try{const d=await compressImage(file);await fsSet("teamphoto",{img:d,at:todayISO()});teamPh=d;toast("Team photo saved ✓");openTeamPhoto();}catch(e){toast("Could not save: "+(e.message||e));}}
 function openTeamPhoto(){loadStaffPh();let o=document.getElementById("teamBox");if(!o){o=document.createElement("div");o.id="teamBox";o.className="overlay";document.body.appendChild(o);
@@ -812,9 +870,12 @@ function openTeamPhoto(){loadStaffPh();let o=document.getElementById("teamBox");
   o.hidden=false;}
 function topPerformer(keys,label){const r=staffWithData(keys).map(s=>({s,a:aggStaff(s.id,keys)})).filter(x=>x.a.sales>0).sort((p,q)=>q.a.sales-p.a.sales)[0];
   if(!r)return "";
+  const sub=`${inr(r.a.sales)} · ATV ${isFinite(r.a.atv)?inr(r.a.atv):"–"} · UPT ${isFinite(r.a.upt)?r.a.upt.toFixed(2):"–"}`;
+  window.__topper={id:r.s.id,name:r.s.name,sub,label};
   return `<section class="topper"><div class="tframe">${sAv(r.s,"tph")}<span class="tcrown" aria-hidden="true">🏆</span></div>
     <div class="tinfo"><div class="tlbl">TOP PERFORMER · ${esc(label)}</div><div class="tname">${esc(r.s.name)}</div>
-    <div class="tsub">${inr(r.a.sales)} · ATV ${isFinite(r.a.atv)?inr(r.a.atv):"–"} · UPT ${isFinite(r.a.upt)?r.a.upt.toFixed(2):"–"}${isFinite(r.a.ach)?" · "+pct(r.a.ach)+" ach.":""}</div></div></section>`;}
+    <div class="tsub">${sub}${isFinite(r.a.ach)?" · "+pct(r.a.ach)+" ach.":""}</div>
+    <button class="btn small tceleb" data-celeb="1">🎬 Celebrate</button></div></section>`;}
 /* 🛠️ Store issues (snag list) — saved with the VM photo records (kind "snag") so staff can add them */
 const SNAG_CATS=[["AC","❄️"],["Light","💡"],["Trial room","🚪"],["POS / Printer","🖨️"],["CCTV","📹"],["Door / Shutter","🔐"],["Plumbing","🚰"],["Fixture","🪑"],["Other","🔧"]];
 let snags=null,snagsLoading=false;const LS_SNAG="store-perf-snags";
@@ -992,7 +1053,7 @@ function viewHome(){
         <div><b>${signPct(m.l2l)}</b>L2L vs ${esc(isYtd()?"YTD":mShort(k))} LY</div>
         <div><b>${!m.target?"–":m.target>m.salesT?inr(m.target-m.salesT):"Done"}</b>${!m.target?"No target yet":m.target>m.salesT?"To go":"Target"}</div>
         <div><b>₹${full(Math.round(m.sales/gsa()))}</b>Sale / sq ft</div>
-      </div></div>`+topPerformer(selKeys(),isYtd()?"YTD":mShort(k))+viewStar();
+      </div></div>`+topPerformer(selKeys(),isYtd()?"YTD":mShort(k))+viewStar()+viewGzDash();
     const [hs,he0]=periodDates(k,isYtd()),hx=homeMix(hs,he0<new Date()?he0:new Date()),av=ytdAvgs(k,y);
     if(!isYtd()) h+=`<section class="block"><h2>Store KPIs</h2><div class="grid">
       <div class="kv"><span>📐 Sale / sq ft</span><b>₹${full(Math.round(m.sales/gsa()))}</b><small class="muted">GSA ${full(gsa())} sq ft</small></div>
@@ -2918,7 +2979,7 @@ function learnCard(iso,compact){
     <p style="margin:0 0 8px;font-weight:700">${esc(card.q)}</p>
     ${open?`<ul class="learnlist">${card.a.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>${card.s?`<button class="slidethumb" data-slide="${card.s}" aria-label="Open slide ${card.s}"><img src="${slideUrl(S.id,card.s)}" alt="Slide ${card.s}" loading="lazy"></button>`:""}`
       :`<button class="btn small" data-learnopen="${iso}">Show answer</button>`}
-    <div class="actions">${canPhoto()&&iso===todayISO()?(mine?`<span class="up" style="align-self:center;font-weight:700">✓ You learnt this</span>`:`<button class="btn small primary" data-learnt="${iso}">Mark as learnt ✓</button>`):""}<button class="btn small" data-go="learn">🎓 Training</button></div>
+    <div class="actions">${canPhoto()&&iso===todayISO()?(mine?`<span class="up" style="align-self:center;font-weight:700">✓ You learnt this</span>`:`<button class="btn small primary" data-learnt="${iso}">Mark as learnt ✓</button>`):""}<button class="btn small" data-go="learn">🎓 Training</button>${gzQuestions().length?`<button class="btn small" data-gzgames="1">🎮 Play today's game</button>`:""}</div>
     ${fsdb?`<p class="hint">${L.length?"Learnt today: "+esc([...new Set(L.map(x=>x.name))].join(", ")):"No one has marked it yet."}</p>`:""}</section>`;
 }
 function viewLearn(){
@@ -2930,11 +2991,12 @@ function viewLearn(){
   const chips=ids.length>1?`<div class="chips" style="margin-top:0">${ids.map(x=>`<button data-trnseason="${esc(x)}" style="${x===sid?"background:var(--soft)":""}">${esc(x)}</button>`).join("")}</div>`:"";
   if(D.missing) return chips+`<div class="empty">Files for ${esc(sid)} not found.</div>`;
   const pg=ui.trnPage||"session";
-  const seg=`<div class="seg" role="group" aria-label="Training"><button data-trnpage="session" aria-pressed="${pg==="session"}">📽️ Session</button><button data-trnpage="mk" aria-pressed="${pg==="mk"}">📘 Must Knows</button><button data-trnpage="today" aria-pressed="${pg==="today"}">☀️ Today</button></div>`;
-  let h=`<section class="block" style="padding-bottom:8px"><h2>🎓 ${esc(D.name||sid)}</h2></section>`+chips+seg;
+  const seg=`<div class="seg" role="group" aria-label="Training"><button data-trnpage="session" aria-pressed="${pg==="session"}">📽️ Session</button><button data-trnpage="mk" aria-pressed="${pg==="mk"}">📘 Must Knows</button><button data-trnpage="today" aria-pressed="${pg==="today"}">☀️ Today</button><button data-trnpage="games" aria-pressed="${pg==="games"}">🎮 Games</button></div>`;
+  let h=`<section class="block" style="padding-bottom:8px"><h2>🎓 ${esc(D.name||sid)}</h2></section>`+viewWinPrompt()+viewGameZone()+chips+seg;
   const adm=viewTrnAdmin()+(canEdit()&&D.src==="fs"&&!ui.trnBusy&&!ui.trnDraft?`<div class="actions"><button class="btn small danger" data-trndel="${esc(sid)}">Delete ${esc(sid)}</button></div>`:"");
   if(ui.trnDraft||ui.trnBusy||ui.trnNew) return h+adm;
   if(pg==="today") return h+learnCard(todayISO(),false)+adm;
+  if(pg==="games") return h+viewGamesPage();
   if(pg==="session"){const N=num(D.slides)||1;slideUrl(sid,1);if(D.src!=="fs"&&trn.slides[sid]==="missing")return h+`<section class="block"><div class="empty">Slides not found. Upload <b>slides_${esc(sid)}.json</b> to GitHub next to index.html.</div></section>`;if(D.src!=="fs"&&trn.slides[sid]==="loading")return h+`<div class="empty">Loading slides…</div>`;const n=Math.min(N,Math.max(1,num(ui.slide)||1));
     return h+`<section class="block"><div class="slidebox" id="slideBox"><img src="${slideUrl(sid,n)}" alt="Slide ${n} of ${N}"></div>
       <div class="monthbar" style="margin:10px 0 0"><button data-slide="${n-1}" ${n>1?"":"disabled"} aria-label="Previous slide">‹</button><div class="label">Slide ${n} / ${N}<small>Swipe or tap ‹ ›</small></div><button data-slide="${n+1}" ${n<N?"":"disabled"} aria-label="Next slide">›</button></div>
@@ -2949,11 +3011,413 @@ function viewLearn(){
     <div class="actions"><button class="btn small primary" data-mkmark="${c.key}|y">I know this ✓</button><button class="btn small" data-mkmark="${c.key}|n">Still learning ✗</button></div>`:""}</section>`;}).join("")||`<div class="empty">Nothing here.</div>`;
   return h+`<p class="hint">Tap a question, say the answer in your mind, then open it. Marks are saved on this phone.</p>`+adm;
 }
+/* ========== 🎮 Game Zone (Cricket + Football), 🏆 daily winners wall, 🎬 topper celebration ========== */
+/* Scores and selfies are saved with the VM photo records (kind "game" / "selfie") so staff can write them. */
+const GZ_Q={"H2-26":[
+ ["Tencel / Lyocell blend benefit?","Moisture wicking",["4-way stretch","3M reflective tape"]],
+ ["Tech Pants feature?","UPF 50 UV protection",["Self-edge finish","Slub texture"]],
+ ["Tech Pants keep you cooler by…","Up to 5°C",["Up to 15°C","Up to 1°C"]],
+ ["Which is a Women's Loose fit?","Baggy Dad Barrel",["Commuter","Penta Lux"]],
+ ["Interlock fabric is used in…","Polos",["Jeans","Puffer jackets"]],
+ ["CORDURA® is known for…","Abrasion resistance",["Linen texture","Slub look"]],
+ ["Women's Supra Innovation stretch?","60%+ stretch",["10% stretch","No stretch"]],
+ ["Adaptive Lycra is only in…","724",["501","511"]],
+ ["Customer wants maximum warmth. Suggest…","Puffer / Down jacket",["Gilet","Cardigan"]],
+ ["Light layering without bulk. Suggest…","Gilet",["Puffer","Sherpa jacket"]],
+ ["Selvedge denim is special for…","Self-edge finish",["4-way stretch","Quick drying"]],
+ ["Oxford shirt weave?","Basket weave",["Diagonal rib","Ribbed velvet"]],
+ ["Twill shirt pattern?","Diagonal rib",["Basket weave","Slub"]],
+ ["Corduroy shirt texture?","Ribbed, velvet-like",["Basket weave","Diagonal rib"]],
+ ["Shirt + jacket hybrid?","Shacket",["Gilet","Polo"]],
+ ["Redloop is built for…","Younger new consumer & loyalist",["Kids only","Workwear only"]],
+ ["Pima cotton is…","Premium long-staple cotton",["Recycled polyester","Linen blend"]],
+ ["T400 fiber gives…","Built-in stretch & recovery",["UV protection","Water repellence"]],
+ ["Why does Linen blend suit our climate?","Breathable",["Heavy & warm","Waterproof"]],
+ ["Penta Blend has how many fibers?","5 fibers",["2 fibers","3 fibers"]],
+ ["H2-26 'Win with Women' focus?","Shirts | Non-Graphics | Non-Denim",["Tech Pants | Puffers","Selvedge | 501"]],
+ ["H2-26 'Denim Leadership' focus?","Commuter | Cinch | Premium Blends",["Shackets | Polos","Kids | Accessories"]],
+ ["Wash care for Indigo / Overdye?","Cold water, inside-out, dry in shade",["Hot wash, tumble dry","Bleach to brighten"]],
+ ["Coated / water-repellent finish: avoid…","Fabric softener",["Cold water","Air dry in shade"]],
+ ["Men's denim ₹4K–5K platform?","Commuter | Performance",["MFL","Supra"]],
+ ["Baggy Wide Leg sits at…","Your waist",["Low on hips","Under the bust"]],
+ ["Men's Redloop hyper stretch is…","Innovation Flex",["Adaptive Lycra","Rigid denim"]]
+]};
+const GZ_N=12,GZ_LIVES=3,GZ_FAST=6;
+const gz={wk:{},wkLoading:{},sf:null,sfLoading:false,dismiss:{}};
+function gzShuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+/* questions: the season's curated list, or built from its Must Knows (right answer from the card, wrong ones from other cards) */
+function gzQuestions(){loadTraining();const S=curSeason();if(!S)return [];
+  if(GZ_Q[S.id])return GZ_Q[S.id];
+  const D=trn.data[S.id];if(!D||!D.mustKnows)return [];
+  const sh=s=>{s=String(s).trim();if(s.length<=72)return s;let c=s.slice(0,70);c=c.slice(0,c.lastIndexOf(" ")>30?c.lastIndexOf(" "):70);return c+"…";};
+  const pts=c=>(c.a||[]).filter(x=>!/^good to know/i.test(x));
+  const cards=D.mustKnows.filter(c=>pts(c).length);if(cards.length<3)return [];
+  return cards.map((c,i)=>{const others=gzShuffle(cards.filter((_,k)=>k!==i)).slice(0,2);const P=pts(c);
+    return [String(c.q).replace(/\s*\((any|pick)[^)]*\)/gi,"").trim(),sh(P[Math.random()*P.length|0]),others.map(o=>{const q=pts(o);return sh(q[Math.random()*q.length|0]);})];});}
+const gzWkOf=iso=>weekOfDate(dOf(iso));
+function gzLoadWeek(wk){if(gz.wk[wk]||gz.wkLoading[wk])return;gz.wkLoading[wk]=true;
+  const done=l=>{gz.wk[wk]=l;gz.wkLoading[wk]=false;render();};
+  if(!fsdb){let l=[];try{l=JSON.parse(localStorage.getItem("store-perf-recs-game")||"[]");}catch(e){}done(l.filter(x=>x.gwk===wk));return;}
+  fsdb.collection("stores/"+SID+"/vmphotos").where("gwk","==",wk).get().then(q=>done(q.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.kind==="game"))).catch(()=>done([]));}
+function gzGames(iso){const wk=gzWkOf(iso);gzLoadWeek(wk);return gz.wk[wk]?gz.wk[wk].filter(x=>x.date===iso):null;}
+function gzMyToday(){const l=gzGames(todayISO());return l?(l.find(x=>x.by===myUid())||null):undefined;}
+function gzWinner(iso){const l=gzGames(iso);if(!l)return null;return l.slice().sort((a,b)=>b.pts-a.pts||String(a.at).localeCompare(String(b.at)))[0]||null;}
+function gzSelfieWeeks(){const out=[];for(let i=0;i<5;i++){const d=new Date();d.setDate(d.getDate()-7*i);const k=weekOfDate(d);if(!out.includes(k))out.push(k);}return out;}
+function gzLoadSelfies(){if(gz.sf||gz.sfLoading)return;gz.sfLoading=true;
+  const done=l=>{const lim=isoOf(new Date(Date.now()-28*864e5));gz.sf=l.filter(x=>x.date>=lim).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.at).localeCompare(String(a.at)));gz.sfLoading=false;render();};
+  if(!fsdb){let l=[];try{l=JSON.parse(localStorage.getItem("store-perf-recs-selfie")||"[]");}catch(e){}done(l);return;}
+  fsdb.collection("stores/"+SID+"/vmphotos").where("sweek","in",gzSelfieWeeks()).get().then(q=>done(q.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.kind==="selfie"))).catch(()=>done([]));}
+function gzSaveLocal(kind,list){try{localStorage.setItem("store-perf-recs-"+kind,JSON.stringify(list));}catch(e){throw new Error("Phone storage is full");}}
+function gzLocal(kind){try{return JSON.parse(localStorage.getItem("store-perf-recs-"+kind)||"[]");}catch(e){return [];}}
+async function gzSaveGame(rec){
+  if(fsdb){const ref=await fsdb.collection("stores/"+SID+"/vmphotos").add(rec);rec.id=ref.id;}
+  else{rec.id="game_"+Date.now();const l=gzLocal("game");l.push(rec);gzSaveLocal("game",l);}
+  (gz.wk[rec.gwk]=gz.wk[rec.gwk]||[]).push(rec);}
+function gzPlayer(){return {by:myUid(),name:myName||(role==="admin"?"Manager":"Staff")};}
+function gzCanPlay(){return canPhoto()||!fsdb;}
+function gzBoard(wk){gzLoadWeek(wk);const l=gz.wk[wk];if(!l)return null;const m={};
+  l.forEach(g=>{const o=m[g.by]||(m[g.by]={by:g.by,name:g.name,pts:0,days:new Set()});o.pts+=num(g.pts);o.days.add(g.date);o.name=g.name||o.name;});
+  return Object.values(m).map(o=>({...o,days:o.days.size})).sort((a,b)=>b.pts-a.pts||b.days-a.days);}
+function gzBest(game){try{return +localStorage.getItem("store-perf-gzbest-"+game)||0;}catch(e){return 0;}}
+function gzSetBest(game,v){try{if(v>gzBest(game))localStorage.setItem("store-perf-gzbest-"+game,String(v));}catch(e){}}
+
+/* ---------- views ---------- */
+function gzRow(r,i){return `<li><span class="pos">${i+1}</span><div class="who"><b>${esc(r.name)}</b><small>🔥 ${r.days} day${r.days===1?"":"s"} played</small></div><div class="amt"><b>${full(r.pts)}</b><small class="muted">pts</small></div></li>`;}
+function viewGameZone(){
+  const Q=gzQuestions(),S=curSeason(),mine=gzMyToday();
+  let h=`<section class="block gzbox"><h2>🎮 Game Zone${S?` <span class="badge">${esc(S.id)}</span>`:""}</h2>`;
+  if(!Q.length)return h+`<div class="empty">Games start when a training season with Must Knows is uploaded.</div></section>`;
+  h+=`<div class="gzcards"><button class="gzcard" data-gzplay="cricket"><span class="gzic">🏏</span><b>Cricket</b><small>2 overs · 3 wickets</small><small class="muted">Your best: ${gzBest("cricket")||"–"}</small></button>
+    <button class="gzcard" data-gzplay="football"><span class="gzic">⚽</span><b>Football</b><small>12 penalties · 3 misses</small><small class="muted">Your best: ${gzBest("football")||"–"}</small></button></div>`;
+  if(gzCanPlay())h+=`<p class="hint" style="margin:8px 0 0">${mine===undefined?"Loading…":mine?`✓ Today's game counted: <b>${full(mine.pts)} pts</b>. More games today are practice.`:"Your first game today counts for the leaderboard. Right answer = 10 pts, answer in 6 sec = +5."}</p>`;
+  h+=`<div class="actions"><button class="btn small" data-trnpage="games">🏆 Leaders & Winners Wall</button></div></section>`;
+  return h;}
+function viewGamesPage(){
+  const wk=weekOfDate(new Date()),B=gzBoard(wk);
+  let h=`<section class="block"><h2>🏆 Game leaders · ${esc(mShort(wk))}</h2>`;
+  if(!B)h+=`<div class="empty">Loading…</div>`;
+  else if(!B.length)h+=`<div class="empty">No games this week yet. Play from the Game Zone above.</div>`;
+  else h+=`<ul class="rank">${B.map(gzRow).join("")}</ul>`;
+  if(B&&canChk()){const played=B.map(r=>String(r.name||"").toLowerCase());
+    const not=state.staff.filter(s=>s.active!==false).filter(s=>{const f=String(s.name||"").toLowerCase().split(/\s+/)[0];return f&&!played.some(p=>p.split(/\s+/)[0]===f||p.startsWith(f)||f.startsWith(p.split(/\s+/)[0]||"~"));});
+    h+=`<p class="hint" style="margin-top:10px"><b>Not played this week:</b> ${not.length?esc(not.map(s=>s.name).join(", ")):"Everyone has played 🎉"}</p>`;}
+  h+=`<p class="hint">One game a day counts (the first one). Leaders reset every Monday.</p></section>`;
+  return h+viewWall(false);}
+function gzSelfieFrame(p){return `<div class="gzframe"><img src="${p.img}" alt="${esc(p.name)} winner selfie" loading="lazy"><span class="gzrib">DAILY WINNER</span><div class="gzbadge"><span>${esc(p.label||"")}</span><span>${esc(shortDate(p.date))}</span></div></div>`;}
+function viewWall(compact){gzLoadSelfies();
+  let h=`<section class="block"><h2>📸 Winners Wall</h2>`;
+  if(!gz.sf)return h+`<div class="empty">Loading…</div></section>`;
+  if(!gz.sf.length)return h+`<div class="empty">No winner posts yet. Top scorer of the day can post a selfie the next day.</div></section>`;
+  const me=myUid();
+  h+=gz.sf.map((p,i)=>{const L=p.likes||[],mine=L.some(x=>String(x).split("|")[0]===me),names=L.map(x=>String(x).split("|").slice(1).join("|"));
+    const shown=(mine?["You"]:[]).concat(names.filter((n,k)=>String(L[k]).split("|")[0]!==me)).slice(0,2);
+    return `${i?'<hr>':""}<article class="gzpost"><div class="gzwho"><b>${esc(p.name)}</b><small>${esc(shortDate(p.date))}</small></div>${gzSelfieFrame(p)}${p.cap?`<p style="margin:0">${esc(p.cap)}</p>`:""}
+      <div class="gzlikes"><button class="gzlike" data-gzlike="${esc(p.id)}" aria-pressed="${mine}"${gzCanPlay()?"":" disabled"}>${mine?"❤️":"🤍"} ${L.length}</button><span class="muted">${L.length?esc(shown.join(", ")+(L.length>shown.length?" +"+(L.length-shown.length):"")):"Be the first to like"}</span>
+      ${canEdit()?`<button class="btn small" data-gzseldel="${esc(p.id)}" aria-label="Delete post" style="margin-left:auto">🗑</button>`:""}</div></article>`;}).join("");
+  return h+`</section>`;}
+/* the winner of yesterday (or the day before) is asked for a selfie */
+function gzPendingWin(){if(!gzCanPlay())return null;gzLoadSelfies();if(!gz.sf)return null;
+  for(const back of [1,2]){const d=new Date();d.setDate(d.getDate()-back);const iso=isoOf(d);const w=gzWinner(iso);
+    if(!w||w.by!==myUid())continue;if(gz.sf.some(p=>p.date===iso&&p.by===myUid()))continue;if(gz.dismiss[iso])continue;return {iso,w,back};}
+  return null;}
+function viewWinPrompt(){const P=gzPendingWin();if(!P)return "";
+  return `<section class="block gzwin"><h2>🏆 You won ${P.back===1?"yesterday":"on "+esc(shortDate(P.iso))}, ${esc(String(P.w.name||"").split(" ")[0])}!</h2>
+    <p style="margin:0 0 10px">Top scorer · ${P.w.game==="football"?"⚽ Football":"🏏 Cricket"} · ${full(P.w.pts)} pts. Post your winner selfie for the team.</p>
+    <div class="actions"><button class="btn small primary" data-gzselfie="${P.iso}">📷 Take selfie</button><button class="btn small" data-gzlater="${P.iso}">Later</button></div></section>`;}
+function viewGzDash(){const wk=weekOfDate(new Date()),B=gzBoard(wk);gzLoadSelfies();
+  const lim=isoOf(new Date(Date.now()-3*864e5));const top=gz.sf&&gz.sf.find(p=>p.date>=lim);
+  let h=viewWinPrompt();
+  if(top)h+=`<button class="gzstrip" data-gzwall="1"><img src="${top.img}" alt=""><span><small>Game winner · ${esc(shortDate(top.date))}</small><b>${esc(top.name)}</b><small>${esc(top.label||"")}</small></span><span class="gzlk">❤️ ${(top.likes||[]).length}</span></button>`;
+  if(B&&B.length)h+=`<section class="block"><h2>🎮 Game leaders · ${esc(mShort(wk))}</h2><ul class="rank">${B.slice(0,3).map(gzRow).join("")}</ul><div class="actions"><button class="btn small" data-gzwall="1">See all</button></div></section>`;
+  return h;}
+
+/* ---------- selfie post ---------- */
+function gzSelfieSquare(file){return new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();
+  im.onload=()=>{const N=480,c=document.createElement("canvas");c.width=c.height=N;const sc=Math.max(N/im.width,N/im.height);c.getContext("2d").drawImage(im,(N-im.width*sc)/2,(N-im.height*sc)/2,im.width*sc,im.height*sc);URL.revokeObjectURL(u);res(c.toDataURL("image/jpeg",.78));};
+  im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("Could not read photo"));};im.src=u;});}
+function gzOpenSelfie(iso){const w=gzWinner(iso);if(!w)return;
+  pickFiles("image/*",false,async f=>{let img;try{img=await gzSelfieSquare(f[0]);}catch(e){toast(e.message);return;}
+    const label=(w.game==="football"?"⚽ ":"🏏 ")+full(w.pts)+" pts";
+    const o=gzOverlay("gzSelfieBox");
+    o.innerHTML=`<div class="dialog" style="max-width:420px;padding:14px"><h2 style="margin:0 0 10px">Your winner post</h2>${gzSelfieFrame({img,name:w.name,label,date:iso})}
+      <label class="f" for="gzCap">Caption (optional)</label><input type="text" id="gzCap" maxlength="80" placeholder="Thanks team! 💪">
+      <div class="actions"><button class="btn small primary" id="gzPost" style="flex:1">Post to wall</button><button class="btn small" id="gzPostCancel">Cancel</button></div></div>`;
+    o.hidden=false;
+    o.querySelector("#gzPostCancel").onclick=()=>{o.hidden=true;};
+    o.querySelector("#gzPost").onclick=async()=>{const b=o.querySelector("#gzPost");b.disabled=true;
+      const rec={kind:"selfie",taskId:"",taskTitle:"🏆 Winner selfie",date:iso,sweek:gzWkOf(iso),by:myUid(),name:w.name,img,label,cap:o.querySelector("#gzCap").value.trim(),likes:[],at:nowStamp()};
+      try{if(fsdb){const ref=await fsdb.collection("stores/"+SID+"/vmphotos").add(rec);rec.id=ref.id;}else{rec.id="selfie_"+Date.now();const l=gzLocal("selfie");l.push(rec);gzSaveLocal("selfie",l);}
+        (gz.sf=gz.sf||[]).unshift(rec);o.hidden=true;toast("Posted to the Winners Wall 🎉");ui.trnPage="games";go("learn");}
+      catch(e){b.disabled=false;toast(/permission/i.test(String(e.code||e.message))?"Not allowed. Update the database rules.":"Could not post: "+(e.message||e));}};});}
+async function gzToggleLike(id){const p=(gz.sf||[]).find(x=>x.id===id);if(!p||!gzCanPlay())return;
+  const me=myUid(),key=me+"|"+(myName||(role==="admin"?"Manager":"Staff"));const L=p.likes||[];const had=L.find(x=>String(x).split("|")[0]===me);
+  const next=had?L.filter(x=>x!==had):L.concat([key]);
+  try{if(fsdb){const FV=firebase.firestore.FieldValue;await fsdb.doc("stores/"+SID+"/vmphotos/"+id).update({likes:had?FV.arrayRemove(had):FV.arrayUnion(key)});}
+    else{const l=gzLocal("selfie");const q=l.find(x=>x.id===id);if(q){q.likes=next;gzSaveLocal("selfie",l);}}
+    p.likes=next;render();}
+  catch(e){toast(/permission/i.test(String(e.code||e.message))?"Not allowed. Update the database rules.":"Could not save");}}
+async function gzDelSelfie(id){try{if(fsdb)await fsdb.doc("stores/"+SID+"/vmphotos/"+id).delete();else gzSaveLocal("selfie",gzLocal("selfie").filter(x=>x.id!==id));
+  gz.sf=(gz.sf||[]).filter(x=>x.id!==id);render();toast("Post deleted");}catch(e){toast("Could not delete");}}
+function gzOverlay(id){let o=document.getElementById(id);if(!o){o=document.createElement("div");o.id=id;o.className="overlay";o.hidden=true;document.body.appendChild(o);}return o;}
+
+/* ---------- the games ---------- */
+const G={};
+function gzStart(game){const Q=gzQuestions();if(Q.length<3){toast("No questions yet");return;}
+  let o=document.getElementById("gzGame");
+  if(!o){o=document.createElement("div");o.id="gzGame";o.className="gzov";document.body.appendChild(o);}
+  o.innerHTML=`<div class="gzapp"><div class="gzstage"><canvas id="gzCv"></canvas>
+      <div class="gzboard"><div class="gzsc"><div class="t" id="gzT1"></div><div class="v" id="gzScore">0</div></div><div class="gzsc" style="text-align:right"><div class="t" id="gzT2"></div><div class="gzballs" id="gzBalls"></div></div></div>
+      <button class="gzx" id="gzClose" aria-label="Close game">✕</button><div class="gzbig" id="gzBig"></div></div>
+    <div class="gzdeck"><div><small id="gzQn"></small><p id="gzQt"></p></div><div class="gzshots" id="gzShots"></div><p class="gzhint" id="gzHint"></p></div>
+    <div class="gzend" id="gzEnd" hidden></div></div>`;
+  o.hidden=false;document.body.style.overflow="hidden";
+  Object.assign(G,{game,deck:gzShuffle(Q.slice()),i:0,right:0,wrong:0,pts:0,runs:0,log:[],miss:[],q:null,shownAt:0,A:{phase:"idle",t:0,crowd:0,net:0},on:true,last:performance.now(),counted:null});
+  const mine=gzMyToday();G.countable=gzCanPlay()&&!mine;
+  try{G.ac=G.ac||new (window.AudioContext||window.webkitAudioContext)();G.ac.resume&&G.ac.resume();}catch(e){}
+  G.cv=o.querySelector("#gzCv");G.cx=G.cv.getContext("2d");gzSize();
+  o.querySelector("#gzClose").onclick=gzClose;
+  o.querySelector("#gzShots").onclick=e=>{const b=e.target.closest("[data-i]");if(b)gzAnswer(+b.dataset.i);};
+  if(!G.crowd)G.crowd=Array.from({length:240},()=>({x:Math.random(),y:Math.random(),c:["#d3202f","#f2b632","#f4f1ec","#4aa3ff","#3fcf7a"][Math.random()*5|0],p:Math.random()*6}));
+  gzNext();cancelAnimationFrame(G.raf);G.raf=requestAnimationFrame(gzLoop);}
+function gzSize(){if(!G.cv)return;const d=Math.min(2,devicePixelRatio||1),st=G.cv.parentElement;G.W=st.clientWidth;G.H=st.clientHeight;G.cv.width=G.W*d;G.cv.height=G.H*d;G.cx.setTransform(d,0,0,d,0,0);}
+addEventListener("resize",()=>{if(G.on)gzSize();});
+function gzClose(){G.on=false;cancelAnimationFrame(G.raf);const o=document.getElementById("gzGame");if(o)o.hidden=true;document.body.style.overflow="";render();}
+function gzTone(f,d,t,v){if(!G.ac)return;try{const o=G.ac.createOscillator(),g=G.ac.createGain();o.type=t||"triangle";o.frequency.value=f;g.gain.value=v||.06;o.connect(g);g.connect(G.ac.destination);const n=G.ac.currentTime;g.gain.exponentialRampToValueAtTime(.0001,n+d);o.start(n);o.stop(n+d);}catch(e){}}
+const $g=id=>document.getElementById(id);
+function gzBoardUI(){const c=G.game==="cricket";
+  $g("gzT1").textContent=c?"PMC XI":"GOALS";$g("gzScore").textContent=c?G.runs+"/"+G.wrong:G.right+"/"+G.i;
+  $g("gzT2").textContent=c?"OVER "+Math.min(2,Math.floor(G.i/6)+1)+" · "+Math.floor(G.i/6)+"."+(G.i%6):"KICK "+Math.min(GZ_N,G.i+1)+" OF "+GZ_N;
+  const per=c?6:GZ_N,start=c?Math.floor(Math.max(0,G.i-1)/6)*6:0,cur=G.log.slice(start,start+per);
+  $g("gzBalls").innerHTML=Array.from({length:per},(_,k)=>{const r=cur[k];return r===undefined?"<i></i>":r==="W"?'<i class="w">'+(c?"W":"✕")+'</i>':`<i class="${r==="6"||r==="2"?"r6":"r4"}">${c?r:"⚽"}</i>`;}).join("");}
+function gzNext(){if(G.i>=GZ_N||G.wrong>=GZ_LIVES)return gzEnd();
+  if(!G.deck.length)G.deck=gzShuffle(gzQuestions().slice());
+  const [q,a,w]=G.deck.pop();const opts=gzShuffle([a,...w]);G.q={q,a,opts,ans:opts.indexOf(a)};
+  $g("gzQn").textContent=(G.game==="cricket"?"BALL ":"KICK ")+(G.i+1)+" OF "+GZ_N;$g("gzQt").textContent=q;
+  $g("gzShots").innerHTML=opts.map((o,i)=>`<button class="gzshot" data-i="${i}"><b>${"ABC"[i]}</b><span>${esc(o)}</span></button>`).join("");
+  $g("gzHint").textContent=G.game==="cricket"?"Answer in "+GZ_FAST+" sec for a SIX, otherwise FOUR":"A = left · B = top centre · C = right";
+  G.shownAt=performance.now();G.A={phase:"idle",t:0,crowd:G.A.crowd||0,net:0};gzBoardUI();}
+function gzAnswer(i){if(G.A.phase!=="idle")return;const secs=(performance.now()-G.shownAt)/1000,ok=i===G.q.ans,fast=ok&&secs<=GZ_FAST;
+  document.querySelectorAll(".gzshot").forEach((b,k)=>{b.disabled=true;b.classList.add(k===G.q.ans?"ok":k===i?"no":"dim");});
+  $g("gzHint").textContent=ok?(fast?"Answered in "+secs.toFixed(1)+" sec · +15 pts":"Correct, took "+secs.toFixed(1)+" sec · +10 pts"):"Correct answer: "+G.q.a;
+  G.A={phase:"runup",t:0,ok,fast,zone:i,keeperZone:ok?[0,1,2].filter(z=>z!==i)[Math.random()*2|0]:i,dir:Math.random()<.5?-1:1,crowd:G.A.crowd,net:0};}
+function gzSettle(){const {ok,fast}=G.A;G.i++;
+  if(ok){G.right++;G.pts+=fast?15:10;if(G.game==="cricket"){G.runs+=fast?6:4;G.log.push(fast?"6":"4");}else G.log.push(fast?"2":"1");}
+  else{G.wrong++;G.log.push("W");G.miss.push(G.q);}gzBoardUI();}
+function gzBigText(t,c,sub){const e=$g("gzBig");e.innerHTML=esc(t)+(sub?`<small>${esc(sub)}</small>`:"");e.style.color=c;e.classList.add("show");}
+async function gzEnd(){G.A.phase="end";const c=G.game==="cricket";gzSetBest(G.game,c?G.runs:G.pts);
+  let note="Practice game · today's score is already counted.";
+  if(!gzCanPlay())note="Sign in to save your score.";
+  else if(G.countable&&!G.saved){G.saved=true;const p=gzPlayer(),iso=todayISO();
+    const rec={kind:"game",taskId:"",taskTitle:"🎮 Game",img:"",date:iso,gwk:gzWkOf(iso),by:p.by,name:p.name,game:G.game,pts:G.pts,right:G.right,total:G.i,at:nowStamp()};
+    try{await gzSaveGame(rec);note="✓ Counted for today's leaderboard.";}catch(e){note=/permission/i.test(String(e.code||e.message))?"Not saved: not allowed. Update the database rules.":"Could not save your score.";}}
+  const e=$g("gzEnd");
+  e.innerHTML=`<div class="gzlogo">${c?(G.wrong>=GZ_LIVES?"ALL OUT":"INNINGS OVER"):"FULL TIME"}</div>
+    <div class="gzfinal">${c?G.runs+"/"+G.wrong:G.right+" goals"}</div>
+    <div class="gzstats"><div><b>${G.pts}</b>points</div><div><b>${G.right}/${G.i}</b>correct</div><div><b>${gzBest(G.game)}</b>best ${c?"runs":"pts"}</div></div>
+    <p class="gzhint">${esc(note)}</p>
+    ${G.miss.length?`<div class="gzreview"><h3>LEARN THESE</h3><ul>${G.miss.map(m=>`<li>${esc(m[0]||m.q)}<br><span>${esc(m.a)}</span></li>`).join("")}</ul></div>`:""}
+    <div class="gzrow"><button class="gzgo" id="gzAgain">PLAY AGAIN</button><button class="gzbtn" id="gzDone">Close</button></div>`;
+  e.hidden=false;$g("gzAgain").onclick=()=>gzStart(G.game);$g("gzDone").onclick=gzClose;render();}
+function gzLoop(now){if(!G.on)return;const dt=Math.min(.05,(now-G.last)/1000);G.last=now;try{G.game==="cricket"?gzDrawCricket(dt):gzDrawFootball(dt);}catch(e){}G.raf=requestAnimationFrame(gzLoop);}
+function gzRR(x,y,w,h,r){const c=G.cx;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function gzCrowd(top,h,dt){const c=G.cx;G.A.crowd=Math.max(0,(G.A.crowd||0)-dt);
+  G.crowd.forEach(d=>{const j=G.A.crowd>0?Math.abs(Math.sin(performance.now()/90+d.p))*4:0;c.fillStyle=d.c;c.globalAlpha=.75;c.fillRect(d.x*G.W,top+d.y*h-j,3,3);});c.globalAlpha=1;}
+function gzTimerPill(y){if(G.A.phase!=="idle")return;const c=G.cx,left=Math.max(0,GZ_FAST-(performance.now()-G.shownAt)/1000);
+  const t=left>0?(G.game==="cricket"?"SIX bonus ":"Top-bin bonus ")+left.toFixed(0)+"s":"Take your time";c.font="800 13px Barlow, sans-serif";const tw=c.measureText(t).width+20;
+  c.fillStyle="rgba(8,14,11,.78)";gzRR(G.W/2-tw/2,y,tw,22,11);c.fill();c.fillStyle=left>0?"#f2b632":"#9fb3a7";c.textAlign="center";c.textBaseline="middle";c.fillText(t,G.W/2,y+11);}
+function gzPerson(x,y,s,shirt,pose,bat){const c=G.cx;c.save();c.translate(x,y);c.scale(s,s);
+  c.fillStyle="rgba(0,0,0,.28)";c.beginPath();c.ellipse(0,2,14,4,0,0,7);c.fill();c.strokeStyle="#1b2a4a";c.lineWidth=5;c.lineCap="round";const lp=pose||0;
+  c.beginPath();c.moveTo(-3,-22);c.lineTo(-6-lp*4,0);c.moveTo(3,-22);c.lineTo(6+lp*4,0);c.stroke();
+  c.fillStyle=shirt;gzRR(-8,-44,16,24,5);c.fill();c.fillStyle="#c98d64";c.beginPath();c.arc(0,-50,6,0,7);c.fill();c.fillStyle=shirt;c.fillRect(-7,-57,14,5);
+  if(bat!==undefined){c.save();c.translate(6,-34);c.rotate(bat);c.fillStyle="#e9cf98";c.fillRect(-2,0,5,30);c.fillStyle="#7a4b2a";c.fillRect(-1.5,-8,4,9);c.restore();}c.restore();}
+function gzStumps(x,y,s,fly){const c=G.cx;c.save();c.translate(x,y);c.scale(s,s);c.fillStyle="#f4ead2";
+  [-7,0,7].forEach((dx,i)=>{c.save();if(fly){c.translate(dx,0);c.rotate((i-1)*0.5*fly);c.translate(-dx,0);}c.fillRect(dx-1.5,-30,3,30);c.restore();});
+  c.fillStyle="#d3202f";if(fly){c.fillRect(-9-fly*30,-34-fly*40,8,3);c.fillRect(2+fly*28,-36-fly*34,8,3);}else{c.fillRect(-8,-32,7,3);c.fillRect(1,-32,7,3);}c.restore();}
+function gzDrawCricket(dt){const c=G.cx,W=G.W,H=G.H,A=G.A;const top=H*0.30,bot=H*0.93,cxm=W/2,wT=W*0.07,wB=W*0.26;const P=f=>({x:cxm,y:top+(bot-top)*f,w:wT+(wB-wT)*f});
+  const sky=c.createLinearGradient(0,0,0,top);sky.addColorStop(0,"#06100b");sky.addColorStop(1,"#12301f");c.fillStyle=sky;c.fillRect(0,0,W,H);
+  c.fillStyle="#0f1d16";c.fillRect(0,top*0.38,W,top*0.62);gzCrowd(top*0.42,top*0.5,dt);
+  for(let i=0;i<10;i++){c.fillStyle=i%2?"#1f6b3a":"#237843";const y0=top+(H-top)*i/10;c.fillRect(0,y0,W,(H-top)/10+1);}
+  c.strokeStyle="rgba(244,241,236,.8)";c.lineWidth=2;c.beginPath();c.ellipse(W/2,top+4,W*0.62,24,0,Math.PI,0);c.stroke();
+  const a=P(0),b=P(1);c.fillStyle="#c9b07a";c.beginPath();c.moveTo(a.x-a.w/2,a.y-8);c.lineTo(a.x+a.w/2,a.y-8);c.lineTo(b.x+b.w/2,b.y+6);c.lineTo(b.x-b.w/2,b.y+6);c.closePath();c.fill();
+  c.strokeStyle="rgba(255,255,255,.85)";c.lineWidth=2;[0.06,0.86].forEach(f=>{const p=P(f);c.beginPath();c.moveTo(p.x-p.w*0.75,p.y);c.lineTo(p.x+p.w*0.75,p.y);c.stroke();});
+  A.t+=dt;const bowF=0.04,batF=0.86;let bY=P(bowF).y,pose=0,ball=null,bat=0.35,bails=0;
+  if(A.phase==="runup"){const k=Math.min(1,A.t/0.7);bY=P(bowF).y-28*(1-k);pose=Math.sin(A.t*22)*.8;if(k>=1){A.phase="deliver";A.t=0;gzTone(320,.08,"square",.04);}}
+  if(A.phase==="deliver"){const k=Math.min(1,A.t/0.62);const p=P(bowF+0.02+(batF-0.06-bowF)*k);const h=k<.68?(1-k/.68)*24:Math.sin((k-.68)/.32*Math.PI)*10;ball={x:p.x,y:p.y-h,s:0.5+k*0.9,sh:p};bat=-.3;
+    if(k>=1){A.phase=A.ok?"hit":"bowled";A.t=0;gzSettle();
+      if(A.ok){gzTone(180,.06,"square",.12);setTimeout(()=>gzTone(520,.25),40);A.crowd=1.6;gzBigText(A.fast?"SIX!":"FOUR!",A.fast?"#f2b632":"#4aa3ff",A.fast?"+15 pts":"+10 pts");}
+      else{gzTone(110,.3,"sawtooth",.08);gzBigText("OUT!","#ff5a5a","Answer: "+G.q.a);}}}
+  if(A.phase==="hit"){const k=Math.min(1,A.t/1.1),s=P(batF-0.04);ball=A.fast?{x:s.x+A.dir*W*0.55*k,y:s.y-(H*1.05)*k+H*0.35*k*k,s:1.4+k*1.8}:{x:s.x+A.dir*W*0.6*k,y:s.y-(H*0.55)*k,s:1.3-k*0.5};bat=-1.9*Math.min(1,A.t/0.12);if(A.t>1.7){A.phase="wait";A.t=0;}}
+  if(A.phase==="bowled"){bails=Math.min(1,A.t/0.35);if(A.t>2.2){A.phase="wait";A.t=0;}}
+  if(A.phase==="wait"&&A.t>0.15){$g("gzBig").classList.remove("show");A.phase="next";gzNext();}
+  const se=P(0.06);gzStumps(se.x,se.y,0.45,0);gzPerson(cxm-6,bY,0.62,"#2f5fa8",pose);
+  const bt=P(batF);gzStumps(bt.x,bt.y+18,1.1,A.phase==="bowled"?bails:0);gzPerson(bt.x-16,bt.y+16,1.35,"#d3202f",0,bat);
+  if(ball){if(ball.sh){c.fillStyle="rgba(0,0,0,.3)";c.beginPath();c.ellipse(ball.sh.x,ball.sh.y,4*ball.s,1.6*ball.s,0,0,7);c.fill();}
+    c.fillStyle="#f4f1ec";c.beginPath();c.arc(ball.x,ball.y,4.2*ball.s,0,7);c.fill();c.strokeStyle="#d3202f";c.lineWidth=1;c.beginPath();c.arc(ball.x,ball.y,3*ball.s,-.6,.6);c.stroke();}
+  gzTimerPill(top-30);}
+function gzDrawFootball(dt){const c=G.cx,W=G.W,H=G.H,A=G.A;const gw=Math.min(W*0.84,380),gh=gw*0.36,gx=(W-gw)/2,gy=H*0.30,spX=W/2,spY=H*0.86;
+  const zp=z=>z===0?{x:gx+gw*0.17,y:gy+gh*0.58}:z===1?{x:gx+gw*0.5,y:gy+gh*0.22}:{x:gx+gw*0.83,y:gy+gh*0.58};
+  const sky=c.createLinearGradient(0,0,0,gy);sky.addColorStop(0,"#06100b");sky.addColorStop(1,"#12301f");c.fillStyle=sky;c.fillRect(0,0,W,H);
+  c.fillStyle="#0f1d16";c.fillRect(0,gy*0.30,W,gy*0.55);gzCrowd(gy*0.34,gy*0.45,dt);
+  c.fillStyle="#d3202f";c.fillRect(0,gy*0.82,W,gy*0.14);c.fillStyle="#fff";c.font="700 13px 'Barlow Condensed', sans-serif";c.textAlign="center";c.textBaseline="middle";for(let x=W*0.17;x<W;x+=W/3)c.fillText("LEVI'S PMC",x,gy*0.89);
+  for(let i=0;i<10;i++){c.fillStyle=i%2?"#1f6b3a":"#237843";const y0=gy*0.96+(H-gy*0.96)*i/10;c.fillRect(0,y0,W,(H-gy*0.96)/10+1);}
+  c.strokeStyle="rgba(255,255,255,.75)";c.lineWidth=2;c.beginPath();c.moveTo(0,gy+gh+2);c.lineTo(W,gy+gh+2);c.stroke();
+  c.beginPath();c.moveTo(gx-gw*0.12,gy+gh+2);c.lineTo(gx-gw*0.2,gy+gh*1.7);c.lineTo(gx+gw*1.2,gy+gh*1.7);c.lineTo(gx+gw*1.12,gy+gh+2);c.stroke();
+  c.fillStyle="#fff";c.beginPath();c.ellipse(spX,spY+12,4,2,0,0,7);c.fill();
+  A.net=Math.max(0,(A.net||0)-dt);c.fillStyle="rgba(255,255,255,.06)";c.fillRect(gx,gy,gw,gh);c.strokeStyle="rgba(255,255,255,.28)";c.lineWidth=1;const bl=A.net*8;
+  for(let x=gx;x<=gx+gw;x+=12){c.beginPath();c.moveTo(x,gy);c.lineTo(x+(A.net?Math.sin(x)*bl*.3:0),gy+gh);c.stroke();}
+  for(let y=gy;y<=gy+gh;y+=12){c.beginPath();c.moveTo(gx,y);c.lineTo(gx+gw,y+(A.net?bl*.2:0));c.stroke();}
+  if(A.phase==="idle"||A.phase==="runup"){for(let z=0;z<3;z++){const p=zp(z);c.fillStyle="rgba(242,182,50,.18)";c.beginPath();c.arc(p.x,p.y,18,0,7);c.fill();c.strokeStyle="rgba(242,182,50,.8)";c.setLineDash([4,4]);c.beginPath();c.arc(p.x,p.y,18,0,7);c.stroke();c.setLineDash([]);
+    c.fillStyle="#f2b632";c.font="700 18px 'Barlow Condensed', sans-serif";c.fillText("ABC"[z],p.x,p.y+1);}}
+  else if(G.q){const p=zp(G.q.ans);c.strokeStyle="#3fcf7a";c.lineWidth=3;c.beginPath();c.arc(p.x,p.y,20,0,7);c.stroke();}
+  c.fillStyle="#f4f1ec";c.fillRect(gx-5,gy-5,gw+10,6);c.fillRect(gx-5,gy-5,6,gh+6);c.fillRect(gx+gw-1,gy-5,6,gh+6);
+  A.t+=dt;const now=performance.now();let kx=W/2+Math.sin(now/700)*gw*0.04,ky=gy+gh,dive=Math.sin(now/500)*0.05,up=0.2,bx=spX,by=spY,bs=1.3,kick=0;
+  if(A.phase==="runup"){kick=Math.min(1,A.t/0.45);if(A.t>=0.45){A.phase="shot";A.t=0;gzTone(200,.07,"square",.1);}}
+  if(A.phase==="shot"||A.phase==="result"){const k=Math.min(1,(A.phase==="shot"?A.t:9)/0.55),kz=zp(A.keeperZone),tz=zp(A.zone),kd=Math.min(1,k*1.3);
+    kx=W/2+(kz.x-W/2)*kd;dive=(A.keeperZone===0?-1:A.keeperZone===2?1:0)*1.1*kd;up=A.keeperZone===1?1:0.6;ky=gy+gh-(A.keeperZone===1?gh*0.25*kd:gh*0.1*kd);
+    const e=1-Math.pow(1-k,2);bx=spX+(tz.x-spX)*e;by=spY+(tz.y-spY)*e-Math.sin(k*Math.PI)*30;bs=1.3-0.6*e;if(!A.ok&&k>=1){bx=kz.x;by=kz.y-4;}
+    if(A.phase==="shot"&&k>=1){A.phase="result";A.t=0;gzSettle();
+      if(A.ok){A.crowd=1.8;A.net=0.9;gzTone(523,.15);setTimeout(()=>gzTone(659,.15),120);setTimeout(()=>gzTone(784,.3),240);gzBigText(A.fast?"TOP BIN!":"GOAL!",A.fast?"#f2b632":"#3fcf7a",A.fast?"+15 pts":"+10 pts");}
+      else{gzTone(140,.3,"sawtooth",.08);gzBigText("SAVED!","#ff5a5a","Answer: "+G.q.a);}}
+    if(A.phase==="result"&&A.t>2.1){$g("gzBig").classList.remove("show");A.phase="next";gzNext();}}
+  /* keeper */
+  c.save();c.translate(kx,ky);c.rotate(dive);c.scale(1.05,1.05);c.fillStyle="rgba(0,0,0,.25)";c.beginPath();c.ellipse(0,4,20,5,0,0,7);c.fill();
+  c.strokeStyle="#1b1b1b";c.lineWidth=6;c.lineCap="round";c.beginPath();c.moveTo(-5,-20);c.lineTo(-10,2);c.moveTo(5,-20);c.lineTo(10,2);c.stroke();
+  c.fillStyle="#f2b632";gzRR(-11,-48,22,30,6);c.fill();c.strokeStyle="#f2b632";c.lineWidth=6;c.beginPath();c.moveTo(-10,-44);c.lineTo(-24,-44-up*16);c.moveTo(10,-44);c.lineTo(24,-44-up*16);c.stroke();
+  c.fillStyle="#f4f1ec";c.beginPath();c.arc(-25,-45-up*16,5,0,7);c.arc(25,-45-up*16,5,0,7);c.fill();c.fillStyle="#c98d64";c.beginPath();c.arc(0,-56,8,0,7);c.fill();c.fillStyle="#222";c.fillRect(-8,-64,16,5);c.restore();
+  /* kicker */
+  c.save();c.translate(spX-30+kick*22,spY+42);c.scale(1.5,1.5);c.strokeStyle="#1b2a4a";c.lineWidth=5;c.lineCap="round";c.beginPath();c.moveTo(-4,-20);c.lineTo(-6,0);c.moveTo(4,-20);c.lineTo(6+kick*6,-kick*8);c.stroke();
+  c.fillStyle="#d3202f";gzRR(-9,-44,18,26,5);c.fill();c.fillStyle="#fff";c.font="700 10px 'Barlow Condensed', sans-serif";c.textAlign="center";c.fillText("10",0,-31);c.fillStyle="#2a1a10";c.beginPath();c.arc(0,-50,7,0,7);c.fill();c.restore();
+  c.fillStyle="rgba(0,0,0,.3)";c.beginPath();c.ellipse(bx,(A.phase==="idle"||A.phase==="runup")?by+9:by+10*bs,8*bs,2.5*bs,0,0,7);c.fill();
+  c.fillStyle="#f4f1ec";c.beginPath();c.arc(bx,by,9*bs,0,7);c.fill();c.fillStyle="#1b1b1b";c.beginPath();c.arc(bx,by,3.2*bs,0,7);c.fill();
+  for(let k=0;k<5;k++){const a=k*1.2566;c.beginPath();c.arc(bx+Math.cos(a)*6.5*bs,by+Math.sin(a)*6.5*bs,1.8*bs,0,7);c.fill();}
+  gzTimerPill(gy-34);}
+
+/* ---------- 🎬 topper celebration ---------- */
+const CB={};
+const CB_CAST=[
+  {role:"MD",suit:"#1d2440",tie:"#c8102e",skin:"#c98d64",hair:"#bfbfbf",say:"Outstanding work!",side:-1,slot:0.32},
+  {role:"GM",suit:"#3a3d46",tie:"#f4c04e",skin:"#b97a52",hair:"#2a1a10",say:"Thank you!",side:1,slot:0.88},
+  {role:"SOM",suit:"#24493a",tie:"#ffffff",skin:"#a86c48",hair:"#140c08",say:"Proud of you!",side:-1,slot:0.12},
+  {role:"CLUSTER",suit:"#5b2a3a",tie:"#f4c04e",skin:"#d3a07a",hair:"#1a1210",say:"Keep it up!",side:1,slot:0.70}];
+const CB_OPEN=1.4,CB_EACH=2.1,CB_START=2.0,CB_END=CB_START+CB_CAST.length*CB_EACH,CB_FIN=CB_END+2.6;
+function cbFaceImg(id,cb){const f=staffFace&&staffFace[id],p=staffPh&&staffPh[id];
+  const im=new Image();
+  if(f){im.onload=()=>cb(im);im.src=f;return;}
+  if(!p){cb(null);return;}
+  /* no saved face yet: guess the head from the upper middle of the photo */
+  im.onload=()=>{const c=document.createElement("canvas");c.width=c.height=160;const D=Math.min(im.width,im.height)*0.55,sx=im.width/2-D/2,sy=Math.max(0,im.height*0.27-D/2);c.getContext("2d").drawImage(im,sx,sy,D,D,0,0,160,160);cb(c);};im.src=p;}
+function openCelebration(info){
+  let o=document.getElementById("cbBox");
+  if(!o){o=document.createElement("div");o.id="cbBox";o.className="gzov cbov";document.body.appendChild(o);}
+  o.innerHTML=`<div class="gzapp" style="background:#2a1218"><canvas id="cbCv"></canvas>
+    <div class="cbcard" id="cbCard"><div class="c1">🎉 CONGRATULATIONS 🎉</div><div class="nm">${esc(info.name)}</div><div class="st">${esc(info.sub)}</div><div class="tg">TOP PERFORMER · ${esc(info.label)}</div></div>
+    <div class="cbbar"><button class="gzgo" id="cbReplay" style="font-size:16px;padding:10px 18px">▶ Replay</button>${canEdit()&&staffPh&&staffPh[info.id]?`<button class="gzbtn" id="cbFace">Fit face</button>`:""}<button class="gzbtn" id="cbClose">Close</button></div></div>`;
+  o.hidden=false;document.body.style.overflow="hidden";
+  Object.assign(CB,{on:true,info,face:null,t0:performance.now(),conf:[],shown:false,last:performance.now(),cv:o.querySelector("#cbCv")});CB.cx=CB.cv.getContext("2d");cbSize();
+  cbFaceImg(info.id,im=>{CB.face=im;});
+  o.querySelector("#cbReplay").onclick=()=>{CB.t0=performance.now();CB.conf=[];CB.shown=false;$g("cbCard").classList.remove("show");};
+  o.querySelector("#cbClose").onclick=()=>{CB.on=false;o.hidden=true;document.body.style.overflow="";};
+  const fb=o.querySelector("#cbFace");if(fb)fb.onclick=()=>faceCrop(staffPh[info.id],async d=>{await saveStaffFace(info.id,d);const im=new Image();im.onload=()=>{CB.face=im;CB.t0=performance.now();CB.conf=[];CB.shown=false;$g("cbCard").classList.remove("show");};im.src=d;});
+  cancelAnimationFrame(CB.raf);CB.raf=requestAnimationFrame(cbLoop);}
+function cbSize(){if(!CB.cv)return;const d=Math.min(2,devicePixelRatio||1),st=CB.cv.parentElement;CB.W=st.clientWidth;CB.H=st.clientHeight;CB.cv.width=CB.W*d;CB.cv.height=CB.H*d;CB.cx.setTransform(d,0,0,d,0,0);}
+addEventListener("resize",()=>{if(CB.on)cbSize();});
+const cbEase=k=>k<0?0:k>1?1:1-Math.pow(1-k,3);
+function cbRR(x,y,w,h,r){const c=CB.cx;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function cbCup(x,y,s){const c=CB.cx;c.save();c.translate(x,y);c.scale(s,s);c.fillStyle="#7a0a1c";c.fillRect(-14,14,28,8);c.fillStyle="#d9a32a";c.fillRect(-10,8,20,7);c.fillRect(-3,-2,6,11);
+  c.fillStyle="#f4c04e";c.beginPath();c.moveTo(-16,-28);c.lineTo(16,-28);c.quadraticCurveTo(15,-2,0,0);c.quadraticCurveTo(-15,-2,-16,-28);c.fill();
+  c.strokeStyle="#f4c04e";c.lineWidth=4;c.beginPath();c.arc(-17,-18,7,Math.PI*0.5,Math.PI*1.5);c.stroke();c.beginPath();c.arc(17,-18,7,-Math.PI*0.5,Math.PI*0.5);c.stroke();
+  c.fillStyle="rgba(255,255,255,.55)";c.fillRect(-10,-25,4,16);c.fillStyle="#c8102e";c.font="700 9px 'Barlow Condensed', sans-serif";c.textAlign="center";c.textBaseline="middle";c.fillText("#1",2,-15);c.restore();}
+function cbPerson(o){const c=CB.cx;const {x,y,s,body,tie,skin,hair,legs,walk,reach,dir,shake,label,face}=o;c.save();c.translate(x,y);c.scale(s,s);
+  c.fillStyle="rgba(0,0,0,.3)";c.beginPath();c.ellipse(0,2,26,6,0,0,7);c.fill();const sw=Math.sin(walk||0)*8;
+  c.strokeStyle=legs||"#1d2440";c.lineWidth=11;c.lineCap="round";c.beginPath();c.moveTo(-7,-48);c.lineTo(-8-sw,0);c.moveTo(7,-48);c.lineTo(8+sw,0);c.stroke();
+  c.fillStyle="#1a1a1a";c.beginPath();c.ellipse(-9-sw,1,9,4,0,0,7);c.ellipse(9+sw,1,9,4,0,0,7);c.fill();
+  c.fillStyle=body;cbRR(-20,-104,40,60,12);c.fill();
+  if(tie){c.fillStyle="#fff";c.beginPath();c.moveTo(-7,-104);c.lineTo(7,-104);c.lineTo(0,-92);c.fill();c.fillStyle=tie;c.beginPath();c.moveTo(-3,-97);c.lineTo(3,-97);c.lineTo(4,-70);c.lineTo(0,-64);c.lineTo(-4,-70);c.closePath();c.fill();}
+  if(o.tee){c.fillStyle="#fff";c.font="700 12px 'Barlow Condensed', sans-serif";c.textAlign="center";c.fillText("LEVI'S",0,-74);}
+  c.strokeStyle=body;c.lineWidth=10;const d=dir||1;c.beginPath();c.moveTo(-d*16,-96);c.lineTo(-d*20,-60);c.stroke();
+  const r=reach||0,sh=shake||0;let hx=d*(16+30*r),hy=-92+28*(1-r)+sh+(r>0.5?6:30*(1-r));
+  if(o.raise){const u=o.raise;hx=d*(16+8*u)+(1-u)*d*30;hy=-86-(70*u);}
+  c.beginPath();c.moveTo(d*16,-96);c.quadraticCurveTo(d*(18+14*r),-80-(o.raise?40*o.raise:0),hx,hy);c.stroke();
+  c.fillStyle=skin;c.beginPath();c.arc(-d*20,-58,5.5,0,7);c.arc(hx,hy,5.5,0,7);c.fill();if(o.holdCup)cbCup(hx,hy-4,0.85);
+  c.fillStyle=skin;c.fillRect(-5,-112,10,10);
+  if(face){const R=24,hy2=-134;c.save();c.beginPath();c.arc(0,hy2,R,0,7);c.closePath();c.clip();
+    if(face.img){const im=face.img,iw=im.width,ih=im.height,sc=Math.max(2*R/iw,2*R/ih);c.drawImage(im,-iw*sc/2,hy2-ih*sc/2,iw*sc,ih*sc);}
+    else{c.fillStyle="#e4c9a8";c.fillRect(-R,hy2-R,2*R,2*R);c.fillStyle="#7a0a1c";c.font="700 20px 'Barlow Condensed', sans-serif";c.textAlign="center";c.textBaseline="middle";c.fillText(face.ini,0,hy2+1);}
+    c.restore();c.strokeStyle="#f4c04e";c.lineWidth=4;c.beginPath();c.arc(0,hy2,R+1,0,7);c.stroke();}
+  else{c.fillStyle=skin;c.beginPath();c.arc(0,-126,17,0,7);c.fill();c.fillStyle=hair;c.beginPath();c.arc(0,-131,17,Math.PI*1.05,Math.PI*1.95);c.fill();
+    c.fillStyle="#1a1a1a";c.beginPath();c.arc(-6,-126,2,0,7);c.arc(6,-126,2,0,7);c.fill();c.strokeStyle="#5a2a1a";c.lineWidth=2;c.beginPath();c.arc(0,-121,6,0.2,Math.PI-0.2);c.stroke();}
+  if(label){c.font="700 12px 'Barlow Condensed', sans-serif";const tw=c.measureText(label).width+14;c.fillStyle="rgba(23,11,16,.85)";cbRR(-tw/2,-176,tw,18,9);c.fill();c.fillStyle="#f4c04e";c.textAlign="center";c.textBaseline="middle";c.fillText(label,0,-166.5);}
+  c.restore();}
+function cbBubble(x,y,text,a){if(a<=0)return;const c=CB.cx;c.save();c.globalAlpha=Math.min(1,a);c.font="800 15px Barlow, sans-serif";const tw=c.measureText(text).width+22,h=30;
+  const bx=Math.max(8,Math.min(CB.W-tw-8,x-tw/2));c.fillStyle="#fff8ec";cbRR(bx,y-h,tw,h,14);c.fill();c.beginPath();c.moveTo(x-6,y-1);c.lineTo(x+6,y-1);c.lineTo(x,y+9);c.fill();
+  c.fillStyle="#2a1218";c.textAlign="center";c.textBaseline="middle";c.fillText(text,bx+tw/2,y-h/2);c.restore();}
+function cbLoop(now){if(!CB.on)return;const dt=Math.min(.05,(now-CB.last)/1000);CB.last=now;const t=(now-CB.t0)/1000;try{cbScene(t,dt);}catch(e){}CB.raf=requestAnimationFrame(cbLoop);}
+function cbScene(t,dt){const c=CB.cx,W=CB.W,H=CB.H,floor=H*0.56,S=Math.min(1.15,W/360),info=CB.info;
+  const g=c.createLinearGradient(0,0,0,floor);g.addColorStop(0,"#170b10");g.addColorStop(1,"#3a1620");c.fillStyle=g;c.fillRect(0,0,W,H);
+  for(let i=0;i<5;i++){c.fillStyle="rgba(244,192,78,.05)";c.beginPath();const x=W*(0.1+i*0.2);c.moveTo(x-6,0);c.lineTo(x+6,0);c.lineTo(x+70+Math.sin(t+i)*20,floor);c.lineTo(x-70+Math.sin(t+i)*20,floor);c.fill();}
+  const fg=c.createLinearGradient(0,floor,0,H);fg.addColorStop(0,"#5a2a1c");fg.addColorStop(1,"#2a120c");c.fillStyle=fg;c.fillRect(0,floor,W,H-floor);
+  const sp=c.createRadialGradient(W/2,floor,10,W/2,floor,W*0.45);sp.addColorStop(0,"rgba(255,236,190,.35)");sp.addColorStop(1,"rgba(255,236,190,0)");c.fillStyle=sp;c.beginPath();c.ellipse(W/2,floor+6,W*0.45,40,0,0,7);c.fill();
+  const bk=cbEase((t-0.3)/0.8),by=-60+bk*(H*0.12+60);c.fillStyle="#c8102e";cbRR(W*0.08,by,W*0.84,46,8);c.fill();c.fillStyle="#7a0a1c";c.fillRect(W*0.08+6,by+40,W*0.84-12,6);
+  {const bt=(state.storeName||"LEVI'S PMC").toUpperCase()+" · TOP PERFORMER";let fs=24;c.font="700 "+fs+"px 'Barlow Condensed', sans-serif";while(fs>12&&c.measureText(bt).width>W*0.76){fs--;c.font="700 "+fs+"px 'Barlow Condensed', sans-serif";}
+  c.fillStyle="#fff";c.textAlign="center";c.textBaseline="middle";c.fillText(bt,W/2,by+21);}
+  c.strokeStyle="#f4c04e";c.lineWidth=2;c.beginPath();c.moveTo(W*0.18,by);c.lineTo(W*0.18,0);c.moveTo(W*0.82,by);c.lineTo(W*0.82,0);c.stroke();
+  const backY=floor-26,backS=0.72*S;
+  CB_CAST.forEach((p,i)=>{const ts=CB_START+i*CB_EACH;if(t<ts+CB_EACH*0.8)return;if(i===0&&t>=CB_END)return;const k=cbEase((t-(ts+CB_EACH*0.8))/0.5);const sx=W/2+p.side*70*S,tx=W*p.slot;
+    cbPerson({x:sx+(tx-sx)*k,y:(floor+6)+(backY-floor-6)*k,s:S*(1-(1-backS/S)*k),body:p.suit,tie:p.tie,legs:"#1d2440",skin:p.skin,hair:p.hair,walk:k<1?t*12:0,dir:-p.side,label:p.role});});
+  const pk=cbEase((t-1.0)/0.6),cur=CB_CAST.findIndex((p,i)=>t>=CB_START+i*CB_EACH&&t<CB_START+i*CB_EACH+CB_EACH*0.8);
+  let tReach=0,tDir=1,tShake=0;if(cur>=0){const lt=t-(CB_START+cur*CB_EACH);tDir=CB_CAST[cur].side;tReach=cbEase((lt-0.7)/0.25)*(lt<CB_EACH*0.75?1:0);tShake=lt>0.95&&lt<1.5?Math.sin(lt*40)*4:0;}
+  const jump=t>CB_FIN?Math.abs(Math.sin((t-CB_FIN)*5))*10*Math.max(0,1-(t-CB_FIN)/3):0;const lc=t-CB_END;let tRaise=0,tHold=false;
+  if(lc>=0){tDir=-1;if(lc>0.9&&lc<1.5)tReach=cbEase((lc-0.9)/0.25);if(lc>=1.5){tHold=true;tReach=0;tRaise=cbEase((lc-1.5)/0.4);}}
+  if(pk>0){c.save();c.globalAlpha=pk;cbPerson({x:W/2,y:floor+6-jump,s:S*(0.85+0.15*pk),body:"#c8102e",tee:true,legs:"#2f5fa8",skin:"#c98d64",face:{img:CB.face,ini:String(info.name).split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase()},dir:tDir,reach:tReach,shake:tShake,raise:tRaise,holdCup:tHold});c.restore();}
+  if(lc>=0){const p=CB_CAST[0],k=cbEase(lc/0.9),fx=W*p.slot,mx=W/2-72*S;
+    cbPerson({x:fx+(mx-fx)*k,y:backY+(floor+6-backY)*k,s:S*(backS/S+(1-backS/S)*k),body:p.suit,tie:p.tie,legs:"#1d2440",skin:p.skin,hair:p.hair,walk:k<1?lc*12:0,dir:1,label:p.role,reach:lc>0.9&&lc<1.5?cbEase((lc-0.9)/0.25):0,holdCup:lc<1.5});
+    cbBubble(mx,floor-190*S,"Congratulations!",lc>0.9?Math.min(1,(lc-0.9)*4):0);}
+  if(cur>=0){const p=CB_CAST[cur],lt=t-(CB_START+cur*CB_EACH),st=p.side<0?-60:W+60,mx=W/2+p.side*70*S,k=cbEase(lt/0.75);
+    cbPerson({x:st+(mx-st)*k,y:floor+6,s:S,body:p.suit,tie:p.tie,legs:"#1d2440",skin:p.skin,hair:p.hair,walk:k<1?lt*12:0,dir:-p.side,reach:cbEase((lt-0.7)/0.25)*(lt<CB_EACH*0.75?1:0),shake:lt>0.95&&lt<1.5?Math.sin(lt*40)*4:0,label:p.role});
+    if(lt>0.95&&lt<1.55){c.font="28px sans-serif";c.textAlign="center";c.fillText("🤝",W/2+p.side*35*S,floor-110*S-8*Math.sin(lt*10));}
+    cbBubble(mx,floor-190*S,p.say,lt>0.8?Math.min(1,(lt-0.8)*4)*(lt<CB_EACH*0.8?1:0):0);}
+  if(t>CB_FIN-0.6&&CB.conf.length<180)for(let i=0;i<6;i++)CB.conf.push({x:Math.random()*W,y:-10,vx:(Math.random()-.5)*60,vy:80+Math.random()*120,r:Math.random()*6,c:["#c8102e","#f4c04e","#fff8ec","#4aa3ff","#3fcf7a"][Math.random()*5|0],w:4+Math.random()*5});
+  if(!CB.shown&&t>CB_FIN){CB.shown=true;$g("cbCard").classList.add("show");}
+  const ck=cbEase(t/CB_OPEN),cw=W/2*(1-ck);
+  if(cw>1)for(const side of[-1,1]){const x0=side<0?0:W-cw;const gr=c.createLinearGradient(x0,0,x0+cw,0);gr.addColorStop(0,"#7a0a1c");gr.addColorStop(.5,"#c8102e");gr.addColorStop(1,"#7a0a1c");c.fillStyle=gr;c.fillRect(x0,0,cw,H);}
+  CB.conf.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.r+=dt*6;c.save();c.translate(p.x,p.y);c.rotate(p.r);c.fillStyle=p.c;c.fillRect(-p.w/2,-2,p.w,4);c.restore();});CB.conf=CB.conf.filter(p=>p.y<H+20);}
+
+/* ---------- face fit (manager): drag + zoom so only the head is in the circle ---------- */
+function faceCrop(src,done){const o=gzOverlay("faceBox");
+  o.innerHTML=`<div class="dialog" style="max-width:360px;text-align:center"><h2 style="margin:0 0 6px">Fit the face in the circle</h2><p class="hint" style="margin:0 0 10px">Drag the photo and zoom so only the head is inside the gold circle.</p>
+    <canvas id="fcCv" width="600" height="600" style="width:100%;max-width:300px;aspect-ratio:1;border-radius:14px;touch-action:none;background:#000"></canvas>
+    <label class="f" for="fcZoom">Zoom</label><input type="range" id="fcZoom" min="1" max="6" step="0.01" style="width:100%">
+    <div class="actions"><button class="btn small primary" id="fcOk" style="flex:1">Use this face</button><button class="btn small" id="fcSkip">Skip</button></div></div>`;
+  o.hidden=false;const cv=o.querySelector("#fcCv"),x=cv.getContext("2d"),im=new Image();let z=2,ox=0,oy=0,drag=null;
+  const base=()=>Math.max(600/im.width,600/im.height);
+  const draw=()=>{const sc=base()*z;x.fillStyle="#000";x.fillRect(0,0,600,600);x.drawImage(im,300-ox*sc,300-oy*sc,im.width*sc,im.height*sc);
+    x.save();x.fillStyle="rgba(0,0,0,.6)";x.beginPath();x.rect(0,0,600,600);x.arc(300,300,190,0,Math.PI*2,true);x.fill("evenodd");x.restore();x.strokeStyle="#f4c04e";x.lineWidth=8;x.beginPath();x.arc(300,300,190,0,7);x.stroke();};
+  im.onload=()=>{ox=im.width/2;oy=im.height*0.27;z=Math.min(6,Math.max(1,(380/(Math.min(im.width,im.height)*0.5))/base()));o.querySelector("#fcZoom").value=z;draw();};im.src=src;
+  o.querySelector("#fcZoom").oninput=e=>{z=+e.target.value;draw();};
+  cv.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY,ox,oy};cv.setPointerCapture(e.pointerId);};
+  cv.onpointermove=e=>{if(!drag)return;const k=600/cv.getBoundingClientRect().width/(base()*z);ox=drag.ox-(e.clientX-drag.x)*k;oy=drag.oy-(e.clientY-drag.y)*k;draw();};
+  cv.onpointerup=()=>{drag=null;};
+  o.querySelector("#fcSkip").onclick=()=>{o.hidden=true;};
+  o.querySelector("#fcOk").onclick=()=>{const out=document.createElement("canvas");out.width=out.height=160;const sc=base()*z*(160/380);out.getContext("2d").drawImage(im,80-ox*sc,80-oy*sc,im.width*sc,im.height*sc);o.hidden=true;done(out.toDataURL("image/jpeg",.85));};}
+async function saveStaffFace(id,d){try{await fsSet("staffphotos",{face:{[id]:d}},true);staffFace=staffFace||{};staffFace[id]=d;toast("Face saved ✓");}catch(e){toast("Could not save: "+(e.message||e));}}
+
+/* clicks for everything above; returns true when handled */
+function gzClick(t){const d=t.dataset;
+  if(d.gzplay){gzStart(d.gzplay);return true;}
+  if(d.gzlike){gzToggleLike(d.gzlike);return true;}
+  if(d.gzseldel){askConfirm("Delete this winner post?","Delete",()=>gzDelSelfie(d.gzseldel));return true;}
+  if(d.gzselfie){gzOpenSelfie(d.gzselfie);return true;}
+  if(d.gzlater){gz.dismiss[d.gzlater]=1;render();return true;}
+  if(d.gzwall){ui.trnPage="games";go("learn");return true;}
+  if(d.gzgames){ui.trnPage="games";go("learn");return true;}
+  if(d.celeb){openCelebration(window.__topper||{});return true;}
+  return false;}
+
 /* ---------- in-app uploads (manager): training seasons + PC9 photos, saved in the database ---------- */
 async function fsGet(id){let d=null;try{const r=localStorage.getItem("store-perf-doc-"+id);if(r)d=JSON.parse(r);}catch(e){}
   if(col){try{const s=await col.doc(id).get();if(s.exists)d=JSON.parse(JSON.stringify(s.data()));}catch(e){}}return d;}
 async function fsSet(id,d,merge){
-  if(!col){let o=d;if(merge){const old=await fsGet(id)||{};o={...old,...d};if(d.img)o.img={...(old.img||{}),...d.img};}
+  if(!col){let o=d;if(merge){const old=await fsGet(id)||{};o={...old,...d};if(d.img)o.img={...(old.img||{}),...d.img};if(d.face)o.face={...(old.face||{}),...d.face};}
     try{localStorage.setItem("store-perf-doc-"+id,JSON.stringify(o));}catch(e){throw new Error("Phone storage is full");}return;}
   await col.doc(id).set(d,merge?{merge:true}:undefined);}
 async function fsDel(id){try{localStorage.removeItem("store-perf-doc-"+id);}catch(e){}if(col)await col.doc(id).delete().catch(()=>{});}
@@ -3173,6 +3637,7 @@ async function exportCsv(){
 
 document.addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;
+  if(gzClick(t))return;
   switch(t.id){
     case "gJoin":joinStaff();return;
     case "gAdmin":adminLogin();return;

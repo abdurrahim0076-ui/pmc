@@ -381,6 +381,7 @@ details.fold.sub>summary .farrow{background:var(--surface)}
 .sctop{display:flex;gap:12px;align-items:center}.sctop img,.scnoimg{width:76px;height:76px;border-radius:12px;object-fit:cover;background:var(--soft);display:grid;place-items:center;font-size:30px;flex:none}
 .sclist{display:grid;margin-top:12px;border-top:1px solid var(--line)}.sclist>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line)}.sclist b{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:22px;font-variant-numeric:tabular-nums}
 .scstat{border-radius:999px;padding:0 12px}.scstat.up{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}.scstat.warn{background:color-mix(in srgb,var(--thread) 22%,transparent);color:var(--thread)}.scstat.down{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.scq{font-family:Barlow,sans-serif;font-size:14px;font-weight:600;margin-right:10px}
 .scpc{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:24px}
 @media (prefers-reduced-motion:reduce){.gzbig,.cbcard{transition:none}}
 </style>
@@ -3131,11 +3132,10 @@ function viewWinPrompt(){const P=gzPendingWin();if(!P)return "";
   return `<section class="block gzwin"><h2>🏆 You won ${P.back===1?"yesterday":"on "+esc(shortDate(P.iso))}, ${esc(String(P.w.name||"").split(" ")[0])}!</h2>
     <p style="margin:0 0 10px">Top scorer · ${P.w.game==="football"?"⚽ Football":"🏏 Cricket"} · ${full(P.w.pts)} pts. Post your winner selfie for the team.</p>
     <div class="actions"><button class="btn small primary" data-gzselfie="${P.iso}">📷 Take selfie</button><button class="btn small" data-gzlater="${P.iso}">Later</button></div></section>`;}
-function viewGzDash(){const wk=weekOfDate(new Date()),B=gzBoard(wk);gzLoadSelfies();
+function viewGzDash(){gzLoadSelfies();
   const lim=isoOf(new Date(Date.now()-3*864e5));const top=gz.sf&&gz.sf.find(p=>p.date>=lim);
   let h=viewWinPrompt();
   if(top)h+=`<button class="gzstrip" data-gzwall="1"><img src="${top.img}" alt=""><span><small>Game winner · ${esc(shortDate(top.date))}</small><b>${esc(top.name)}</b><small>${esc(top.label||"")}</small></span><span class="gzlk">❤️ ${(top.likes||[]).length}</span></button>`;
-  if(B&&B.length)h+=`<section class="block"><h2>🎮 Game leaders · ${esc(mShort(wk))}</h2><ul class="rank">${B.slice(0,3).map(gzRow).join("")}</ul><div class="actions"><button class="btn small" data-gzwall="1">See all</button></div></section>`;
   return h;}
 
 /* ---------- selfie post ---------- */
@@ -3460,13 +3460,14 @@ function scShow(pc){clearInterval(SC.poll);SC.poll=0;SC.pc=pc;const inp=document
     if(!D){el.innerHTML=`<div class="empty">Loading…</div>`;return;}
     const img=pcImg(pc),me=D.me,any=me||D.week||D.month||D.season;
     const v=x=>x===undefined?"…":x===false||!x||!isFinite(x.st)?"–":pct(x.st,1);
+    const q=x=>x&&x!==false?`<small class="muted scq">${full(x.sale)} sold</small>`:"";
     const stat=me&&me.stat?String(me.stat):"",sl=/fast/i.test(stat)?["Fast","up"]:/avg|average/i.test(stat)?["Avg","warn"]:stat?["Slow","down"]:["–",""];
     el.innerHTML=`<section class="sccard"><div class="sctop">${img?`<img src="${img}" alt="${esc(pc)}">`:`<div class="scnoimg">👖</div>`}
       <div style="min-width:0"><b class="scpc">${esc(pc)}</b><div class="muted">${any?esc([GC_NAMES[any.gc]||any.gc,any.brick].filter(Boolean).join(" · ")):"Not in the ST report"}</div></div></div>
       ${any?`<div class="sclist">
-        <div><span>ST% Week <small class="muted">${D.wkUsed?esc(mShort(D.wkUsed)):""}</small></span><b>${v(D.week)}</b></div>
-        <div><span>ST% Month <small class="muted">${esc(mShort(D.cm))}</small></span><b>${v(D.month)}</b></div>
-        <div><span>ST% ${esc(D.half)}</span><b>${v(D.season)}</b></div>
+        <div><span>ST% Week <small class="muted">${D.wkUsed?esc(mShort(D.wkUsed)):""}</small></span><b>${q(D.week)}${v(D.week)}</b></div>
+        <div><span>ST% Month <small class="muted">${esc(mShort(D.cm))}</small></span><b>${q(D.month)}${v(D.month)}</b></div>
+        <div><span>ST% ${esc(D.half)}</span><b>${q(D.season)}${v(D.season)}</b></div>
         <div><span>SOH</span><b>${me?full(me.soh)+" QTY":"–"}</b></div>
         <div><span>Status</span><b class="scstat ${sl[1]}">${sl[0]}</b></div></div>
         ${D.pend?`<p class="hint">Loading…</p>`:""}`:`<div class="empty">No ST data for this PC9 yet.</div>`}</section>`;

@@ -375,6 +375,15 @@ details.fold.sub>summary .farrow{background:var(--surface)}
 .cbcard .st{font-weight:700;font-size:16px;color:#d9c3b3;margin-top:6px}
 .cbcard .tg{display:inline-block;margin-top:10px;background:#c8102e;color:#fff;font-weight:800;font-size:13px;letter-spacing:.06em;border-radius:999px;padding:4px 12px}
 .cbbar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:10px;justify-content:center;padding:12px 16px max(16px,env(safe-area-inset-bottom,0px))}
+.scdlg{max-width:440px;max-height:92vh;overflow-y:auto;padding:14px}
+.schead{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
+.scvid{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:4/3}
+.scvid video{width:100%;height:100%;object-fit:cover;display:block}
+.scguide{position:absolute;left:12%;right:12%;top:35%;bottom:35%;border:3px solid var(--thread);border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+.scmsg{position:absolute;left:0;right:0;bottom:8px;margin:0;text-align:center;color:#fff;font-weight:700;font-size:14px;text-shadow:0 1px 3px #000}
+.sccard{margin-top:12px;border:2px solid var(--line);border-radius:14px;padding:12px}
+.sctop{display:flex;gap:12px;align-items:center}.sctop img,.scnoimg{width:76px;height:76px;border-radius:12px;object-fit:cover;background:var(--soft);display:grid;place-items:center;font-size:30px;flex:none}
+.scpc{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:24px}
 @media (prefers-reduced-motion:reduce){.gzbig,.cbcard{transition:none}}
 </style>
 </head>
@@ -1037,7 +1046,7 @@ function viewHome(){
   if(isWeek(k)){withYtdTarget(y,k);if(isYtd())withYtdTarget(m,k);}
   const has=isYtd()?m.sales>0:!!rec(k);
   const fill=Math.max(0,Math.min(1,isFinite(m.ach)?m.ach:0));
-  let h=viewLeaders()+snagAlert()+`<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small" data-repday="dash">📲 Daily report</button><button class="btn small" data-teamopen="1">👥 Team photo</button></div>`;
+  let h=viewLeaders()+snagAlert()+`<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small" data-scan="1">📷 Scan product</button><button class="btn small" data-repday="dash">📲 Daily report</button><button class="btn small" data-teamopen="1">👥 Team photo</button></div>`;
   if(!has){
     h+=`<div class="hero"><div class="lbl">${esc(isYtd()?ytdLabel():mLong(k))}</div><div class="big">No sales yet</div>
       <div class="of">Add this month's numbers to see KPIs and L2L.</div>
@@ -3411,7 +3420,93 @@ function gzClick(t){const d=t.dataset;
   if(d.gzwall){ui.trnPage="games";go("learn");return true;}
   if(d.gzgames){ui.trnPage="games";go("learn");return true;}
   if(d.celeb){openCelebration(window.__topper||{});return true;}
+  if(d.scan){scOpen();return true;}
   return false;}
+
+/* ========== 📷 product scan: PC9 barcode → ST% (week, month, season), sold QTY, SOH, wall ========== */
+const SC={stream:null,timer:0,det:null,zx:null,poll:0,pc:""};
+function scNorm(s){const a=String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");return a.length>=9?a.slice(0,5)+"-"+a.slice(5,9):"";}
+function scKnown(){const s=new Set();if(stRep&&stRep.rows)stRep.rows.forEach(r=>s.add(r[0]));
+  Object.keys(mixCache).forEach(w=>{const D=mixCache[w]&&mixCache[w].days||{};Object.keys(D).forEach(d=>Object.keys(D[d].p||{}).forEach(pc=>s.add(pc)));});return s;}
+/* the barcode may hold the PC9 with or without the dash, sometimes with size digits after it */
+function scPcFromCode(txt){const a=String(txt||"").toUpperCase().replace(/[^A-Z0-9]/g,"");if(a.length<9)return "";const K=scKnown();
+  for(let i=0;i+9<=a.length;i++){const c=a.slice(i,i+5)+"-"+a.slice(i+5,i+9);if(K.has(c))return c;}
+  const m=String(txt).toUpperCase().match(/([A-Z0-9]{5})-?(\d{4})/);return m?m[1]+"-"+m[2]:scNorm(a);}
+function scStopCam(){clearInterval(SC.timer);SC.timer=0;try{SC.zx&&SC.zx.reset&&SC.zx.reset();}catch(e){}SC.zx=null;
+  if(SC.stream){SC.stream.getTracks().forEach(t=>t.stop());SC.stream=null;}}
+function scClose(){scStopCam();clearInterval(SC.poll);SC.poll=0;const o=document.getElementById("scBox");if(o)o.hidden=true;}
+function scLoadZx(){return new Promise((res,rej)=>{if(window.ZXing)return res();const s=document.createElement("script");
+  s.src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js";s.onload=()=>window.ZXing?res():rej();s.onerror=rej;document.head.appendChild(s);});}
+function scOpen(){
+  if(!stLoaded)loadStRep().then(()=>{});loadPcImgs();loadWallMap();
+  const o=gzOverlay("scBox");
+  o.innerHTML=`<div class="dialog scdlg"><div class="schead"><h2 style="margin:0">📷 Scan product</h2><button class="btn small" id="scX" aria-label="Close">✕</button></div>
+    <div class="scvid"><video id="scVid" playsinline muted autoplay></video><div class="scguide"></div><p class="scmsg" id="scMsg">Starting camera…</p></div>
+    <label class="f" for="scIn">Or type the PC9</label><input type="text" id="scIn" placeholder="e.g. 00501-0193" autocomplete="off" autocapitalize="characters">
+    <div class="chips" id="scSug" style="margin:6px 0 0"></div><div id="scCard"></div></div>`;
+  o.hidden=false;
+  o.querySelector("#scX").onclick=scClose;
+  o.addEventListener("click",e=>{if(e.target===o)scClose();});
+  const inp=o.querySelector("#scIn");
+  inp.oninput=()=>{const q=inp.value.toUpperCase().replace(/[^A-Z0-9]/g,"");const box=o.querySelector("#scSug");
+    if(q.length<3){box.innerHTML="";return;}const list=[...scKnown()].filter(pc=>pc.replace("-","").startsWith(q)).sort().slice(0,8);
+    box.innerHTML=list.map(pc=>`<button data-scpc="${esc(pc)}">${esc(pc)}</button>`).join("")||`<span class="muted" style="font-size:13px">No PC9 starts with ${esc(q)}</span>`;
+    if(q.length>=9){const pc=scNorm(q);if(list.includes(pc))scShow(pc);}};
+  inp.onkeydown=e=>{if(e.key==="Enter"){const pc=scNorm(inp.value);if(pc)scShow(pc);}};
+  o.querySelector("#scSug").onclick=e=>{const b=e.target.closest("[data-scpc]");if(b)scShow(b.dataset.scpc);};
+  scStartCam();}
+async function scStartCam(){const msg=t=>{const m=document.getElementById("scMsg");if(m)m.textContent=t;};const v=document.getElementById("scVid");
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){msg("Camera not available. Type the PC9 below.");return;}
+  try{
+    if("BarcodeDetector" in window){
+      SC.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});v.srcObject=SC.stream;await v.play().catch(()=>{});
+      let fm=["code_128","code_39","ean_13","ean_8","upc_a","upc_e","itf","qr_code","data_matrix"];try{const sup=await BarcodeDetector.getSupportedFormats();fm=fm.filter(f=>sup.includes(f));}catch(e){}
+      SC.det=new BarcodeDetector({formats:fm});msg("Point at the PC9 barcode on the tag");
+      SC.timer=setInterval(async()=>{if(!SC.stream||v.readyState<2)return;try{const r=await SC.det.detect(v);if(r&&r.length)scGot(r[0].rawValue);}catch(e){}},250);
+    }else{
+      msg("Loading scanner…");await scLoadZx();
+      const hints=new Map();SC.zx=new ZXing.BrowserMultiFormatReader(hints,300);msg("Point at the PC9 barcode on the tag");
+      await SC.zx.decodeFromConstraints({video:{facingMode:{ideal:"environment"}},audio:false},v,(res)=>{if(res)scGot(res.getText());});
+      SC.stream=v.srcObject;}
+  }catch(e){msg(/denied|notallowed|permission/i.test(String(e&&(e.name||e.message)))?"Camera permission is off. Allow camera for this site, or type the PC9 below.":"Could not start the camera. Type the PC9 below.");}}
+function scGot(txt){const pc=scPcFromCode(txt);if(!pc||pc===SC.pc)return;try{navigator.vibrate&&navigator.vibrate(60);}catch(e){}scShow(pc);}
+/* ST for one PC9 over a built report: null = still loading */
+function scRow(R,pc){if(!R||!R.rep)return undefined;const r=R.rep.rows.find(x=>x[0]===pc);return r?stObj(r):false;}
+function scData(pc){
+  if(!stLoaded){loadStRep().then(()=>{});return null;}
+  const W=stAllWeeks(),now=new Date(),nowWk=weekOfDate(now);let pend=false;
+  let week=null,wkUsed="";
+  for(let b=0;b<5;b++){const wk=stepKey(nowWk,-b);const r=stWeekBuild(wk,W);if(r===null){pend=true;break;}if(r.rep){week=r;wkUsed=wk;break;}}
+  const cm=monthOfDate(now),[ma,mb]=fmRange(cm);let month=stX24Build(ma,mb,weekOfDate(mb>now?now:mb));
+  if(month===null)pend=true;else if(!month.rep){month=Object.keys(W).length?stPeriodRep(cm,"month",W):null;if(month===null&&Object.keys(W).length)pend=true;}
+  const fy=fyOf(nowWk),half=weekNo(nowWk)<=26?"H1":"H2";const season=Object.keys(W).length?stPeriodRep(fy+"-"+half,"half",W):{none:true};if(season===null)pend=true;
+  const latest=stRep&&stRep.rows?stRep.rows.map(stObj):[];const me=latest.find(r=>r.pc===pc);const totSoh=latest.reduce((s,r)=>s+r.soh,0);
+  return {pend,cm,week:scRow(week,pc),wkUsed,month:scRow(month,pc),season:scRow(season,pc),half,me,totSoh,stDate:stRep&&stRep.date};}
+function scWall(pc,me){const G=wallGroups(),WM=wallMap||{pc:{},br:{}},byName=n=>G.find(g=>g.name.trim().toUpperCase()===String(n).trim().toUpperCase())||null;
+  if(WM.pc[pc]&&byName(WM.pc[pc]))return byName(WM.pc[pc]);if(!me)return null;
+  const br=String(me.brick||"").toUpperCase();if(WM.br[br]&&byName(WM.br[br]))return byName(WM.br[br]);
+  const cat={MB:"MENS BOTTOMS",MT:"MENS TOPS",WB:"WOMENS BOTTOMS",WT:"WOMENS TOPS"}[me.gc]||"";return wallOf(cat,br,G);}
+function scShow(pc){clearInterval(SC.poll);SC.poll=0;SC.pc=pc;const inp=document.getElementById("scIn");if(inp&&inp.value!==pc)inp.value=pc;
+  const box=document.getElementById("scCard");if(!box)return;
+  const D=scData(pc);
+  const draw=()=>{const D=scData(pc);const el=document.getElementById("scCard");if(!el)return;
+    if(!D){el.innerHTML=`<div class="empty">Loading…</div>`;return;}
+    const img=pcImg(pc),me=D.me,anyRow=D.week||D.month||D.season||me;
+    const kv=(l,x,sub)=>`<div class="kv"><span>${l}</span><b>${x===undefined?"…":x===false||!x||!isFinite(x.st)?"–":pct(x.st,1)}</b><small class="muted">${x&&x!==false?full(x.sale)+" sold":sub||""}</small></div>`;
+    const wall=scWall(pc,me||D.week||D.month||D.season);
+    el.innerHTML=`<section class="sccard"><div class="sctop">${img?`<img src="${img}" alt="${esc(pc)}">`:`<div class="scnoimg">👖</div>`}
+      <div><b class="scpc">${esc(pc)}</b><div class="muted">${anyRow?esc([GC_NAMES[(anyRow.gc)]||anyRow.gc,anyRow.brick,anyRow.fit].filter(Boolean).join(" · ")):"Not in the ST report or X24"}</div>
+      ${me&&me.stat?`<span class="badge">${esc(me.stat)}</span>`:""}${me&&me.mrp?` <span class="muted">MRP ${inr(me.mrp)}</span>`:""}</div></div>
+      ${anyRow?`<div class="grid" style="margin-top:10px">${kv("ST% · "+(D.wkUsed?mShort(D.wkUsed):"Week"),D.week)}${kv("ST% · "+mShort(D.cm),D.month)}${kv("ST% · "+D.half,D.season)}
+        <div class="kv"><span>SOH</span><b>${me?full(me.soh):"–"}</b><small class="muted">QTY in store</small></div>
+        <div class="kv"><span>SOH%</span><b>${me&&D.totSoh?pct(me.soh/D.totSoh,2):"–"}</b><small class="muted">of ${full(D.totSoh)} QTY</small></div>
+        <div class="kv"><span>Wall</span><b style="font-size:18px">${wall?esc(wall.name):"–"}</b></div></div>
+        <p class="hint" style="margin-top:8px">Same ST% as the ST% page. SOH from the ST report${D.stDate?" of "+esc(shortDate(D.stDate)):""}.${D.pend?" Loading more…":""}</p>`
+      :`<div class="empty">No ST or sales data for this PC9 yet.</div>`}
+      <div class="actions"><button class="btn small primary" id="scNext" style="flex:1">📷 Scan next</button></div></section>`;
+    const nx=document.getElementById("scNext");if(nx)nx.onclick=()=>{SC.pc="";const i=document.getElementById("scIn");if(i)i.value="";el.innerHTML="";document.getElementById("scSug").innerHTML="";const v=document.getElementById("scVid");if(v&&v.scrollIntoView)v.scrollIntoView({block:"nearest"});};
+    if(D.pend&&!SC.poll)SC.poll=setInterval(()=>{const d=scData(SC.pc);draw();if(d&&!d.pend){clearInterval(SC.poll);SC.poll=0;}},700);};
+  draw();if(box.scrollIntoView)box.scrollIntoView({block:"nearest",behavior:"smooth"});}
 
 /* ---------- in-app uploads (manager): training seasons + PC9 photos, saved in the database ---------- */
 async function fsGet(id){let d=null;try{const r=localStorage.getItem("store-perf-doc-"+id);if(r)d=JSON.parse(r);}catch(e){}
@@ -3534,7 +3629,7 @@ function render(){
   header();
   if(!lyLoaded&&!lyLoading){lyLoading=true;loadLy().then(()=>{lyLoading=false;render();});}
   document.getElementById("periodWrap").style.display = (ui.tab==="daily"||ui.tab==="st"||ui.tab==="learn")?"none":"";
-  if(ui.tab==="st"){v.innerHTML=viewStRep();return;}
+  if(ui.tab==="st"){v.innerHTML=`<div class="actions" style="margin:0 0 8px;justify-content:flex-end"><button class="btn small primary" data-scan="1">📷 Scan product</button></div>`+viewStRep();return;}
   if(ui.tab==="learn"){v.innerHTML=viewLearn();return;}
   if(ui.tab==="daily") ensureDay();
   else if(!weeksReady()){ensureWeeks();v.innerHTML='<div class="empty">Loading…</div>';return;}

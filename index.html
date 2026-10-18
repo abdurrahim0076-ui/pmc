@@ -662,6 +662,7 @@ function normalize(d){
           wowLevels: Array.isArray(d.wowLevels)?d.wowLevels:null,
           chkAccess: Array.isArray(d.chkAccess)?d.chkAccess:[],
           stars: d.stars&&typeof d.stars==="object"?d.stars:{},
+          sohHist: Array.isArray(d.sohHist)?d.sohHist:[],
           wallTotal: num(d.wallTotal)||42,
           gsa: num(d.gsa)||5965,
           support: Array.isArray(d.support)?d.support:null,
@@ -1241,6 +1242,41 @@ async function loadSoh(){
   if(col){try{const s=await col.doc("soh").get();if(s.exists)d=JSON.parse(JSON.stringify(s.data()));}catch(e){}}
   sohData=d&&d.c?d:null;sohLoaded=true;return sohData;
 }
+/* SOH history: every X30 upload is kept by its "as on" date so each month shows its own closing stock */
+const sohSnaps={};
+function sohHist(){return (state.sohHist||[]).filter(h=>h&&h.d).slice().sort((a,b)=>a.d.localeCompare(b.d));}
+function loadSohSnap(d){if(sohSnaps[d])return;sohSnaps[d]="loading";(async()=>{let x=null;
+  try{const r=localStorage.getItem("store-perf-soh-"+d);if(r)x=JSON.parse(r);}catch(e){}
+  if(col){try{const s=await col.doc("soh-"+d).get();if(s.exists)x=JSON.parse(JSON.stringify(s.data()));}catch(e){}}
+  sohSnaps[d]=x&&x.c?x:"missing";render();})();}
+function sohFor(start,end){
+  if(!sohLoaded){loadSoh().then(()=>render());return {loading:true};}
+  sohSeed();const today=new Date();
+  if(end>=new Date(today.getFullYear(),today.getMonth(),today.getDate()))return {S:sohData,latest:true};
+  const H=sohHist(),si=isoOf(start),ei=isoOf(new Date(end.getFullYear(),end.getMonth(),end.getDate()+3));
+  const c=H.filter(h=>h.d>=si&&h.d<=ei).pop();if(!c)return {missing:true,want:isoOf(end)};
+  if(sohData&&sohData.date===c.d)return {S:sohData};
+  const x=sohSnaps[c.d];if(!x||x==="loading"){loadSohSnap(c.d);return {loading:true};}
+  if(x==="missing")return {missing:true,want:isoOf(end)};return {S:x};}
+let sohSeeded=false;
+/* the X30 saved before history existed becomes the first entry */
+function sohSeed(){if(sohSeeded||!sohData||!sohData.date||!canEdit())return;sohSeeded=true;
+  if(sohHist().some(h=>h.d===sohData.date))return;saveSohSnap(sohData.date,sohData,true);}
+async function saveSohSnap(d,soh,quiet){soh={...soh,date:d};
+  try{localStorage.setItem("store-perf-soh-"+d,JSON.stringify(soh));}catch(e){}
+  if(col)await col.doc("soh-"+d).set(JSON.parse(JSON.stringify(soh))).catch(()=>{});
+  sohSnaps[d]=soh;const H=sohHist().filter(h=>h.d!==d);H.push({d,q:soh.tot[0]});state.sohHist=H.sort((a,b)=>a.d.localeCompare(b.d));
+  if(!sohData||!sohData.date||d>=sohData.date)saveSoh(soh);
+  persist(quiet?"Synced":"Stock saved");}
+async function delSohSnap(d){state.sohHist=sohHist().filter(h=>h.d!==d);delete sohSnaps[d];
+  try{localStorage.removeItem("store-perf-soh-"+d);}catch(e){}if(col)await col.doc("soh-"+d).delete().catch(()=>{});
+  if(sohData&&sohData.date===d){const L=sohHist().pop();if(L){loadSohSnap(L.d);const w=setInterval(()=>{const x=sohSnaps[L.d];if(x&&x!=="loading"){clearInterval(w);if(x!=="missing")saveSoh(x);render();}},300);}}
+  persist("Stock removed");render();}
+function sohMonthHint(d){if(!d)return "";const dd=dOf(d),m=monthOfDate(dd),[a,b]=fmRange(m);const end=isoOf(b)===d;
+  return `Used for <b>${esc(mLong(m))}</b> (${esc(shortDate(isoOf(a)))} – ${esc(shortDate(isoOf(b)))})${end?" · month closing ✓":""}`;}
+function viewSohList(){const H=sohHist();if(!H.length||!canEdit())return "";
+  return `<section class="block"><h2>📦 Uploaded stock (X30)</h2><ul class="rank">${H.slice().reverse().map(h=>`<li><div class="who"><b>As on ${esc(shortDate(h.d))} ${esc(h.d.slice(0,4))}</b><small>${esc(mLong(monthOfDate(dOf(h.d))))}</small></div><div class="amt"><b>${full(h.q)}</b><small class="muted">QTY</small></div><button class="btn small" data-sohdel="${esc(h.d)}" aria-label="Delete stock of ${esc(h.d)}" style="margin-left:8px">🗑</button></li>`).join("")}</ul>
+    <p class="hint">Each month uses the X30 nearest its closing date. Upload an X30 "as on" each month's closing date to see that month's SOH.</p></section>`;}
 function saveSoh(d){
   if(!canEdit())return;
   sohData=d;sohLoaded=true;
@@ -1388,7 +1424,9 @@ function viewImport(){
       <p class="hint">Fills day, week and month sales, bills, units and walk-ins (footfall), plus category con% (Men's/Women's Tops and Bottoms), on the Levi's calendar. ${withX24?withX24+" days already have X24 data: those keep the X24 sales and staff numbers and only get walk-ins added.":""} Staff numbers come only from X24. Targets you typed stay.</p>
       <div class="actions"><button class="btn primary" id="dsrImport" style="flex:1">Import ${ds.length} days</button><button class="btn" id="x24Cancel">Cancel</button></div>`;}
   else if(x.type==="soh"){const t=x.soh.tot;
-    h+=`<p style="margin:0 0 8px"><b>Stock on hand (X30)</b> <span class="muted">· as of today</span></p>
+    h+=`<p style="margin:0 0 8px"><b>Stock on hand (X30)</b></p>
+      <label class="f" for="sohDate">Stock as on</label><input type="date" id="sohDate" value="${esc(x.sohDate||todayISO())}" max="${todayISO()}">
+      <p class="hint" id="sohDateHint" style="margin:4px 0 10px">${sohMonthHint(x.sohDate||todayISO())}</p>
       <div class="grid" style="margin-bottom:10px">
         <div class="kv"><span>SOH units</span><b>${full(t[0])}</b></div>
         <div class="kv"><span>Stock value (MRP)</span><b>${inr(t[1])}</b></div>
@@ -1396,7 +1434,7 @@ function viewImport(){
       <div class="tscroll"><table><thead><tr><th>Category</th><th>SOH</th><th>Con%</th><th>Options</th></tr></thead><tbody>${
         Object.keys(x.soh.c).sort((a,b)=>x.soh.c[b][0]-x.soh.c[a][0]).map(c=>{const a=x.soh.c[c];return `<tr><td>${esc(catLabel(c))}</td><td>${full(a[0])}</td><td>${pct(a[0]/t[0],1)}</td><td>${a[2]}</td></tr>`;}).join("")
       }</tbody></table></div>
-      <p class="hint">This replaces the previous SOH. Sale mix will show SOH con%, gap and weeks of cover next to sales.</p>
+      <p class="hint">Saved by its date. Each month in Sale mix shows the stock nearest its closing date. For an old month, pick that month's closing date.</p>
       <div class="actions"><button class="btn primary" id="sohImport" style="flex:1">Import SOH</button><button class="btn" id="x24Cancel">Cancel</button></div>`;}
   else if(x.type==="st"){const L=x.st.rows.map(stObj).filter(r=>r.sale+r.soh>0),T=stTotals(L);
     h+=`<p style="margin:0 0 8px"><b>Week ST report</b> <span class="muted">· ${esc(x.st.store||"Store")} · ${esc(shortDate(x.st.date))} · ${L.length} PC9 with stock or sale</span></p>
@@ -1986,8 +2024,8 @@ function viewMix(){
   let h=`<div class="seg" role="group" aria-label="Period" ${isYtd()?"hidden":""}><button data-mixp="0" aria-pressed="${!ytd}">${esc(mShort(k))} only</button><button data-mixp="1" aria-pressed="${!!ytd}">YTD</button></div>`;
   if(!t) return h+`<div class="empty">Loading sale mix…</div>`;
   if(!t.days) return h+`<section class="block"><h2>Sale mix</h2><div class="empty">No X24 data for ${esc(ytd?"this year":mLong(k))} yet. Import an X24 report in the Sales tab to see category, brick and fit con%.</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Import X24</button></div>`:""}</section>`;
-  if(!sohLoaded){loadSoh().then(()=>{if(ui.tab==="months"&&ui.report==="mix")render();});}
-  const S=sohData;
+  const SF=ytd?sohFor(new Date(2000,0,1),new Date(2999,0,1)):sohFor(...periodDates(k,false));const S=SF.S||null;
+  if(SF.missing)h+=`<p class="hint" style="margin:0 0 12px">📦 No stock (X30) saved for ${esc(mLong(k))}. Upload an X30 as on ${esc(shortDate(SF.want))} to see its SOH.</p>`;
   const tq=Object.values(t.c).reduce((a,x)=>a+x[0],0),tv=Object.values(t.c).reduce((a,x)=>a+x[1],0);
   const cats=[...new Set([...Object.keys(t.c),...(S?Object.keys(S.c):[])])].sort((a,b)=>((t.c[b]||[0,0])[1]-(t.c[a]||[0,0])[1])||((S&&S.c[b]?S.c[b][0]:0)-(S&&S.c[a]?S.c[a][0]:0)));
   const wkRate=q=>t.days?q/(t.days/7):0;
@@ -2002,7 +2040,7 @@ function viewMix(){
       <div class="kv"><span>Broken sizes</span><b>${full(T[3])}</b></div>
       <div class="kv"><span>Distress units</span><b>${full(T[4])}</b></div></div>
       <p class="hint">SOH as of ${esc(shortDate(S.date))}. Weeks of cover uses the sale rate of ${esc(ytd?"YTD":mShort(k))}. Broken sizes = options with only 1–2 sizes left.</p></section>`;}
-  else h+=`<p class="hint" style="margin:0 0 12px">Import an X30 on-hand report in the Sales tab to add SOH con% and weeks of cover here.</p>`;
+  else if(!SF.missing)h+=`<p class="hint" style="margin:0 0 12px">${SF.loading?"Loading stock…":"Import an X30 on-hand report in the Sales tab to add SOH con% and weeks of cover here."}</p>`;
   const lvl=ui.mixLevel||"c",cf=ui.mixCat||"";
   h+=`<section class="block"><h2>Sale mix con%</h2>
     <div class="seg" role="group" aria-label="Level"><button data-mixl="c" aria-pressed="${lvl==="c"}">Category</button><button data-mixl="b" aria-pressed="${lvl==="b"}">Brick</button><button data-mixl="f" aria-pressed="${lvl==="f"}">Fit</button></div>`;
@@ -2392,8 +2430,7 @@ function viewST(){
   const wFrom=hh==="H1"?1:27,wTo=today<ss?wFrom:Math.min(weekNo(weekOfDate(upto)),hh==="H1"?26:weeksIn(fy));
   const sLabel=`${hh} · ${hh==="H1"?"Dec – May":"Jun – Nov"} · W${wFrom}–W${wTo}${upto<se?" so far":""}`;
   const seasonBtns=`<div class="seg" role="group" aria-label="Season"><button data-sts="H1" aria-pressed="${hh==="H1"}">H1 Dec–May</button><button data-sts="H2" aria-pressed="${hh==="H2"}">H2 Jun–Nov</button></div>`;
-  if(!sohLoaded){loadSoh().then(()=>{if(ui.tab==="months"&&ui.report==="st")render();});}
-  const S=sohData;
+  const SF=sohFor(ss,se),S=SF.S||null;
   if(!t) return seasonBtns+`<div class="empty">Loading…</div>`;
   if(!S) return seasonBtns+`<section class="block"><h2>Brick ST%</h2><div class="empty">Import an X30 on-hand report in the Sales tab to see sell-through.</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Import X30</button></div>`:""}</section>`;
   if(!t.days) return seasonBtns+`<section class="block"><h2>Brick ST% · ${esc(sLabel)}</h2><div class="empty">No X24 sales in this season yet. Upload X24 from ${esc(shortDate(isoOf(ss)))} to today.</div></section>`;
@@ -3410,6 +3447,7 @@ function faceCrop(src,done){const o=gzOverlay("faceBox");
 async function saveStaffFace(id,d){try{await fsSet("staffphotos",{face:{[id]:d}},true);staffFace=staffFace||{};staffFace[id]=d;toast("Face saved ✓");}catch(e){toast("Could not save: "+(e.message||e));}}
 
 /* clicks for everything above; returns true when handled */
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="sohDate"&&ui.x24){ui.x24.sohDate=e.target.value;const h=document.getElementById("sohDateHint");if(h)h.innerHTML=sohMonthHint(e.target.value);}});
 function gzClick(t){const d=t.dataset;
   if(d.gzplay){gzStart(d.gzplay);return true;}
   if(d.gzlike){gzToggleLike(d.gzlike);return true;}
@@ -3420,6 +3458,7 @@ function gzClick(t){const d=t.dataset;
   if(d.gzgames){ui.trnPage="games";go("learn");return true;}
   if(d.celeb){openCelebration(window.__topper||{});return true;}
   if(d.scan){scOpen();return true;}
+  if(d.sohdel){const dd=d.sohdel;askConfirm("Delete the stock (X30) as on "+shortDate(dd)+"?","Delete",()=>delSohSnap(dd));return true;}
   return false;}
 
 /* ========== 🔍 PC9 search: ST% (week, month, season), SOH and Fast / Avg / Slow ========== */
@@ -3599,7 +3638,7 @@ function render(){
   if(ui.tab==="learn"){v.innerHTML=viewLearn();return;}
   if(ui.tab==="daily") ensureDay();
   else if(!weeksReady()){ensureWeeks();v.innerHTML='<div class="empty">Loading…</div>';return;}
-  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+viewCelebrations(ui.day)+`<div class="actions" style="margin:0 0 10px;justify-content:flex-end"><button class="btn small" data-repday="day">📲 Daily report</button></div>`+learnCard(ui.day,true)+viewLeaves())+viewChecklist(ui.day)+viewSnags(): viewReport();
+  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd()+viewSohList(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+viewCelebrations(ui.day)+`<div class="actions" style="margin:0 0 10px;justify-content:flex-end"><button class="btn small" data-repday="day">📲 Daily report</button></div>`+learnCard(ui.day,true)+viewLeaves())+viewChecklist(ui.day)+viewSnags(): viewReport();
 }
 
 /* ---------- standalone helpers ---------- */
@@ -3930,7 +3969,7 @@ document.addEventListener("click",e=>{
     case "lyImport":if(ui.ly&&ui.ly.days){const n=Object.keys(ui.ly.days).length;Object.assign(lyStore.days,ui.ly.days);ui.ly=null;saveLy("LY imported: "+n+" days ✓");render();}break;
     case "lyClear":askConfirm("Clear all uploaded LY sales?","Clear",()=>{lyStore={days:{}};saveLy("LY cleared");render();});break;
     case "stImport":if(ui.x24&&ui.x24.st){saveStRep({...ui.x24.st,file:ui.x24.file});ui.x24=null;ui.tab="st";ui.stView="top";toast("ST report imported ✓");render();window.scrollTo(0,0);}break;
-    case "sohImport":if(ui.x24&&ui.x24.soh){saveSoh(ui.x24.soh);ui.x24=null;ui.tab="months";ui.report="mix";toast("SOH imported ✓");render();window.scrollTo(0,0);}break;
+    case "sohImport":if(ui.x24&&ui.x24.soh){const el=document.getElementById("sohDate");const d=(el&&el.value)||todayISO();saveSohSnap(d,ui.x24.soh);ui.x24=null;ui.tab="months";ui.report="mix";const m=monthOfDate(dOf(d));ui.month=m;ui.mode="month";try{localStorage.setItem("store-perf-mode","month");}catch(e){}toast("Stock as on "+shortDate(d)+" saved ✓");render();window.scrollTo(0,0);}break;
     case "prevD":ui.day=addDays(ui.day,-1);delete photoCache[ui.day];render();break;
     case "nextD":ui.day=addDays(ui.day,1);delete photoCache[ui.day];render();break;
     case "saveLate":{const v=document.getElementById("lateAfter").value;state.settings=Object.assign({},state.settings,{lateAfter:v||"10:15"});persist("Late time saved");render();break;}

@@ -379,11 +379,11 @@ details.fold.sub>summary .farrow{background:var(--surface)}
 .schead{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
 .sccard{margin-top:12px;border:2px solid var(--line);border-radius:14px;padding:12px}
 .sctop{display:flex;gap:12px;align-items:center}.sctop img,.scnoimg{width:76px;height:76px;border-radius:12px;object-fit:cover;background:var(--soft);display:grid;place-items:center;font-size:30px;flex:none}
-.sclist{display:grid;margin-top:12px;border-top:1px solid var(--line)}.sclist>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line)}.sclist b{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:22px;font-variant-numeric:tabular-nums}
-.scstat{border-radius:999px;padding:0 12px}.scstat.up{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}.scstat.warn{background:color-mix(in srgb,var(--thread) 22%,transparent);color:var(--thread)}.scstat.down{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
-.scmrp{font-weight:800;font-size:17px;margin-top:2px}
-.scq{font-family:Barlow,sans-serif;font-size:14px;font-weight:600;margin-right:10px}
-.scpc{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:24px}
+.sclist{display:grid;margin-top:12px;border-top:1px solid var(--line)}.sclist>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 2px;font-size:14px;border-bottom:1px solid var(--line)}.sclist b{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:18px;font-variant-numeric:tabular-nums}
+.scstat{border-radius:999px;padding:0 10px;font-size:15px!important}.scstat.up{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}.scstat.warn{background:color-mix(in srgb,var(--thread) 22%,transparent);color:var(--thread)}.scstat.down{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.scmrp{font-weight:700;font-size:14px;margin-top:2px}
+.scq{font-family:Barlow,sans-serif;font-size:13px;font-weight:600;margin-right:10px}
+.scpc{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:20px}
 @media (prefers-reduced-motion:reduce){.gzbig,.cbcard{transition:none}}
 </style>
 </head>
@@ -3466,6 +3466,7 @@ const SC={poll:0,pc:""};
 function scNorm(s){const a=String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");return a.length>=9?a.slice(0,5)+"-"+a.slice(5,9):"";}
 function scKnown(){const s=new Set();if(stRep&&stRep.rows)stRep.rows.forEach(r=>s.add(r[0]));
   Object.keys(mixCache).forEach(w=>{const D=mixCache[w]&&mixCache[w].days||{};Object.keys(D).forEach(d=>Object.keys(D[d].p||{}).forEach(pc=>s.add(pc)));});return s;}
+function scTc(x){x=String(x||"");return /[a-z]/.test(x)?x:x.toLowerCase().replace(/(^|[\s\-\/(])([a-z])/g,(m,p,c)=>p+c.toUpperCase());}
 function scClose(){clearInterval(SC.poll);SC.poll=0;const o=document.getElementById("scBox");if(o)o.hidden=true;}
 function scOpen(){
   if(!stLoaded)loadStRep().then(()=>{});loadPcImgs();
@@ -3494,7 +3495,10 @@ function scData(pc){
   if(month===null)pend=true;else if(!month.rep){month=Object.keys(W).length?stPeriodRep(cm,"month",W):null;if(month===null&&Object.keys(W).length)pend=true;}
   const fy=fyOf(nowWk),half=weekNo(nowWk)<=26?"H1":"H2";const season=Object.keys(W).length?stPeriodRep(fy+"-"+half,"half",W):{none:true};if(season===null)pend=true;
   const latest=stRep&&stRep.rows?stRep.rows.map(stObj):[];const me=latest.find(r=>r.pc===pc);const totSoh=latest.reduce((s,r)=>s+r.soh,0);
-  return {pend,cm,week:scRow(week,pc),wkUsed,month:scRow(month,pc),season:scRow(season,pc),half,me,totSoh,stDate:stRep&&stRep.date};}
+  const recRow=me||(stRep&&stRep.rows?null:null);let rec=me&&/^\d{4}-\d{2}-\d{2}$/.test(String(me.rec))?String(me.rec):"";
+  let days=null;if(rec)days=Math.max(0,Math.round((new Date(now.getFullYear(),now.getMonth(),now.getDate())-dOf(rec))/864e5));
+  else if(me&&num(me.sl)>0&&stRep&&stRep.date)days=num(me.sl)+Math.max(0,Math.round((new Date(now.getFullYear(),now.getMonth(),now.getDate())-dOf(stRep.date))/864e5));
+  return {pend,cm,rec,days,week:scRow(week,pc),wkUsed,month:scRow(month,pc),season:scRow(season,pc),half,me,totSoh,stDate:stRep&&stRep.date};}
 function scShow(pc){clearInterval(SC.poll);SC.poll=0;SC.pc=pc;const inp=document.getElementById("scIn");if(inp&&inp.value!==pc)inp.value=pc;const sg=document.getElementById("scSug");if(sg)sg.innerHTML="";
   const draw=()=>{const D=scData(pc);const el=document.getElementById("scCard");if(!el)return;
     if(!D){el.innerHTML=`<div class="empty">Loading…</div>`;return;}
@@ -3503,11 +3507,12 @@ function scShow(pc){clearInterval(SC.poll);SC.poll=0;SC.pc=pc;const inp=document
     const q=x=>x&&x!==false?`<small class="muted scq">${full(x.sale)} sold</small>`:"";
     const stat=me&&me.stat?String(me.stat):"",sl=/fast/i.test(stat)?["Fast","up"]:/avg|average/i.test(stat)?["Avg","warn"]:stat?["Slow","down"]:["–",""];
     el.innerHTML=`<section class="sccard"><div class="sctop">${img?`<img src="${img}" alt="${esc(pc)}">`:`<div class="scnoimg">👖</div>`}
-      <div style="min-width:0"><b class="scpc">${esc(pc)}</b><div class="muted">${any?esc([GC_NAMES[any.gc]||any.gc,any.brick].filter(Boolean).join(" · ")):"Not in the ST report"}</div>${num(any&&any.mrp)>0?`<div class="scmrp">MRP ${inr(num(any.mrp))}</div>`:""}</div></div>
+      <div style="min-width:0"><b class="scpc">${esc(pc)}</b><div class="muted">${any?esc([GC_NAMES[any.gc]||any.gc,scTc(any.brick),scTc(any.fit)].filter(Boolean).join(" · ")):"Not in the ST report"}</div>${num(any&&any.mrp)>0?`<div class="scmrp">MRP ${inr(num(any.mrp))}</div>`:""}</div></div>
       ${any?`<div class="sclist">
         <div><span>ST% Week <small class="muted">${D.wkUsed?esc(mShort(D.wkUsed)):""}</small></span><b>${q(D.week)}${v(D.week)}</b></div>
         <div><span>ST% Month <small class="muted">${esc(mShort(D.cm))}</small></span><b>${q(D.month)}${v(D.month)}</b></div>
         <div><span>ST% ${esc(D.half)}</span><b>${q(D.season)}${v(D.season)}</b></div>
+        <div><span>Days in store${D.rec?` <small class="muted">since ${esc(shortDate(D.rec))}</small>`:""}</span><b>${D.days!=null?full(D.days)+" days":"–"}</b></div>
         <div><span>SOH</span><b>${me?full(me.soh)+" QTY":"–"}</b></div>
         <div><span>Status</span><b class="scstat ${sl[1]}">${sl[0]}</b></div></div>
         ${D.pend?`<p class="hint">Loading…</p>`:""}`:`<div class="empty">No ST data for this PC9 yet.</div>`}</section>`;

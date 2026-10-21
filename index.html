@@ -293,7 +293,7 @@ select{font:inherit;font-size:15px;padding:9px 8px;border-radius:10px;border:1px
 .stimg span{font-size:12px;color:#8A93A6}
 .strank{position:absolute;left:6px;top:6px;min-width:24px;height:24px;padding:0 6px;border-radius:12px;background:var(--denim);color:var(--on-denim);display:grid;place-items:center;font-size:12px;font-weight:700}
 .stpill{position:absolute;right:6px;top:6px;font-style:normal;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;color:#fff;background:var(--muted)}
-.stpill.fast{background:var(--good)}.stpill.avg{background:#B7832A}.stpill.miss{background:var(--bad)}
+.stpill.fast{background:var(--good)}.stpill.avg{background:#3E6FB8}.stpill.slow{background:#B7832A}.stpill.miss{background:var(--bad)}
 .stbody{padding:8px 10px 10px}
 .stpct{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:26px;font-weight:700;line-height:1;color:var(--denim-2)}
 .stpct small{font-family:Barlow,sans-serif;font-size:11px;font-weight:600;color:var(--muted);margin-left:4px}
@@ -382,6 +382,7 @@ details.fold.sub>summary .farrow{background:var(--surface)}
 .sclist{display:grid;margin-top:12px;border-top:1px solid var(--line)}.sclist>div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 2px;font-size:14px;border-bottom:1px solid var(--line)}.sclist b{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:18px;font-variant-numeric:tabular-nums}
 .scstat{border-radius:999px;padding:0 10px;font-size:15px!important}.scstat.up{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}.scstat.warn{background:color-mix(in srgb,var(--thread) 22%,transparent);color:var(--thread)}.scstat.down{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
 .scmrp{font-weight:700;font-size:14px;margin-top:2px}
+.scp{position:static!important;margin-left:8px;font-size:12px!important;font-style:normal;vertical-align:middle;color:#fff;border-radius:999px;padding:2px 8px;font-family:Barlow,sans-serif}
 .scq{font-family:Barlow,sans-serif;font-size:13px;font-weight:600;margin-right:10px}
 .scpc{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:20px}
 @media (prefers-reduced-motion:reduce){.gzbig,.cbcard{transition:none}}
@@ -2120,7 +2121,7 @@ function viewPromo(){
     h+=`<section class="block"><h2>${e.id?"Edit promo":"New promo"}</h2>
       <label class="f" for="prName">Promo name</label><input type="text" id="prName" value="${esc(e.name)}" placeholder="Diwali offer">
       
-      <div class="tscroll" style="margin-top:10px"><table><thead><tr><th>Slab</th><th>Single bill from (₹)</th><th>Free (₹)</th><th></th></tr></thead><tbody>${e.slabs.map((s,i)=>`<tr><td>${i+1}</td><td><input class="n" data-slmin="${i}" inputmode="numeric" value="${num(s.min)||""}"></td><td><input class="n" data-slfree="${i}" inputmode="numeric" value="${num(s.free)||""}"></td><td><button class="btn small" data-slrm="${i}" aria-label="Remove slab ${i+1}">×</button></td></tr>`).join("")}</tbody></table></div>
+      <div class="tscroll" style="margin-top:10px"><table><thead><tr><th>Slab</th><th>Single bill from (₹)</th><th>Free (₹ or item)</th><th></th></tr></thead><tbody>${e.slabs.map((s,i)=>`<tr><td>${i+1}</td><td><input class="n" data-slmin="${i}" inputmode="numeric" value="${num(s.min)||""}"></td><td><input class="n" data-slfree="${i}" value="${esc(s.free==null||s.free===0?"":String(s.free))}" placeholder="2000 / Bag"></td><td><button class="btn small" data-slrm="${i}" aria-label="Remove slab ${i+1}">×</button></td></tr>`).join("")}</tbody></table></div>
       <div class="actions"><button class="btn small" id="slAdd">+ Add slab</button><button class="btn small primary" id="prSave" style="flex:1">Save promo</button>${e.id?`<button class="btn small" id="prNew">New promo</button><button class="btn small danger" id="prDel">Delete</button>`:""}</div></section>`;}
   if(!sel) return h+(ed?"":`<section class="block"><div class="empty">No promo set up yet.</div></section>`);
   const slabs=(sel.slabs||[]).filter(s=>num(s.min)>0).sort((a,b)=>num(a.min)-num(b.min));
@@ -2128,18 +2129,34 @@ function viewPromo(){
   const B=billsBetween(s,eD);if(!B) return h+`<div class="empty">Loading…</div>`;
   if(!B.bills.length) return h+`<section class="block"><h2>🎁 ${esc(sel.name||"Promo")}</h2>${needBillsMsg(s,eD)}</section>`;
   const slabOf=t=>{let k=-1;slabs.forEach((x,i)=>{if(t>=num(x.min))k=i;});return k;};
-  const blank=()=>({bills:0,val:0,pb:0,pv:0,free:0,sl:slabs.map(()=>0)});
+  const blank=()=>({bills:0,val:0,pb:0,pv:0,sl:slabs.map(()=>0),su:slabs.map(()=>0)});
+  const freeTxt=f=>{if(f==null||f===""||f===0)return "";const n=num(f);return n>0&&/^[\d.]+$/.test(String(f))?" · ₹"+full(n)+" free":" · "+esc(String(f))+" free";};
   const T=blank(),S={};
-  B.bills.forEach(b=>{if(b[1]<=0)return;const k=slabOf(b[1]);const o=S[b[0]]||(S[b[0]]=blank());[T,o].forEach(x=>{x.bills++;x.val+=b[1];if(k>=0){x.pb++;x.pv+=b[1];x.free+=num(slabs[k].free);x.sl[k]++;}});});
+  B.bills.forEach(b=>{if(b[1]<=0)return;const k=slabOf(b[1]);const o=S[b[0]]||(S[b[0]]=blank());const u=Math.max(0,b[2]+b[3]+b[4]+b[5]);[T,o].forEach(x=>{x.bills++;x.val+=b[1];if(k>=0){x.pb++;x.pv+=b[1];x.sl[k]++;x.su[k]+=u;}});});
   const pc=(a,b)=>b?pct(a/b,1):"–";
   h+=`<section class="block"><h2>🎁 ${esc(sel.name||"Promo")} · ${esc(isYtd()?ytdLabel():mLong(k))}</h2>
-    <div class="grid"><div class="kv"><span>Promo con% (bills)</span><b class="up">${pc(T.pb,T.bills)}</b></div><div class="kv"><span>Promo bills</span><b>${full(T.pb)} / ${full(T.bills)}</b></div><div class="kv"><span>Value con%</span><b>${pc(T.pv,T.val)}</b></div>
-    ${slabs.map((x,i)=>`<div class="kv"><span>₹${full(x.min)}+ · ₹${full(x.free)} free</span><b>${full(T.sl[i])} bills</b><small class="muted">${pc(T.sl[i],T.pb)} of promo bills</small></div>`).join("")}<div class="kv"><span>Free value given</span><b>${inr(T.free)}</b></div></div>
-    <p class="hint">Slab % = that slab's bills ÷ all promo bills (e.g. 10 of 60 = 16.7%). Slab by single bill total (all items, returns netted). ${B.days} days with bill data.</p></section>`;
+    <div class="grid"><div class="kv"><span>Promo con% (bills)</span><b class="up">${pc(T.pb,T.bills)}</b></div><div class="kv"><span>Promo bills</span><b>${full(T.pb)} / ${full(T.bills)}</b></div>
+    ${slabs.map((x,i)=>`<div class="kv"><span>₹${full(x.min)}+${freeTxt(x.free)}</span><b>${full(T.sl[i])} bills</b><small class="muted">${pc(T.sl[i],T.pb)} of promo bills</small><small style="font-weight:700">UPT ${T.sl[i]?(T.su[i]/T.sl[i]).toFixed(2):"–"}</small></div>`).join("")}</div></section>`;
+  /* day-wise: Mon–Sun of the week, or each weekday added up for a month / YTD */
+  {const si=isoOf(s),ei=isoOf(eD),byWeek=isWeek(k)&&!isYtd(),D={};
+    weeksCovering(s,eD).forEach(w=>{const bc=billCache[w];if(!bc)return;Object.keys(bc.days||{}).forEach(dt=>{if(dt<si||dt>ei)return;
+      const key=byWeek?dt:String((dOf(dt).getDay()+6)%7);const o=D[key]||(D[key]=blank());
+      bc.days[dt].forEach(b=>{if(b[1]<=0)return;const k2=slabOf(b[1]);o.bills++;if(k2>=0){o.pb++;o.sl[k2]++;}});});});
+    const WD7=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    const keys=byWeek?datesBetween(weekRange(k)[0],weekRange(k)[1]):["0","1","2","3","4","5","6"];
+    const lab=x=>byWeek?WD7[(dOf(x).getDay()+6)%7]+" "+dOf(x).getDate():WD7[+x];
+    const rates=keys.map(x=>D[x]&&D[x].bills?D[x].pb/D[x].bills:null).filter(v=>v!=null);const hi=Math.max(...rates),lo=Math.min(...rates);
+    h+=`<section class="block"><details class="fold"${foldAttr("promoday")}>${foldSum("📅 Day-wise",byWeek?"Mon – Sun":"weekday total")}
+      <div class="tscroll" style="margin-top:8px"><table><thead><tr><th>Day</th><th>Bills</th><th>Promo</th><th>Con%</th>${slabs.map((x,i)=>`<th>S${i+1}<br><small>₹${full(x.min)}+</small></th>`).join("")}</tr></thead><tbody>`+
+      keys.map(x=>{const o=D[x];if(!o||!o.bills)return `<tr><td>${esc(lab(x))}</td><td>–</td><td>–</td><td>–</td>${slabs.map(()=>"<td>–</td>").join("")}</tr>`;
+        const r=o.pb/o.bills,cl=rates.length>1&&r===hi?"up":rates.length>1&&r===lo?"down":"";
+        return `<tr><td>${esc(lab(x))}</td><td>${full(o.bills)}</td><td>${full(o.pb)}</td><td class="${cl}"><b>${pc(o.pb,o.bills)}</b></td>${o.sl.map(n=>`<td>${n||"–"}</td>`).join("")}</tr>`;}).join("")+
+      `<tr class="total"><td>Total</td><td>${full(T.bills)}</td><td>${full(T.pb)}</td><td>${pc(T.pb,T.bills)}</td>${T.sl.map(n=>`<td>${n}</td>`).join("")}</tr></tbody></table></div>
+      <p class="hint">🟢 best promo con% day · 🔴 lowest.${byWeek?"":" Each weekday added up for the period."}</p></details></section>`;}
   const rows=Object.keys(S).map(id=>({id,...S[id]})).sort((a,b)=>(b.pb/(b.bills||1))-(a.pb/(a.bills||1))||b.pb-a.pb);
-  h+=`<section class="block"><h2>Staff-wise</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Bills</th>${slabs.map((x,i)=>`<th>S${i+1}<br><small>₹${full(x.min)}+</small></th>`).join("")}<th>Promo con%</th><th>Value con%</th></tr></thead><tbody>`+
-    rows.map(r=>`<tr><td>${esc(r.id?staffName(r.id):"No associate")}</td><td>${full(r.bills)}</td>${r.sl.map(n=>`<td>${n?n+`<br><small class="muted">${pc(n,r.pb)}</small>`:"–"}</td>`).join("")}<td class="${r.bills&&r.pb/r.bills>=T.pb/T.bills?"up":"down"}"><b>${pc(r.pb,r.bills)}</b></td><td>${pc(r.pv,r.val)}</td></tr>`).join("")+
-    `<tr class="total"><td>Store</td><td>${full(T.bills)}</td>${T.sl.map(n=>`<td>${n}<br><small>${pc(n,T.pb)}</small></td>`).join("")}<td>${pc(T.pb,T.bills)}</td><td>${pc(T.pv,T.val)}</td></tr></tbody></table></div>
+  h+=`<section class="block"><h2>Staff-wise</h2><div class="tscroll"><table><thead><tr><th>Staff</th><th>Bills</th>${slabs.map((x,i)=>`<th>S${i+1}<br><small>₹${full(x.min)}+</small></th>`).join("")}<th>Promo con%</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${esc(r.id?staffName(r.id):"No associate")}</td><td>${full(r.bills)}</td>${r.sl.map(n=>`<td>${n?n+`<br><small class="muted">${pc(n,r.pb)}</small>`:"–"}</td>`).join("")}<td class="${r.bills&&r.pb/r.bills>=T.pb/T.bills?"up":"down"}"><b>${pc(r.pb,r.bills)}</b></td></tr>`).join("")+
+    `<tr class="total"><td>Store</td><td>${full(T.bills)}</td>${T.sl.map(n=>`<td>${n}<br><small>${pc(n,T.pb)}</small></td>`).join("")}<td>${pc(T.pb,T.bills)}</td></tr></tbody></table></div>
     <p class="hint">🟢 at or above store promo con% · 🔴 below.</p></section>`;
   return h;
 }
@@ -2542,7 +2559,7 @@ function parseStRep(XLSX,wb){
 }
 /* row → object */
 function stObj(a){const soh=Math.max(0,a[11]),sale=Math.max(0,a[12]);return {pc:a[0],gc:a[1],brick:a[2],fit:a[3],story:a[4],mrp:a[5],rec:a[6],sl:a[7],stat:a[8],ros:a[9],reg:a[10],soh,sale,st:sale+soh>0?sale/(sale+soh):NaN};}
-function stTotals(list){const s=list.reduce((x,r)=>x+r.sale,0),h=list.reduce((x,r)=>x+r.soh,0);return {sale:s,soh:h,st:s+h?s/(s+h):NaN,F:list.filter(r=>r.stat==="Fast").length,A:list.filter(r=>r.stat==="Avg").length,M:list.filter(r=>r.stat==="Miss").length};}
+function stTotals(list){const s=list.reduce((x,r)=>x+r.sale,0),h=list.reduce((x,r)=>x+r.soh,0);return {sale:s,soh:h,st:s+h?s/(s+h):NaN,F:list.filter(r=>r.stat==="Fast").length,A:list.filter(r=>r.stat==="Avg").length,S:list.filter(r=>r.stat==="Slow").length,M:list.filter(r=>r.stat==="Miss").length};}
 const GC_NAMES={MB:"Men's Bottoms",MT:"Men's Tops",WB:"Women's Bottoms",WT:"Women's Tops"};
 /* photos: pc9_images.json sits next to index.html on GitHub */
 let pcImgs=null,pcImgState="idle";
@@ -2555,7 +2572,7 @@ function loadPcImgs(){
 }
 function pcImg(pc){if(pcUser[pc])return pcUser[pc];if(!pcImgs||!pcImgs[pc])return "";return "data:image/"+(pcImgs.__fmt==="jpg"?"jpeg":pcImgs.__fmt)+";base64,"+pcImgs[pc];}
 function stCard(r,i){
-  const img=pcImg(r.pc);const sc=r.stat==="Fast"?"fast":r.stat==="Avg"?"avg":r.stat==="Miss"?"miss":"";
+  const img=pcImg(r.pc);const sc=r.stat==="Fast"?"fast":r.stat==="Avg"?"avg":r.stat==="Slow"?"slow":r.stat==="Miss"?"miss":"";
   return `<div class="stcard"><div class="stimg">${img?`<img src="${img}" alt="${esc(r.pc)}" loading="lazy">`:`<span>No photo</span>${canEdit()?`<button class="btn small" data-pcadd="${esc(r.pc)}" style="margin-top:6px">📷 Add</button>`:""}`}
       <b class="strank">${i+1}</b>${r.stat?`<em class="stpill ${sc}">${esc(r.stat)}</em>`:""}</div>
     <div class="stbody"><div class="stpct num">${pct(r.st,1)}<small>ST%</small></div>
@@ -2662,7 +2679,7 @@ function viewStWeekX(){
   const hint=B.src==="x24"?`Week ST% = pieces sold this week (X24) ÷ (sold + SOH in the W${weekNo(B.baseWk)} ST report).${B.out?" "+full(B.out)+" QTY sold of PC9s not in that ST report are left out.":""} Bars: ST% of each uploaded ST report.`:B.src==="stdelta"?`Week ST% = pieces sold this week (this week's ST report sale minus the W${weekNo(B.prevWk)} report) ÷ (sold + SOH now). Bars: ST% of each uploaded ST report.`:`No X24 and no report for the week before, so this is the ST report as it is (sale since REC IN).`;
   const wkOnly=B.src==="x24"||B.src==="stdelta";
   const top=stTopBlock("Week "+weekNo(sel)+" ("+rangeText(sel)+")",B.rep.rows,P&&P.rep&&(P.src==="st")===(B.src==="st")?P.rep.rows:null,"W"+weekNo(stepKey(sel,-1)),hint,chart);
-  const keep=stRep;stRep=B.rep;if(wkOnly){stMinSale=2;stPeriodNote="Week "+weekNo(sel);}let body;try{body=viewStRepCore();}finally{stRep=keep;stMinSale=5;stPeriodNote="";}
+  const keep=stRep;stRep=B.rep;if(wkOnly){stMinSale=2;stPeriodNote="Week "+weekNo(sel);stPerRange=(()=>{const [a,b]=weekRange(sel),t=new Date();return [a,b>t?t:b];})();}let body;try{body=viewStRepCore();}finally{stRep=keep;stMinSale=5;stPeriodNote="";stPerRange=null;}
   return bar+top+(wkOnly?body.replace("sale since the style came in (REC IN)",B.src==="x24"?"sale this week from X24":"sale this week"):body);
 }
 
@@ -2689,23 +2706,34 @@ function viewStRep(){
   const dl=(a,b)=>{if(!isFinite(a)||!isFinite(b))return "";const d=(a-b)*100;return `<small class="${d>=0?"up":"down"}">${d>=0?"▲":"▼"} ${Math.abs(d).toFixed(1)}% vs ${pp==="month"?"last month":esc(pk.slice(-2))}</small>`;};
   const maxSt=Math.max(0.0001,...P.weeks.map(w=>W[w].st||0));
   if(P.x24){const top=stTopBlock(stPerLabel(sel,pp),P.rep.rows,PP&&PP.rep?PP.rep.rows:null,"last month",`Month ST% = pieces sold in the month (X24) ÷ (sold + SOH in the W${weekNo(P.x24.baseWk)} ST report).${P.x24.out?" "+full(P.x24.out)+" QTY sold of PC9s not in that ST report are left out.":""}`,"");
-    const keep=stRep;stRep=P.rep;stPeriodNote=stPerLabel(sel,pp);let body;try{body=viewStRepCore();}finally{stRep=keep;stPeriodNote="";}
+    const keep=stRep;stRep=P.rep;stPeriodNote=stPerLabel(sel,pp);stPerRange=stPerDates(sel,pp);let body;try{body=viewStRepCore();}finally{stRep=keep;stPeriodNote="";stPerRange=null;}
     return seg+bar+top+body.replace("sale since the style came in (REC IN)","sale this month from X24");}
   const top=`<section class="block"><h2>${esc(stPerLabel(sel,pp))}</h2><div class="grid"><div class="kv"><span>Store ST%</span><b>${pct(T.st,1)}</b>${PT?dl(T.st,PT.st):""}</div>
     <div class="kv"><span>Sale in period</span><b>${full(T.sale)}</b></div><div class="kv"><span>SOH at end</span><b>${full(T.soh)}</b></div>
     ${Object.keys(GC_NAMES).filter(g=>isFinite(T.gc[g])).map(g=>`<div class="kv"><span>${esc(g)}</span><b>${pct(T.gc[g],1)}</b>${PT&&PT.gc?dl(T.gc[g],PT.gc[g]):""}</div>`).join("")}</div>
     ${P.weeks.length>1?`<div class="chart wk" role="img" aria-label="Weekly report ST% in this period" style="height:90px">${P.weeks.map(w=>`<button class="col" data-stper="week" data-stwk="${esc(w)}" aria-label="Week ${weekNo(w)}: ${pct(W[w].st,1)}"><div class="stack"><div class="s" style="height:${((W[w].st||0)/maxSt*100).toFixed(1)}%"></div></div><span class="m">W${weekNo(w)}</span></button>`).join("")}</div>`:""}
     <p class="hint">Period ST% = pieces sold in the period ÷ (sold + SOH in the last uploaded week). ${P.cumul?(P.base?"Sale = report sale at the end minus the sale in the week before the period (W"+weekNo(P.base)+").":"No report before this period, so sale counts from when each style came in."):"Weekly sale added up across the weeks."} ${P.weeks.length<P.total?"Some weeks are missing — upload them for a correct ST%.":""}</p></section>`;
-  const keep=stRep;stRep=P.rep;stPeriodNote=stPerLabel(sel,pp);let body;try{body=viewStRepCore();}finally{stRep=keep;stPeriodNote="";}
+  const keep=stRep;stRep=P.rep;stPeriodNote=stPerLabel(sel,pp);stPerRange=stPerDates(sel,pp);let body;try{body=viewStRepCore();}finally{stRep=keep;stPeriodNote="";stPerRange=null;}
   return seg+bar+top+body.replace("sale since the style came in (REC IN)","sale in this period");
 }
 
-let stMinSale=5,stPeriodNote="";
+let stMinSale=5,stPeriodNote="",stPerRange=null;
+/* app status for a period: each PC9's sale per day (from REC IN when it came in during the period) against the average of its brick.
+   Fast 1.2× or more · Avg 0.7–1.2× · Slow below 0.7× · Miss = nothing sold */
+function stStatusMap(list,range,repDate){const end=range?range[1]:dOf(repDate||todayISO()),start=range?range[0]:null,day=864e5;
+  const eff=r=>{let s0=start;const rc=/^\d{4}-\d{2}-\d{2}$/.test(String(r.rec||""))?dOf(r.rec):null;if(rc&&(!s0||rc>s0))s0=rc;
+    if(!s0)return Math.max(1,num(r.sl)||30);return Math.max(1,Math.round((end-s0)/day)+1);};
+  const g={};list.forEach(r=>{const k=(r.gc||"")+"|"+String(r.brick||"").toUpperCase();const rate=r.sale/eff(r);(g[k]=g[k]||[]).push([r.pc,rate,r.sale]);});
+  const out={};Object.values(g).forEach(a=>{const avg=a.reduce((x,y)=>x+y[1],0)/a.length;
+    a.forEach(([pc,rate,sale])=>{out[pc]=sale<=0?"Miss":!(avg>0)?"Avg":rate>=avg*1.2?"Fast":rate>=avg*0.7?"Avg":"Slow";});});
+  return out;}
+function stPerDates(pk,per){const w=stPerWeeks(pk,per);const t=new Date(),e=weekRange(w[w.length-1])[1];return [weekRange(w[0])[0],e>t?t:e];}
 function viewStRepCore(){
   if(!stLoaded){loadStRep().then(()=>{if(ui.tab==="st")render();});return `<div class="empty">Loading ST report…</div>`;}
   if(!stRep) return `<section class="block"><h2>ST%</h2><div class="empty">No ST report yet. ${canEdit()?"Upload the Week ST report (Excel) in the Sales tab.":"Ask the manager to upload the Week ST report."}</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Upload ST report</button></div>`:""}</section>`;
   loadPcImgs();
   const all=stRep.rows.map(stObj).filter(r=>r.sale+r.soh>0);
+  {const SM=stStatusMap(all,stPerRange,stRep.date);all.forEach(r=>{r.stat=SM[r.pc]||"";});}
   const gcs=[...new Set(all.map(r=>r.gc).filter(Boolean))].sort((a,b)=>Object.keys(GC_NAMES).indexOf(a)-Object.keys(GC_NAMES).indexOf(b));
   const g=ui.stGc||"",view=ui.stView||"top",T=stTotals(g?all.filter(r=>r.gc===g):all);
   const allT=stTotals(all);
@@ -2713,8 +2741,8 @@ function viewStRepCore(){
       return `<button class="stcat" data-stgc="${esc(c)}" aria-pressed="${g===c}" title="${esc(c?GC_NAMES[c]||c:"All")}"><span>${esc(c||"All")}</span><b class="${cl}">${isFinite(t.st)?(t.st*100).toFixed(1)+"%":"–"}</b></button>`;}).join("")+`</div>`;
   let h=`<section class="block"><h2>ST% · ${esc(stRep.store||"Store")} <span class="badge">${esc(shortDate(stRep.date))}</span></h2>${gcBtns}
     <div class="grid"><div class="kv"><span>${g?esc(GC_NAMES[g]||g):"Store"} ST%</span><b>${pct(T.st,1)}</b></div><div class="kv"><span>Sale</span><b>${full(T.sale)}</b></div><div class="kv"><span>SOH</span><b>${full(T.soh)}</b></div>
-    <div class="kv"><span>Fast</span><b class="up">${T.F}</b></div><div class="kv"><span>Avg</span><b style="color:var(--thread)">${T.A}</b></div><div class="kv"><span>Miss</span><b class="down">${T.M}</b></div></div>
-    <p class="hint">ST% = Sale ÷ (Sale + SOH), sale since the style came in (REC IN). Fast / Avg / Miss status as in the Levi's report.</p></section>
+    <div class="kv"><span>Fast</span><b class="up">${T.F}</b></div><div class="kv"><span>Avg</span><b style="color:#3E6FB8">${T.A}</b></div><div class="kv"><span>Slow</span><b style="color:var(--thread)">${T.S}</b></div><div class="kv"><span>Miss</span><b class="down">${T.M}</b></div></div>
+    <p class="hint">ST% = Sale ÷ (Sale + SOH), sale since the style came in (REC IN). Status compares each PC9 with its brick in this period: Fast · Avg · Slow · Miss (no sale).</p></section>
     <div class="seg" role="group" aria-label="ST view"><button data-stview="top" aria-pressed="${view==="top"}">Top ST%</button><button data-stview="best" aria-pressed="${view==="best"}">Best sellers</button><button data-stview="rep" aria-pressed="${view==="rep"}">Replenish</button><button data-stview="miss" aria-pressed="${view==="miss"}">Miss</button><button data-stview="tbl" aria-pressed="${view==="tbl"}">Brick / Fit</button></div>`;
   let list=g?all.filter(r=>r.gc===g):all.slice();
   if(view==="tbl"){
@@ -2723,11 +2751,11 @@ function viewStRepCore(){
     const rows=Object.keys(grp).map(k=>{const p=k.split("|");return {gc:g?"":p[0],name:g?k:p.slice(1).join("|"),...stTotals(grp[k]),n:grp[k].length};}).sort((a,b)=>(b.st||0)-(a.st||0));
     const avg=T.st,cl=v=>v>=avg*1.25?"up":v<=avg*0.75?"down":"";
     h+=`<section class="block"><div class="seg" role="group" aria-label="Level"><button data-stlvl="brick" aria-pressed="${lvl==="brick"}">Brick</button><button data-stlvl="fit" aria-pressed="${lvl==="fit"}">Fit</button></div>
-      <div class="tscroll"><table><thead><tr><th>${lvl==="brick"?"Brick":"Fit"}</th><th>Sale</th><th>SOH</th><th>ST%</th><th>PC9</th><th>F / A / M</th></tr></thead><tbody>`+
+      <div class="tscroll"><table><thead><tr><th>${lvl==="brick"?"Brick":"Fit"}</th><th>Sale</th><th>SOH</th><th>ST%</th><th>PC9</th><th>F / A / S / M</th></tr></thead><tbody>`+
       rows.map(r=>`<tr><td style="white-space:normal;min-width:120px">${esc(r.name)}${r.gc?`<br><small class="muted">${esc(GC_NAMES[r.gc]||r.gc)}</small>`:""}<div class="minibar"><i style="width:${((r.st||0)*100).toFixed(1)}%"></i></div></td>
-        <td>${full(r.sale)}</td><td>${full(r.soh)}</td><td class="${cl(r.st)}"><b>${pct(r.st,1)}</b></td><td>${r.n}</td><td><span class="up">${r.F}</span> / <span style="color:var(--thread)">${r.A}</span> / <span class="down">${r.M}</span></td></tr>`).join("")+
-      `<tr class="total"><td>Total</td><td>${full(T.sale)}</td><td>${full(T.soh)}</td><td>${pct(T.st,1)}</td><td>${list.length}</td><td>${T.F} / ${T.A} / ${T.M}</td></tr></tbody></table></div>
-      <p class="hint">🟢 ST% a quarter above the ${g?esc(GC_NAMES[g]||g):"store"} average or more · 🔴 a quarter below or less. F / A / M = number of Fast / Avg / Miss PC9s.</p></section>`;
+        <td>${full(r.sale)}</td><td>${full(r.soh)}</td><td class="${cl(r.st)}"><b>${pct(r.st,1)}</b></td><td>${r.n}</td><td><span class="up">${r.F}</span> / <span style="color:#3E6FB8">${r.A}</span> / <span style="color:var(--thread)">${r.S}</span> / <span class="down">${r.M}</span></td></tr>`).join("")+
+      `<tr class="total"><td>Total</td><td>${full(T.sale)}</td><td>${full(T.soh)}</td><td>${pct(T.st,1)}</td><td>${list.length}</td><td>${T.F} / ${T.A} / ${T.S} / ${T.M}</td></tr></tbody></table></div>
+      <p class="hint">🟢 ST% a quarter above the ${g?esc(GC_NAMES[g]||g):"store"} average or more · 🔴 a quarter below or less. F / A / S / M = number of Fast / Avg / Slow / Miss PC9s.</p></section>`;
     return h;
   }
   let note="";
@@ -2737,12 +2765,12 @@ function viewStRepCore(){
     note="Highest store ST% first, PC9 with sale "+stMinSale+" or more.";}
   else if(view==="rep"){list=list.filter(r=>r.stat==="Fast"&&r.soh<=10);list.sort((a,b)=>b.sale-a.sale||a.soh-b.soh);
     note="Fast status and SOH 10 or less, best sellers first: raise an indent / IST before key sizes break.";}
-  else{list=list.filter(r=>r.stat==="Miss"&&r.sl>=60&&r.soh>0);list.sort((a,b)=>b.soh-a.soh||(a.st||0)-(b.st||0));
-    note="Miss status, 60+ days in store, stock still on hand (most stock first): move to a better VM spot, push on the floor, or plan IST out / markdown.";}
+  else{list=list.filter(r=>(r.stat==="Miss"||r.stat==="Slow")&&r.sl>=60&&r.soh>0);list.sort((a,b)=>b.soh-a.soh||(a.st||0)-(b.st||0));
+    note="Slow or Miss in this period, 60+ days in store, stock still on hand (most stock first): move to a better VM spot, push on the floor, or plan IST out / markdown.";}
   const imgsOk=pcImgState==="ready",photoOnly=ui.stPhoto!==false&&imgsOk;
   const before=list.length;if(photoOnly)list=list.filter(r=>pcImg(r.pc));const hidden=before-list.length;
   const N=ui.stN||20,shown=N==="all"?list:list.slice(0,N);
-  h+=`<div class="chips" style="margin:0 0 8px">${view==="top"?["","Fast","Avg","Miss"].map(s=>`<button data-ststat="${s}" style="${(ui.stStat||"")===s?"background:var(--soft)":""}">${s||"All status"}</button>`).join(""):""}
+  h+=`<div class="chips" style="margin:0 0 8px">${view==="top"?["","Fast","Avg","Slow","Miss"].map(s=>`<button data-ststat="${s}" style="${(ui.stStat||"")===s?"background:var(--soft)":""}">${s||"All status"}</button>`).join(""):""}
     ${[10,20,50,"all"].map(n=>`<button data-stn="${n}" style="${N===n?"background:var(--soft)":""}">${n==="all"?"All":"Top "+n}</button>`).join("")}
     ${imgsOk?`<button data-stphoto="1" style="${photoOnly?"background:var(--soft)":""}">${photoOnly?"✓ ":""}With photo only</button>`:""}${canEdit()?`<button id="pcBulk">📷 Upload PC9 photos</button>`:""}</div>`;
   if(pcImgState==="loading") h+=`<p class="hint" style="margin:0 0 8px">Loading photos…</p>`;
@@ -3485,7 +3513,8 @@ function scOpen(){
   inp.onkeydown=e=>{if(e.key==="Enter"){const pc=scNorm(inp.value);if(pc)scShow(pc);}};
   o.querySelector("#scSug").onclick=e=>{const b=e.target.closest("[data-scpc]");if(b)scShow(b.dataset.scpc);};}
 /* ST for one PC9 over a built report: null = still loading */
-function scRow(R,pc){if(!R||!R.rep)return undefined;const r=R.rep.rows.find(x=>x[0]===pc);return r?stObj(r):false;}
+function scRow(R,pc,range){if(!R||!R.rep)return undefined;const r=R.rep.rows.find(x=>x[0]===pc);if(!r)return false;const o=stObj(r);
+  const all=R.rep.rows.map(stObj).filter(x=>x.sale+x.soh>0);o.stat=stStatusMap(all,range,R.rep.date)[pc]||"";return o;}
 function scData(pc){
   if(!stLoaded){loadStRep().then(()=>{});return null;}
   const W=stAllWeeks(),now=new Date(),nowWk=weekOfDate(now);let pend=false;
@@ -3498,23 +3527,24 @@ function scData(pc){
   const recRow=me||(stRep&&stRep.rows?null:null);let rec=me&&/^\d{4}-\d{2}-\d{2}$/.test(String(me.rec))?String(me.rec):"";
   let days=null;if(rec)days=Math.max(0,Math.round((new Date(now.getFullYear(),now.getMonth(),now.getDate())-dOf(rec))/864e5));
   else if(me&&num(me.sl)>0&&stRep&&stRep.date)days=num(me.sl)+Math.max(0,Math.round((new Date(now.getFullYear(),now.getMonth(),now.getDate())-dOf(stRep.date))/864e5));
-  return {pend,cm,rec,days,week:scRow(week,pc),wkUsed,month:scRow(month,pc),season:scRow(season,pc),half,me,totSoh,stDate:stRep&&stRep.date};}
+  const cap=(a,b)=>[a,b>now?now:b];
+  return {pend,cm,rec,days,week:scRow(week,pc,wkUsed?cap(...weekRange(wkUsed)):null),wkUsed,month:scRow(month,pc,cap(ma,mb)),season:scRow(season,pc,stPerDates(fy+"-"+half,"half")),half,me,totSoh,stDate:stRep&&stRep.date};}
 function scShow(pc){clearInterval(SC.poll);SC.poll=0;SC.pc=pc;const inp=document.getElementById("scIn");if(inp&&inp.value!==pc)inp.value=pc;const sg=document.getElementById("scSug");if(sg)sg.innerHTML="";
   const draw=()=>{const D=scData(pc);const el=document.getElementById("scCard");if(!el)return;
     if(!D){el.innerHTML=`<div class="empty">Loading…</div>`;return;}
     const img=pcImg(pc),me=D.me,any=me||D.week||D.month||D.season;
     const v=x=>x===undefined?"…":x===false||!x||!isFinite(x.st)?"–":pct(x.st,1);
     const q=x=>x&&x!==false?`<small class="muted scq">${full(x.sale)} sold</small>`:"";
-    const stat=me&&me.stat?String(me.stat):"",sl=/fast/i.test(stat)?["Fast","up"]:/avg|average/i.test(stat)?["Avg","warn"]:stat?["Slow","down"]:["–",""];
+    const P=x=>{const t=x&&x!==false?x.stat:"";const c=t==="Fast"?"fast":t==="Avg"?"avg":t==="Slow"?"slow":t==="Miss"?"miss":"";return t?`<em class="stpill ${c} scp">${esc(t)}</em>`:"";};
     el.innerHTML=`<section class="sccard"><div class="sctop">${img?`<img src="${img}" alt="${esc(pc)}">`:`<div class="scnoimg">👖</div>`}
       <div style="min-width:0"><b class="scpc">${esc(pc)}</b><div class="muted">${any?esc([GC_NAMES[any.gc]||any.gc,scTc(any.brick),scTc(any.fit)].filter(Boolean).join(" · ")):"Not in the ST report"}</div>${num(any&&any.mrp)>0?`<div class="scmrp">MRP ${inr(num(any.mrp))}</div>`:""}</div></div>
       ${any?`<div class="sclist">
-        <div><span>ST% Week <small class="muted">${D.wkUsed?esc(mShort(D.wkUsed)):""}</small></span><b>${q(D.week)}${v(D.week)}</b></div>
-        <div><span>ST% Month <small class="muted">${esc(mShort(D.cm))}</small></span><b>${q(D.month)}${v(D.month)}</b></div>
-        <div><span>ST% ${esc(D.half)}</span><b>${q(D.season)}${v(D.season)}</b></div>
+        <div><span>ST% Week <small class="muted">${D.wkUsed?esc(mShort(D.wkUsed)):""}</small></span><b>${q(D.week)}${v(D.week)}${P(D.week)}</b></div>
+        <div><span>ST% Month <small class="muted">${esc(mShort(D.cm))}</small></span><b>${q(D.month)}${v(D.month)}${P(D.month)}</b></div>
+        <div><span>ST% ${esc(D.half)}</span><b>${q(D.season)}${v(D.season)}${P(D.season)}</b></div>
         <div><span>Days in store${D.rec?` <small class="muted">since ${esc(shortDate(D.rec))}</small>`:""}</span><b>${D.days!=null?full(D.days)+" days":"–"}</b></div>
         <div><span>SOH</span><b>${me?full(me.soh)+" QTY":"–"}</b></div>
-        <div><span>Status</span><b class="scstat ${sl[1]}">${sl[0]}</b></div></div>
+        </div>
         ${D.pend?`<p class="hint">Loading…</p>`:""}`:`<div class="empty">No ST data for this PC9 yet.</div>`}</section>`;
     if(D.pend&&!SC.poll)SC.poll=setInterval(()=>{const d=scData(SC.pc);draw();if(d&&!d.pend){clearInterval(SC.poll);SC.poll=0;}},700);};
   draw();}
@@ -3882,8 +3912,8 @@ document.addEventListener("click",e=>{
   if((t.id==="slAdd"||t.dataset.slrm!==undefined||t.id==="prSave"||t.id==="prNew"||t.id==="prDel")&&canEdit()){
     const e=ui.promoEdit||{slabs:[]};
     if(document.getElementById("prName")){e.name=document.getElementById("prName").value.trim();
-      e.slabs=e.slabs.map((s,i)=>({min:num((document.querySelector(`[data-slmin="${i}"]`)||{}).value),free:num((document.querySelector(`[data-slfree="${i}"]`)||{}).value)}));}
-    if(t.id==="slAdd"){const last=e.slabs[e.slabs.length-1];e.slabs.push({min:last?num(last.min)+5000:8999,free:last?num(last.free)+1000:1000});ui.promoEdit=e;render();return;}
+      e.slabs=e.slabs.map((s,i)=>({min:num((document.querySelector(`[data-slmin="${i}"]`)||{}).value),free:(v=>/^[\d,.\s₹]+$/.test(v)?num(v.replace(/[,₹\s]/g,"")):v)(String((document.querySelector(`[data-slfree="${i}"]`)||{}).value||"").trim())}));}
+    if(t.id==="slAdd"){const last=e.slabs[e.slabs.length-1];e.slabs.push({min:last?num(last.min)+5000:8999,free:""});ui.promoEdit=e;render();return;}
     if(t.dataset.slrm!==undefined){e.slabs.splice(+t.dataset.slrm,1);ui.promoEdit=e;render();return;}
     if(t.id==="prNew"){ui.promoEdit={id:"",name:"",slabs:DEF_SLABS.map(x=>({...x}))};ui.promoId="__new";render();return;}
     if(t.id==="prDel"){askConfirm("Delete promo \""+(e.name||"Promo")+"\"?","Delete",()=>{state.promos=(state.promos||[]).filter(p=>p.id!==e.id);ui.promoEdit=null;ui.promoId="";persist("Promo deleted");render();});return;}

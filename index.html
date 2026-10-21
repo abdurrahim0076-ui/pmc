@@ -383,7 +383,9 @@ details.fold.sub>summary .farrow{background:var(--surface)}
 .scstat{border-radius:999px;padding:0 10px;font-size:15px!important}.scstat.up{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}.scstat.warn{background:color-mix(in srgb,var(--thread) 22%,transparent);color:var(--thread)}.scstat.down{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
 .scmrp{font-weight:700;font-size:14px;margin-top:2px}
 .scp{position:static!important;margin-left:8px;font-size:12px!important;font-style:normal;vertical-align:middle;color:#fff;border-radius:999px;padding:2px 8px;font-family:Barlow,sans-serif}
-.sohf select,.sohf input{width:100%}
+.sohf select,.sohf input[type=number]{width:100%}
+.sohdis{display:flex;flex-direction:column;gap:6px;font-size:14px}.sohdis label{display:flex;gap:8px;align-items:center}
+.sohtbl tr.sohcat td{background:var(--soft);font-weight:800}
 .sohpc{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;border:1px solid var(--line)}.sohpc.ok{color:var(--good)}.sohpc.brk{color:var(--bad)}
 .scq{font-family:Barlow,sans-serif;font-size:13px;font-weight:600;margin-right:10px}
 .scpc{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:20px}
@@ -1317,7 +1319,7 @@ function parseX30(XLSX,wb){
         const fit=String((c.fit>=0&&txt(row[c.fit]))||"Other").toUpperCase();
         const v=q*num(c.price>=0?row[c.price]:0);const isDis=c.dis>=0&&/distress/i.test(String(row[c.dis]??""));
         bump(L.c,cat,pc,q,v,isDis);bump(L.b,cat+"|"+brick,pc,q,v,isDis);bump(L.f,cat+"|"+fit,pc,q,v,isDis);
-        if(pc){const P=PCQ[pc]||(PCQ[pc]=[0,cat,brick,fit]);P[0]+=q;}
+        if(pc){const P=PCQ[pc]||(PCQ[pc]=[0,cat,brick,fit,0,{}]);if(isDis)P[4]+=q;else P[0]+=q;const dv=(c.dis>=0&&txt(row[c.dis]))||"(blank)";P[5][dv]=(P[5][dv]||0)+q;}
         tot.q+=q;tot.v+=v;if(isDis)tot.dis+=q;if(q>0)tot.opts[pc]=(tot.opts[pc]||0)+1;lines++;
       }
       if(!lines) throw new Error("The stock report has no on-hand quantities.");
@@ -3488,8 +3490,11 @@ function viewSohRep(){
   if(SF.missing)return `<section class="block"><h2>📦 SOH</h2><div class="empty">No stock (X30) saved for ${esc(mLong(k))}. Upload an X30 as on ${esc(shortDate(SF.want))}.</div></section>`;
   if(!S)return `<section class="block"><h2>📦 SOH</h2><div class="empty">Import an X30 on-hand report in the Sales tab.</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Import X30</button></div>`:""}</section>`;
   if(!S.p)return `<section class="block"><h2>📦 SOH · as on ${esc(shortDate(S.date))}</h2><div class="empty">This X30 was saved before PC9-wise stock was kept. Upload the X30 once more (same date) to see options 4+ QTY.</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Upload X30</button></div>`:""}</section>`;
-  const F=ui.sohF||(ui.sohF={lvl:"b",cat:"",brick:"",fit:"",min:4,sort:"soh"});const min=Math.max(1,num(F.min)||4);
-  const all=Object.keys(S.p).map(pc=>{const a=S.p[pc];return {pc,q:num(a[0]),cat:a[1],brick:a[2],fit:a[3]};}).filter(r=>r.q>0);
+  const F=ui.sohF||(ui.sohF={lvl:"b",cat:"",brick:"",fit:"",min:4,sort:"name",dis:false});const min=Math.max(1,num(F.min)||4);
+  const dvals=[...new Set(Object.values(S.p).flatMap(a=>a[5]?Object.keys(a[5]):[]))].sort();
+  const dsel=F.dsel&&F.dsel.length?F.dsel:dvals.filter(v=>!/distress/i.test(v));
+  const qOf=a=>a[5]?Object.keys(a[5]).reduce((x,v)=>x+(dsel.includes(v)?num(a[5][v]):0),0):num(a[0])+(F.dis?num(a[4]):0);
+  const all=Object.keys(S.p).map(pc=>{const a=S.p[pc];return {pc,q:qOf(a),cat:a[1],brick:a[2],fit:a[3]};}).filter(r=>r.q>0);
   const cats=[...new Set(all.map(r=>r.cat))].sort(),bricks=[...new Set(all.filter(r=>!F.cat||r.cat===F.cat).map(r=>r.brick))].sort(),fits=[...new Set(all.filter(r=>(!F.cat||r.cat===F.cat)&&(!F.brick||r.brick===F.brick)).map(r=>r.fit))].sort();
   const list=all.filter(r=>(!F.cat||r.cat===F.cat)&&(!F.brick||r.brick===F.brick)&&(!F.fit||r.fit===F.fit));
   const keyOf=r=>F.lvl==="c"?r.cat:F.lvl==="b"?r.cat+"|"+r.brick:F.lvl==="f"?r.cat+"|"+r.fit:r.pc;
@@ -3497,9 +3502,9 @@ function viewSohRep(){
   const tq=list.reduce((a,r)=>a+r.q,0),to=list.filter(r=>r.q>=min).length,tb=list.length-to;
   const nm=k2=>{const p=k2.split("|");return F.lvl==="c"?catLabel(p[0]):p.slice(1).join("|");};
   let rows=Object.keys(G).map(k2=>({k:k2,...G[k2]}));
-  rows.sort(F.sort==="opt"?(a,b)=>b.opt-a.opt||b.q-a.q:F.sort==="brk"?(a,b)=>b.brk-a.brk||b.q-a.q:F.sort==="name"?(a,b)=>nm(a.k).localeCompare(nm(b.k)):(a,b)=>b.q-a.q);
+  const byName=(a,b)=>nm(a.k).localeCompare(nm(b.k),undefined,{sensitivity:"base"});rows.sort(F.sort==="opt"?(a,b)=>b.opt-a.opt||b.q-a.q:F.sort==="brk"?(a,b)=>b.brk-a.brk||b.q-a.q:F.sort==="soh"?(a,b)=>b.q-a.q:byName);
   const sel=(id,v,opts,all0)=>`<select id="${id}">${[["",all0]].concat(opts.map(o=>[o,o])).map(([x,l])=>`<option value="${esc(x)}" ${x===v?"selected":""}>${esc(id==="sohFcat"&&x?catLabel(x):l)}</option>`).join("")}</select>`;
-  const active=[F.cat&&catLabel(F.cat),F.brick,F.fit,min!==4&&"options "+min+"+"].filter(Boolean);
+  const active=[F.cat&&catLabel(F.cat),F.brick,F.fit,min!==4&&"options "+min+"+",dvals.length?(dsel.length===dvals.length?"all dis":"dis: "+dsel.join(", ")):(F.dis&&"with distress")].filter(Boolean);
   let h=`<section class="block"><h2>📦 SOH · as on ${esc(shortDate(S.date))}</h2>
     <div class="grid"><div class="kv"><span>SOH QTY</span><b>${full(tq)}</b></div><div class="kv"><span>Options (${min}+ QTY)</span><b>${full(to)}</b></div><div class="kv"><span>Broken (1–${min-1})</span><b class="down">${full(tb)}</b></div></div></section>
     <div class="seg" role="group" aria-label="Level">${[["c","Category"],["b","Brick"],["f","Fit"],["p","PC9"]].map(([x,l])=>`<button data-sohlvl="${x}" aria-pressed="${F.lvl===x}">${l}</button>`).join("")}</div>
@@ -3508,19 +3513,28 @@ function viewSohRep(){
       <label class="f" for="sohFbrick">Brick</label>${sel("sohFbrick",F.brick,bricks,"All bricks")}
       <label class="f" for="sohFfit">Fit</label>${sel("sohFfit",F.fit,fits,"All fits")}
       <label class="f" for="sohFmin">Option = PC9 with at least (QTY)</label><input type="number" id="sohFmin" min="1" max="50" inputmode="numeric" value="${min}">
-      <label class="f" for="sohFsort">Sort by</label><select id="sohFsort">${[["soh","SOH QTY"],["opt","Options"],["brk","Broken"],["name","Name"]].map(([x,l])=>`<option value="${x}" ${F.sort===x?"selected":""}>${l}</option>`).join("")}</select>
+      ${dvals.length?`<label class="f">dis</label><div class="sohdis">${dvals.map(v=>`<label><input type="checkbox" data-sohdis="${esc(v)}" ${dsel.includes(v)?"checked":""}> ${esc(v)}</label>`).join("")}</div>`
+        :`<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px"><input type="checkbox" id="sohFdis" ${F.dis?"checked":""}> Include distress stock</label>`}
+      <label class="f" for="sohFsort">Sort by</label><select id="sohFsort">${[["name","A – Z"],["opt","Options (high to low)"],["soh","SOH QTY (high to low)"],["brk","Broken (high to low)"]].map(([x,l])=>`<option value="${x}" ${F.sort===x?"selected":""}>${l}</option>`).join("")}</select>
       <div class="actions"><button class="btn small" data-sohreset="1">Clear filters</button></div></div></details></section>`;
   if(!list.length)return h+`<section class="block"><div class="empty">No stock for these filters.</div></section>`;
   if(F.lvl==="p"){const L=list.slice().sort((a,b)=>b.q-a.q);
     return h+`<section class="block"><div class="tscroll"><table><thead><tr><th>PC9</th><th>Brick · Fit</th><th>SOH</th><th></th></tr></thead><tbody>${L.slice(0,300).map(r=>`<tr><td><b>${esc(r.pc)}</b></td><td style="white-space:normal">${esc(r.brick)} · ${esc(r.fit)}</td><td>${full(r.q)}</td><td>${r.q>=min?`<span class="up">Option</span>`:`<span class="down">Broken</span>`}</td></tr>`).join("")}</tbody></table></div>${L.length>300?`<p class="hint">Showing 300 of ${L.length}. Use filters to narrow.</p>`:""}</section>`;}
-  h+=`<section class="block"><div class="tscroll"><table><thead><tr><th>${F.lvl==="c"?"Category":F.lvl==="b"?"Brick":"Fit"}</th><th>SOH</th><th>Con%</th><th>Options<br><small>${min}+ QTY</small></th><th>Opt%</th><th>Broken<br><small>1–${min-1}</small></th></tr></thead><tbody>`+
-    rows.map(r=>`<tr data-sohrow="${esc(r.k)}" style="cursor:pointer"><td style="white-space:normal;min-width:110px"><b>${esc(nm(r.k))}</b>${F.lvl!=="c"&&!F.cat?`<br><small class="muted">${esc(catLabel(r.k.split("|")[0]))}</small>`:""}</td><td>${full(r.q)}</td><td>${tq?pct(r.q/tq,1):"–"}</td><td><b>${full(r.opt)}</b></td><td>${to?pct(r.opt/to,1):"–"}</td><td class="${r.brk?"down":""}">${r.brk||"–"}</td></tr>`+
-      (ui.sohOpen===r.k?`<tr><td colspan="6" style="white-space:normal"><div class="chips" style="margin:0;max-width:min(560px,calc(100vw - 80px));flex-wrap:wrap">${r.pcs.sort((a,b)=>b.q-a.q).map(x=>`<span class="sohpc ${x.q>=min?"ok":"brk"}">${esc(x.pc)} · ${x.q}</span>`).join("")}</div></td></tr>`:"")).join("")+
-    `<tr class="total"><td>Total</td><td>${full(tq)}</td><td>100%</td><td>${full(to)}</td><td>100%</td><td>${full(tb)}</td></tr></tbody></table></div>
-    <p class="hint">Option = a PC9 with ${min} or more QTY. Broken = 1 to ${min-1} QTY left. Tap a row to see its PC9s.</p></section>`;
+  const rowHtml=(r,sub)=>`<tr data-sohrow="${esc(r.k)}" style="cursor:pointer"><td style="white-space:normal;min-width:100px${sub?";padding-left:20px":""}">${sub?esc(nm(r.k)):`<b>${esc(nm(r.k))}</b>`}</td><td><b>${full(r.opt)}</b></td><td>${full(r.q)}</td><td class="${r.brk?"down":""}">${r.brk||"–"}</td></tr>`+
+      (ui.sohOpen===r.k?`<tr><td colspan="4" style="white-space:normal"><div class="chips" style="margin:0;max-width:min(560px,calc(100vw - 80px));flex-wrap:wrap">${r.pcs.slice().sort((a,b)=>b.q-a.q).map(x=>`<span class="sohpc ${x.q>=min?"ok":"brk"}">${esc(x.pc)} · ${x.q}</span>`).join("")}</div></td></tr>`:"");
+  let body="";
+  if(F.lvl==="c")body=rows.map(r=>rowHtml(r,false)).join("");
+  else{const cs=[...new Set(rows.map(r=>r.k.split("|")[0]))].sort((a,b)=>a.localeCompare(b));
+    body=cs.map(c=>{const rs=rows.filter(r=>r.k.split("|")[0]===c),o=rs.reduce((x,r)=>x+r.opt,0),q=rs.reduce((x,r)=>x+r.q,0),bk=rs.reduce((x,r)=>x+r.brk,0);
+      return `<tr class="sohcat"><td>⊟ ${esc(String(catLabel(c)).toUpperCase())}</td><td><b>${full(o)}</b></td><td><b>${full(q)}</b></td><td><b>${bk||"–"}</b></td></tr>`+rs.map(r=>rowHtml(r,true)).join("");}).join("");}
+  h+=`<section class="block"><div class="tscroll"><table class="sohtbl"><thead><tr><th>${F.lvl==="c"?"Category":F.lvl==="b"?"Brick":"Fit"}</th><th>Options<br><small>${min}+ QTY</small></th><th>SOH</th><th>Broken<br><small>1–${min-1}</small></th></tr></thead><tbody>`+body+
+    `<tr class="total"><td>Grand Total</td><td>${full(to)}</td><td>${full(tq)}</td><td>${full(tb)}</td></tr></tbody></table></div>
+    <p class="hint">Option = a PC9 with ${min} or more QTY${dvals.length?(dsel.length<dvals.length?" (dis: "+esc(dsel.join(", "))+")":""):(F.dis?"":" (distress stock left out)")}. Broken = 1 to ${min-1} QTY. Tap a row to see its PC9s.</p></section>`;
   return h;}
+document.addEventListener("change",e=>{const t=e.target;if(t&&t.dataset&&t.dataset.sohdis!==undefined&&ui.sohF){const v=[...document.querySelectorAll("[data-sohdis]")].filter(x=>x.checked).map(x=>x.dataset.sohdis);
+    if(!v.length){t.checked=true;toast("Keep at least one");return;}ui.sohF.dsel=v;foldState.sohf=true;render();}});
 document.addEventListener("change",e=>{const id=e.target&&e.target.id;if(!id||!/^sohF/.test(id)||!ui.sohF)return;const F=ui.sohF,v=e.target.value;
-  if(id==="sohFcat"){F.cat=v;F.brick="";F.fit="";}else if(id==="sohFbrick"){F.brick=v;F.fit="";}else if(id==="sohFfit")F.fit=v;else if(id==="sohFmin")F.min=Math.max(1,num(v)||4);else if(id==="sohFsort")F.sort=v;
+  if(id==="sohFcat"){F.cat=v;F.brick="";F.fit="";}else if(id==="sohFbrick"){F.brick=v;F.fit="";}else if(id==="sohFfit")F.fit=v;else if(id==="sohFmin")F.min=Math.max(1,num(v)||4);else if(id==="sohFsort")F.sort=v;else if(id==="sohFdis")F.dis=e.target.checked;
   foldState.sohf=true;render();});
 document.addEventListener("click",e=>{const r=e.target.closest&&e.target.closest("[data-sohrow]");if(!r)return;const k=r.dataset.sohrow;ui.sohOpen=ui.sohOpen===k?"":k;render();});
 function gzClick(t){const d=t.dataset;
@@ -3533,8 +3547,8 @@ function gzClick(t){const d=t.dataset;
   if(d.gzgames){ui.trnPage="games";go("learn");return true;}
   if(d.celeb){openCelebration(window.__topper||{});return true;}
   if(d.scan){scOpen();return true;}
-  if(d.sohlvl){(ui.sohF=ui.sohF||{lvl:"b",cat:"",brick:"",fit:"",min:4,sort:"soh"}).lvl=d.sohlvl;ui.sohOpen="";render();return true;}
-  if(d.sohreset){ui.sohF={lvl:(ui.sohF||{}).lvl||"b",cat:"",brick:"",fit:"",min:4,sort:"soh"};render();return true;}
+  if(d.sohlvl){(ui.sohF=ui.sohF||{lvl:"b",cat:"",brick:"",fit:"",min:4,sort:"name",dis:false}).lvl=d.sohlvl;ui.sohOpen="";render();return true;}
+  if(d.sohreset){ui.sohF={lvl:(ui.sohF||{}).lvl||"b",cat:"",brick:"",fit:"",min:4,sort:"name",dis:false,dsel:null};render();return true;}
   if(d.sohdel){const dd=d.sohdel;askConfirm("Delete the stock (X30) as on "+shortDate(dd)+"?","Delete",()=>delSohSnap(dd));return true;}
   return false;}
 

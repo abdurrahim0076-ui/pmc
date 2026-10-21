@@ -383,6 +383,8 @@ details.fold.sub>summary .farrow{background:var(--surface)}
 .scstat{border-radius:999px;padding:0 10px;font-size:15px!important}.scstat.up{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}.scstat.warn{background:color-mix(in srgb,var(--thread) 22%,transparent);color:var(--thread)}.scstat.down{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
 .scmrp{font-weight:700;font-size:14px;margin-top:2px}
 .scp{position:static!important;margin-left:8px;font-size:12px!important;font-style:normal;vertical-align:middle;color:#fff;border-radius:999px;padding:2px 8px;font-family:Barlow,sans-serif}
+.sohf select,.sohf input{width:100%}
+.sohpc{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;border:1px solid var(--line)}.sohpc.ok{color:var(--good)}.sohpc.brk{color:var(--bad)}
 .scq{font-family:Barlow,sans-serif;font-size:13px;font-weight:600;margin-right:10px}
 .scpc{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:20px}
 @media (prefers-reduced-motion:reduce){.gzbig,.cbcard{transition:none}}
@@ -1302,7 +1304,7 @@ function parseX30(XLSX,wb){
       const c={pc9:col_("PC9"),code:col_("PRODUCT CODE"),brick:col_("BRICK"),fit:col_("FIT"),dis:col_("DIS"),cls:col_("CLASS"),
         sub:col_("SUBCLASS")>=0?col_("SUBCLASS"):col_("SUB CLASS"),price:hd.findIndex(x=>x.includes("RETAIL PRICE"))};
       const txt=v=>{const s=String(v??"").trim();return s&&!s.startsWith("#")&&s!=="0"?s:"";};
-      const L={c:{},b:{},f:{}};const tot={q:0,v:0,dis:0,opts:{}};
+      const L={c:{},b:{},f:{}};const tot={q:0,v:0,dis:0,opts:{}};const PCQ={};
       const bump=(o,key,pc,q,v,isDis)=>{const a=o[key]||(o[key]={q:0,v:0,dis:0,opts:{}});a.q+=q;a.v+=v;if(isDis)a.dis+=q;if(q>0)a.opts[pc]=(a.opts[pc]||0)+1;};
       let lines=0;
       for(let r=i+1;r<rows.length;r++){
@@ -1315,13 +1317,14 @@ function parseX30(XLSX,wb){
         const fit=String((c.fit>=0&&txt(row[c.fit]))||"Other").toUpperCase();
         const v=q*num(c.price>=0?row[c.price]:0);const isDis=c.dis>=0&&/distress/i.test(String(row[c.dis]??""));
         bump(L.c,cat,pc,q,v,isDis);bump(L.b,cat+"|"+brick,pc,q,v,isDis);bump(L.f,cat+"|"+fit,pc,q,v,isDis);
+        if(pc){const P=PCQ[pc]||(PCQ[pc]=[0,cat,brick,fit]);P[0]+=q;}
         tot.q+=q;tot.v+=v;if(isDis)tot.dis+=q;if(q>0)tot.opts[pc]=(tot.opts[pc]||0)+1;lines++;
       }
       if(!lines) throw new Error("The stock report has no on-hand quantities.");
       const pack=a=>{const o=Object.values(a.opts);return [a.q,Math.round(a.v),o.length,o.filter(n=>n<=2).length,a.dis];};
       const out={date:todayISO(),c:{},b:{},f:{}};
       ["c","b","f"].forEach(l=>Object.keys(L[l]).forEach(k=>{out[l][k]=pack(L[l][k]);}));
-      out.tot=pack(tot);out.lines=lines;
+      out.tot=pack(tot);out.lines=lines;out.p=PCQ;
       return out;
     }
   }
@@ -2422,6 +2425,7 @@ function viewReport(){
   if(rp==="snag") return back+viewSnags();
   if(rp==="chk") return back+viewChecklistReport();
   if(rp==="prod") return back+viewStoreProd();
+  if(rp==="soh") return back+viewSohRep();
   const folders=`<div class="rfolders"><button class="folder" data-rpage="promo"><span class="ficon" aria-hidden="true">🎁</span><span class="ftxt"><b>Promo con%</b><small>Slabs · store and staff</small></span></button>
     <button class="folder" data-rpage="upt"><span class="ficon" aria-hidden="true">🧺</span><span class="ftxt"><b>UPT</b><small>MT · MB · WT · WB · Mens · Womens</small></span></button>
     <button class="folder" data-rpage="conv"><span class="ficon" aria-hidden="true">🚶</span><span class="ftxt"><b>Conv%</b><small>Day-wise walk-ins and bills</small></span></button>
@@ -2430,6 +2434,7 @@ function viewReport(){
     <button class="folder" data-rpage="snag"><span class="ficon" aria-hidden="true">🛠️</span><span class="ftxt"><b>Store issues</b><small>AC · light · repairs · open / cleared</small></span></button>
     <button class="folder" data-rpage="chk"><span class="ficon" aria-hidden="true">✅</span><span class="ftxt"><b>Store checklist</b><small>Floor · wall · trial room · cash</small></span></button>
     <button class="folder" data-rpage="wow"><span class="ficon" aria-hidden="true">🤩</span><span class="ftxt"><b>WOW bills</b><small>13k · 20k · 30k · 40k+ bills</small></span></button>
+    <button class="folder" data-rpage="soh"><span class="ficon" aria-hidden="true">📦</span><span class="ftxt"><b>SOH</b><small>Category · brick · fit · options 4+ QTY</small></span></button>
     <button class="folder" data-rpage="walls"><span class="ficon" aria-hidden="true">🧱</span><span class="ftxt"><b>Wall productivity</b><small>Con% · space · per wall</small></span></button></div>`;
   return folders+viewReportMain();
 }
@@ -3476,6 +3481,48 @@ async function saveStaffFace(id,d){try{await fsSet("staffphotos",{face:{[id]:d}}
 
 /* clicks for everything above; returns true when handled */
 document.addEventListener("change",e=>{if(e.target&&e.target.id==="sohDate"&&ui.x24){ui.x24.sohDate=e.target.value;const h=document.getElementById("sohDateHint");if(h)h.innerHTML=sohMonthHint(e.target.value);}});
+/* 📦 SOH report: stock by category / brick / fit; an option = a PC9 with at least the minimum QTY (4 by default) */
+function viewSohRep(){
+  const k=cur(),ytd=isYtd();const SF=ytd?sohFor(new Date(2000,0,1),new Date(2999,0,1)):sohFor(...periodDates(k,false));const S=SF.S;
+  if(SF.loading)return `<div class="empty">Loading stock…</div>`;
+  if(SF.missing)return `<section class="block"><h2>📦 SOH</h2><div class="empty">No stock (X30) saved for ${esc(mLong(k))}. Upload an X30 as on ${esc(shortDate(SF.want))}.</div></section>`;
+  if(!S)return `<section class="block"><h2>📦 SOH</h2><div class="empty">Import an X30 on-hand report in the Sales tab.</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Import X30</button></div>`:""}</section>`;
+  if(!S.p)return `<section class="block"><h2>📦 SOH · as on ${esc(shortDate(S.date))}</h2><div class="empty">This X30 was saved before PC9-wise stock was kept. Upload the X30 once more (same date) to see options 4+ QTY.</div>${canEdit()?`<div class="actions"><button class="btn small" data-go="add">Upload X30</button></div>`:""}</section>`;
+  const F=ui.sohF||(ui.sohF={lvl:"b",cat:"",brick:"",fit:"",min:4,sort:"soh"});const min=Math.max(1,num(F.min)||4);
+  const all=Object.keys(S.p).map(pc=>{const a=S.p[pc];return {pc,q:num(a[0]),cat:a[1],brick:a[2],fit:a[3]};}).filter(r=>r.q>0);
+  const cats=[...new Set(all.map(r=>r.cat))].sort(),bricks=[...new Set(all.filter(r=>!F.cat||r.cat===F.cat).map(r=>r.brick))].sort(),fits=[...new Set(all.filter(r=>(!F.cat||r.cat===F.cat)&&(!F.brick||r.brick===F.brick)).map(r=>r.fit))].sort();
+  const list=all.filter(r=>(!F.cat||r.cat===F.cat)&&(!F.brick||r.brick===F.brick)&&(!F.fit||r.fit===F.fit));
+  const keyOf=r=>F.lvl==="c"?r.cat:F.lvl==="b"?r.cat+"|"+r.brick:F.lvl==="f"?r.cat+"|"+r.fit:r.pc;
+  const G={};list.forEach(r=>{const o=G[keyOf(r)]||(G[keyOf(r)]={q:0,opt:0,brk:0,n:0,pcs:[]});o.q+=r.q;o.n++;if(r.q>=min)o.opt++;else o.brk++;o.pcs.push(r);});
+  const tq=list.reduce((a,r)=>a+r.q,0),to=list.filter(r=>r.q>=min).length,tb=list.length-to;
+  const nm=k2=>{const p=k2.split("|");return F.lvl==="c"?catLabel(p[0]):p.slice(1).join("|");};
+  let rows=Object.keys(G).map(k2=>({k:k2,...G[k2]}));
+  rows.sort(F.sort==="opt"?(a,b)=>b.opt-a.opt||b.q-a.q:F.sort==="brk"?(a,b)=>b.brk-a.brk||b.q-a.q:F.sort==="name"?(a,b)=>nm(a.k).localeCompare(nm(b.k)):(a,b)=>b.q-a.q);
+  const sel=(id,v,opts,all0)=>`<select id="${id}">${[["",all0]].concat(opts.map(o=>[o,o])).map(([x,l])=>`<option value="${esc(x)}" ${x===v?"selected":""}>${esc(id==="sohFcat"&&x?catLabel(x):l)}</option>`).join("")}</select>`;
+  const active=[F.cat&&catLabel(F.cat),F.brick,F.fit,min!==4&&"options "+min+"+"].filter(Boolean);
+  let h=`<section class="block"><h2>📦 SOH · as on ${esc(shortDate(S.date))}</h2>
+    <div class="grid"><div class="kv"><span>SOH QTY</span><b>${full(tq)}</b></div><div class="kv"><span>Options (${min}+ QTY)</span><b>${full(to)}</b></div><div class="kv"><span>Broken (1–${min-1})</span><b class="down">${full(tb)}</b></div></div></section>
+    <div class="seg" role="group" aria-label="Level">${[["c","Category"],["b","Brick"],["f","Fit"],["p","PC9"]].map(([x,l])=>`<button data-sohlvl="${x}" aria-pressed="${F.lvl===x}">${l}</button>`).join("")}</div>
+    <section class="block" style="padding:10px 14px"><details class="fold"${foldAttr("sohf")}>${foldSum("🔽 Filters",active.length?esc(active.join(" · ")):"All")}
+      <div class="sohf"><label class="f" for="sohFcat">Category</label>${sel("sohFcat",F.cat,cats,"All categories")}
+      <label class="f" for="sohFbrick">Brick</label>${sel("sohFbrick",F.brick,bricks,"All bricks")}
+      <label class="f" for="sohFfit">Fit</label>${sel("sohFfit",F.fit,fits,"All fits")}
+      <label class="f" for="sohFmin">Option = PC9 with at least (QTY)</label><input type="number" id="sohFmin" min="1" max="50" inputmode="numeric" value="${min}">
+      <label class="f" for="sohFsort">Sort by</label><select id="sohFsort">${[["soh","SOH QTY"],["opt","Options"],["brk","Broken"],["name","Name"]].map(([x,l])=>`<option value="${x}" ${F.sort===x?"selected":""}>${l}</option>`).join("")}</select>
+      <div class="actions"><button class="btn small" data-sohreset="1">Clear filters</button></div></div></details></section>`;
+  if(!list.length)return h+`<section class="block"><div class="empty">No stock for these filters.</div></section>`;
+  if(F.lvl==="p"){const L=list.slice().sort((a,b)=>b.q-a.q);
+    return h+`<section class="block"><div class="tscroll"><table><thead><tr><th>PC9</th><th>Brick · Fit</th><th>SOH</th><th></th></tr></thead><tbody>${L.slice(0,300).map(r=>`<tr><td><b>${esc(r.pc)}</b></td><td style="white-space:normal">${esc(r.brick)} · ${esc(r.fit)}</td><td>${full(r.q)}</td><td>${r.q>=min?`<span class="up">Option</span>`:`<span class="down">Broken</span>`}</td></tr>`).join("")}</tbody></table></div>${L.length>300?`<p class="hint">Showing 300 of ${L.length}. Use filters to narrow.</p>`:""}</section>`;}
+  h+=`<section class="block"><div class="tscroll"><table><thead><tr><th>${F.lvl==="c"?"Category":F.lvl==="b"?"Brick":"Fit"}</th><th>SOH</th><th>Con%</th><th>Options<br><small>${min}+ QTY</small></th><th>Opt%</th><th>Broken<br><small>1–${min-1}</small></th></tr></thead><tbody>`+
+    rows.map(r=>`<tr data-sohrow="${esc(r.k)}" style="cursor:pointer"><td style="white-space:normal;min-width:110px"><b>${esc(nm(r.k))}</b>${F.lvl!=="c"&&!F.cat?`<br><small class="muted">${esc(catLabel(r.k.split("|")[0]))}</small>`:""}</td><td>${full(r.q)}</td><td>${tq?pct(r.q/tq,1):"–"}</td><td><b>${full(r.opt)}</b></td><td>${to?pct(r.opt/to,1):"–"}</td><td class="${r.brk?"down":""}">${r.brk||"–"}</td></tr>`+
+      (ui.sohOpen===r.k?`<tr><td colspan="6" style="white-space:normal"><div class="chips" style="margin:0;max-width:min(560px,calc(100vw - 80px));flex-wrap:wrap">${r.pcs.sort((a,b)=>b.q-a.q).map(x=>`<span class="sohpc ${x.q>=min?"ok":"brk"}">${esc(x.pc)} · ${x.q}</span>`).join("")}</div></td></tr>`:"")).join("")+
+    `<tr class="total"><td>Total</td><td>${full(tq)}</td><td>100%</td><td>${full(to)}</td><td>100%</td><td>${full(tb)}</td></tr></tbody></table></div>
+    <p class="hint">Option = a PC9 with ${min} or more QTY. Broken = 1 to ${min-1} QTY left. Tap a row to see its PC9s.</p></section>`;
+  return h;}
+document.addEventListener("change",e=>{const id=e.target&&e.target.id;if(!id||!/^sohF/.test(id)||!ui.sohF)return;const F=ui.sohF,v=e.target.value;
+  if(id==="sohFcat"){F.cat=v;F.brick="";F.fit="";}else if(id==="sohFbrick"){F.brick=v;F.fit="";}else if(id==="sohFfit")F.fit=v;else if(id==="sohFmin")F.min=Math.max(1,num(v)||4);else if(id==="sohFsort")F.sort=v;
+  foldState.sohf=true;render();});
+document.addEventListener("click",e=>{const r=e.target.closest&&e.target.closest("[data-sohrow]");if(!r)return;const k=r.dataset.sohrow;ui.sohOpen=ui.sohOpen===k?"":k;render();});
 function gzClick(t){const d=t.dataset;
   if(d.gzplay){gzStart(d.gzplay);return true;}
   if(d.gzlike){gzToggleLike(d.gzlike);return true;}
@@ -3486,6 +3533,8 @@ function gzClick(t){const d=t.dataset;
   if(d.gzgames){ui.trnPage="games";go("learn");return true;}
   if(d.celeb){openCelebration(window.__topper||{});return true;}
   if(d.scan){scOpen();return true;}
+  if(d.sohlvl){(ui.sohF=ui.sohF||{lvl:"b",cat:"",brick:"",fit:"",min:4,sort:"soh"}).lvl=d.sohlvl;ui.sohOpen="";render();return true;}
+  if(d.sohreset){ui.sohF={lvl:(ui.sohF||{}).lvl||"b",cat:"",brick:"",fit:"",min:4,sort:"soh"};render();return true;}
   if(d.sohdel){const dd=d.sohdel;askConfirm("Delete the stock (X30) as on "+shortDate(dd)+"?","Delete",()=>delSohSnap(dd));return true;}
   return false;}
 

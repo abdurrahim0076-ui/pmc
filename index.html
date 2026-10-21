@@ -387,6 +387,15 @@ details.fold.sub>summary .farrow{background:var(--surface)}
 .sohdis{display:flex;flex-direction:column;gap:6px;font-size:14px}.sohdis label{display:flex;gap:8px;align-items:center}
 .sohtbl tr.sohcat td{background:var(--soft);font-weight:800}
 .sohpc{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;border:1px solid var(--line)}.sohpc.ok{color:var(--good)}.sohpc.brk{color:var(--bad)}
+.scfqt{display:inline-block;border-radius:999px;padding:1px 8px;color:#fff;font-size:11px}.scfqt.fq{background:#1F7A4D}.scfqt.dis{background:#B23A3A}.scfqt.nod{background:#2E5590}.scfqt.dp{background:#444}
+.scvid{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:4/3;margin-bottom:8px}
+.scvid video{width:100%;height:100%;object-fit:cover;display:block}
+.scguide{position:absolute;left:10%;right:10%;top:36%;bottom:36%;border:3px solid var(--thread);border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+.scmsg{position:absolute;left:0;right:0;bottom:8px;margin:0;text-align:center;color:#fff;font-weight:700;font-size:14px;text-shadow:0 1px 3px #000}
+.scfq{margin:10px 0 0;border-radius:12px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;color:#fff}.scfq b{font-size:18px}.scfq small{font-size:12px;font-weight:600;opacity:.9;text-align:right}
+.scfq.fq{background:#1F7A4D}.scfq.dis{background:#B23A3A}.scfq.nod{background:#2E5590}.scfq.dp{background:#444}
+.scsz{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;margin-top:6px}.scsz div{background:var(--soft);border-radius:10px;text-align:center;padding:5px 2px}.scsz small{display:block;color:var(--muted);font-size:12px}.scsz b{font-size:17px}
+.scsz .lo{background:color-mix(in srgb,var(--thread) 30%,var(--soft))}.scsz .zero{background:color-mix(in srgb,var(--bad) 30%,var(--soft))}.scsz .me{outline:3px solid var(--thread)}
 .scq{font-family:Barlow,sans-serif;font-size:13px;font-weight:600;margin-right:10px}
 .scpc{font-family:"Barlow Condensed",Barlow,sans-serif;font-size:20px}
 @media (prefers-reduced-motion:reduce){.gzbig,.cbcard{transition:none}}
@@ -1037,7 +1046,7 @@ async function buildDailyReport(iso){
   return lines.join("\n");}
 async function openDailyReport(iso){loadRecs("chk");loadSnags();toast("Preparing…");const txt=await buildDailyReport(iso);
   let o=document.getElementById("repBox");if(!o){o=document.createElement("div");o.id="repBox";o.className="overlay";document.body.appendChild(o);o.addEventListener("click",e=>{if(e.target===o||e.target.dataset.repclose!==undefined)o.hidden=true;});}
-  o.innerHTML=`<div class="dialog" style="max-width:480px;padding:14px"><h2 style="margin:0 0 10px">📲 Daily report</h2><textarea id="repTxt" rows="9" style="width:100%;font-family:system-ui;font-size:14px;background:#e7fbe0;border-radius:10px;padding:10px">${esc(txt)}</textarea>
+  o.innerHTML=`<div class="dialog" style="max-width:480px;padding:14px"><h2 style="margin:0 0 10px">📲 Daily report</h2><textarea id="repTxt" rows="9" style="width:100%;font-family:system-ui;font-size:15px;line-height:1.45;background:#e7fbe0;color:#10251a;-webkit-text-fill-color:#10251a;opacity:1;border-radius:10px;padding:10px">${esc(txt)}</textarea>
     <div class="actions"><a class="btn small primary" style="background:#25D366;border-color:#25D366;flex:1;text-align:center" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener" id="repWa">Send on WhatsApp</a><button class="btn small" data-repcopy="1">Copy</button><button class="btn small" data-repclose="1">Close</button></div>
     <p class="hint">You can edit the text before sending.</p></div>`;
   o.hidden=false;const ta=document.getElementById("repTxt");ta.addEventListener("input",()=>{document.getElementById("repWa").href="https://wa.me/?text="+encodeURIComponent(ta.value);});}
@@ -1303,10 +1312,10 @@ function parseX30(XLSX,wb){
       const qi=hd.findIndex(x=>x.includes("ONHAND"));const ci=hd.indexOf("CATEGORY");
       if(qi<0||ci<0)continue;
       const col_=n=>hd.indexOf(n);
-      const c={pc9:col_("PC9"),code:col_("PRODUCT CODE"),brick:col_("BRICK"),fit:col_("FIT"),dis:col_("DIS"),cls:col_("CLASS"),
+      const c={pc9:col_("PC9"),code:col_("PRODUCT CODE"),brick:col_("BRICK"),fit:col_("FIT"),dis:col_("DIS"),cls:col_("CLASS"),waist:col_("WAIST"),inseam:col_("INSEAM"),ean:col_("EAN"),
         sub:col_("SUBCLASS")>=0?col_("SUBCLASS"):col_("SUB CLASS"),price:hd.findIndex(x=>x.includes("RETAIL PRICE"))};
       const txt=v=>{const s=String(v??"").trim();return s&&!s.startsWith("#")&&s!=="0"?s:"";};
-      const L={c:{},b:{},f:{}};const tot={q:0,v:0,dis:0,opts:{}};const PCQ={};
+      const L={c:{},b:{},f:{}};const tot={q:0,v:0,dis:0,opts:{}};const PCQ={},EAN={};
       const bump=(o,key,pc,q,v,isDis)=>{const a=o[key]||(o[key]={q:0,v:0,dis:0,opts:{}});a.q+=q;a.v+=v;if(isDis)a.dis+=q;if(q>0)a.opts[pc]=(a.opts[pc]||0)+1;};
       let lines=0;
       for(let r=i+1;r<rows.length;r++){
@@ -1319,14 +1328,16 @@ function parseX30(XLSX,wb){
         const fit=String((c.fit>=0&&txt(row[c.fit]))||"Other").toUpperCase();
         const v=q*num(c.price>=0?row[c.price]:0);const isDis=c.dis>=0&&/distress/i.test(String(row[c.dis]??""));
         bump(L.c,cat,pc,q,v,isDis);bump(L.b,cat+"|"+brick,pc,q,v,isDis);bump(L.f,cat+"|"+fit,pc,q,v,isDis);
-        if(pc){const P=PCQ[pc]||(PCQ[pc]=[0,cat,brick,fit,0,{}]);if(isDis)P[4]+=q;else P[0]+=q;const dv=(c.dis>=0&&txt(row[c.dis]))||"(blank)";P[5][dv]=(P[5][dv]||0)+q;}
+        if(pc){const P=PCQ[pc]||(PCQ[pc]=[0,cat,brick,fit,0,{},{}]);if(isDis)P[4]+=q;else P[0]+=q;const dv=(c.dis>=0&&txt(row[c.dis]))||"(blank)";P[5][dv]=(P[5][dv]||0)+q;
+          const w=c.waist>=0?String(row[c.waist]??"").trim():"",ins=c.inseam>=0?String(row[c.inseam]??"").trim():"";const sz=w&&w!=="-"?w+(ins&&ins!=="-"&&ins!=="0"?"×"+ins:""):"";
+          if(sz)P[6][sz]=(P[6][sz]||0)+q;const en=c.ean>=0?String(row[c.ean]??"").replace(/\D/g,""):"";if(en.length>=8)EAN[en]=[pc,sz];}
         tot.q+=q;tot.v+=v;if(isDis)tot.dis+=q;if(q>0)tot.opts[pc]=(tot.opts[pc]||0)+1;lines++;
       }
       if(!lines) throw new Error("The stock report has no on-hand quantities.");
       const pack=a=>{const o=Object.values(a.opts);return [a.q,Math.round(a.v),o.length,o.filter(n=>n<=2).length,a.dis];};
       const out={date:todayISO(),c:{},b:{},f:{}};
       ["c","b","f"].forEach(l=>Object.keys(L[l]).forEach(k=>{out[l][k]=pack(L[l][k]);}));
-      out.tot=pack(tot);out.lines=lines;out.p=PCQ;
+      out.tot=pack(tot);out.lines=lines;out.p=PCQ;out.ean=EAN;
       return out;
     }
   }
@@ -1402,6 +1413,7 @@ async function handleX24File(file){
     if(isDsrBook(XLSX,wb)){const dsr=parseDsr(XLSX,wb);ui.x24={type:"dsr",file:file.name,dsr};
       const ms=[...new Set(Object.keys(dsr).map(d=>d.slice(0,7)))];await Promise.all(ms.map(loadX24));render();return;}
     if(isStBook(XLSX,wb)){const st=parseStRep(XLSX,wb);ui.x24={type:"st",file:file.name,st};render();return;}
+    {const fq=parseFqMaster(XLSX,wb);if(fq){ui.x24={type:"fq",file:file.name,fq};render();return;}}
     if(isSohBook(XLSX,wb)){const soh=parseX30(XLSX,wb);ui.x24={type:"soh",file:file.name,soh};render();return;}
     const parsed=parseX24(XLSX,wb);
     const dates=Object.keys(parsed.days).sort();
@@ -1429,6 +1441,11 @@ function viewImport(){
         <div class="kv"><span>Walk-ins</span><b>${full(t.w)}</b></div><div class="kv"><span>ATV / UPT</span><b>${t.b?inr(t.s/t.b):"–"} / ${t.b?(t.u/t.b).toFixed(2):"–"}</b></div><div class="kv"><span>Conversion</span><b>${t.w?pct(t.b/t.w,1):"–"}</b></div></div>
       <p class="hint">Fills day, week and month sales, bills, units and walk-ins (footfall), plus category con% (Men's/Women's Tops and Bottoms), on the Levi's calendar. ${withX24?withX24+" days already have X24 data: those keep the X24 sales and staff numbers and only get walk-ins added.":""} Staff numbers come only from X24. Targets you typed stay.</p>
       <div class="actions"><button class="btn primary" id="dsrImport" style="flex:1">Import ${ds.length} days</button><button class="btn" id="x24Cancel">Cancel</button></div>`;}
+  else if(x.type==="fq"){const C={};Object.values(x.fq.m).forEach(a=>{C[a[1]]=(C[a[1]]||0)+1;});
+    h+=`<p style="margin:0 0 8px"><b>🏷️ FQ / Distress master</b> <span class="muted">· ${esc(x.file)}</span></p>
+      <div class="grid" style="margin-bottom:10px">${Object.keys(C).sort().map(k=>`<div class="kv"><span>${esc(k)}</span><b>${full(C[k])}</b><small class="muted">PC9</small></div>`).join("")}</div>
+      <p class="hint">PC9s not in this list show as FQ. This replaces the previous master.</p>
+      <div class="actions"><button class="btn primary" id="fqImport" style="flex:1">Import master</button><button class="btn" id="x24Cancel">Cancel</button></div>`;}
   else if(x.type==="soh"){const t=x.soh.tot;
     h+=`<p style="margin:0 0 8px"><b>Stock on hand (X30)</b></p>
       <label class="f" for="sohDate">Stock as on</label><input type="date" id="sohDate" value="${esc(x.sohDate||todayISO())}" max="${todayISO()}">
@@ -3507,7 +3524,7 @@ function viewSohRep(){
   const active=[F.cat&&catLabel(F.cat),F.brick,F.fit,min!==4&&"options "+min+"+",dvals.length?(dsel.length===dvals.length?"all dis":"dis: "+dsel.join(", ")):(F.dis&&"with distress")].filter(Boolean);
   let h=`<section class="block"><h2>📦 SOH · as on ${esc(shortDate(S.date))}</h2>
     <div class="grid"><div class="kv"><span>SOH QTY</span><b>${full(tq)}</b></div><div class="kv"><span>Options (${min}+ QTY)</span><b>${full(to)}</b></div><div class="kv"><span>Broken (1–${min-1})</span><b class="down">${full(tb)}</b></div></div></section>
-    <div class="seg" role="group" aria-label="Level">${[["c","Category"],["b","Brick"],["f","Fit"],["p","PC9"]].map(([x,l])=>`<button data-sohlvl="${x}" aria-pressed="${F.lvl===x}">${l}</button>`).join("")}</div>
+    <div class="seg" role="group" aria-label="Level">${[["c","Category"],["b","Brick"],["f","Fit"],["d","Dis"],["p","PC9"]].map(([x,l])=>`<button data-sohlvl="${x}" aria-pressed="${F.lvl===x}">${l}</button>`).join("")}</div>
     <section class="block" style="padding:10px 14px"><details class="fold"${foldAttr("sohf")}>${foldSum("🔽 Filters",active.length?esc(active.join(" · ")):"All")}
       <div class="sohf"><label class="f" for="sohFcat">Category</label>${sel("sohFcat",F.cat,cats,"All categories")}
       <label class="f" for="sohFbrick">Brick</label>${sel("sohFbrick",F.brick,bricks,"All bricks")}
@@ -3518,6 +3535,21 @@ function viewSohRep(){
       <label class="f" for="sohFsort">Sort by</label><select id="sohFsort">${[["name","A – Z"],["opt","Options (high to low)"],["soh","SOH QTY (high to low)"],["brk","Broken (high to low)"]].map(([x,l])=>`<option value="${x}" ${F.sort===x?"selected":""}>${l}</option>`).join("")}</select>
       <div class="actions"><button class="btn small" data-sohreset="1">Clear filters</button></div></div></details></section>`;
   if(!list.length)return h+`<section class="block"><div class="empty">No stock for these filters.</div></section>`;
+  if(F.lvl==="d"){loadFq();
+    const L=Object.keys(S.p).map(pc=>{const a=S.p[pc];return {pc,q:num(a[0])+num(a[4]),cat:a[1],brick:a[2],fit:a[3]};}).filter(r=>r.q>0&&(!F.cat||r.cat===F.cat)&&(!F.brick||r.brick===F.brick)&&(!F.fit||r.fit===F.fit));
+    L.forEach(r=>{const st=fqStatus(r.pc);r.s=st?st.s:"FQ";});
+    const order=["FQ","DISTRESS","NOT ON DISCOUNT"];const sts=[...new Set(L.map(r=>r.s))].sort((a,b)=>((order.indexOf(a)+1)||9)-((order.indexOf(b)+1)||9)||a.localeCompare(b));
+    const G={};L.forEach(r=>{const k=r.cat+"|"+r.brick;const o=G[k]||(G[k]={});const x=o[r.s]||(o[r.s]=[0,0]);x[1]+=r.q;if(r.q>=min)x[0]++;});
+    const cell=(o,st)=>{const x=o[st];return x?`${full(x[0])} · ${full(x[1])}`:"–";};
+    const sum=(ks,st)=>ks.reduce((t,k)=>{const x=G[k][st];if(x){t[0]+=x[0];t[1]+=x[1];}return t;},[0,0]);
+    const cs=[...new Set(Object.keys(G).map(k=>k.split("|")[0]))].sort();
+    let b="";cs.forEach(c=>{const ks=Object.keys(G).filter(k=>k.split("|")[0]===c).sort((x,y)=>x.localeCompare(y,undefined,{sensitivity:"base"}));
+      b+=`<tr class="sohcat"><td>⊟ ${esc(String(catLabel(c)).toUpperCase())}</td>${sts.map(st=>{const t=sum(ks,st);return `<td><b>${t[1]?full(t[0])+" · "+full(t[1]):"–"}</b></td>`;}).join("")}</tr>`+
+        ks.map(k=>`<tr><td style="white-space:normal;padding-left:20px">${esc(k.split("|").slice(1).join("|"))}</td>${sts.map(st=>`<td>${cell(G[k],st)}</td>`).join("")}</tr>`).join("");});
+    const all=Object.keys(G);
+    return h+`<section class="block"><div class="tscroll"><table class="sohtbl"><thead><tr><th>Brick</th>${sts.map(st=>`<th><span class="scfqt ${fqClass(st)}">${esc(st)}</span><br><small>opt · QTY</small></th>`).join("")}</tr></thead><tbody>${b}
+      <tr class="total"><td>Grand Total</td>${sts.map(st=>{const t=sum(all,st);return `<td>${full(t[0])} · ${full(t[1])}</td>`;}).join("")}</tr></tbody></table></div>
+      <p class="hint">Status from the FQ / Distress master${fqMaster&&Object.keys(fqMaster.m||{}).length?"":" (not uploaded yet, so the X30 dis column is used)"}; PC9 not in it = FQ. Options = PC9 with ${min}+ QTY. QTY includes all stock.</p></section>`;}
   if(F.lvl==="p"){const L=list.slice().sort((a,b)=>b.q-a.q);
     return h+`<section class="block"><div class="tscroll"><table><thead><tr><th>PC9</th><th>Brick · Fit</th><th>SOH</th><th></th></tr></thead><tbody>${L.slice(0,300).map(r=>`<tr><td><b>${esc(r.pc)}</b></td><td style="white-space:normal">${esc(r.brick)} · ${esc(r.fit)}</td><td>${full(r.q)}</td><td>${r.q>=min?`<span class="up">Option</span>`:`<span class="down">Broken</span>`}</td></tr>`).join("")}</tbody></table></div>${L.length>300?`<p class="hint">Showing 300 of ${L.length}. Use filters to narrow.</p>`:""}</section>`;}
   const rowHtml=(r,sub)=>`<tr data-sohrow="${esc(r.k)}" style="cursor:pointer"><td style="white-space:normal;min-width:100px${sub?";padding-left:20px":""}">${sub?esc(nm(r.k)):`<b>${esc(nm(r.k))}</b>`}</td><td><b>${full(r.opt)}</b></td><td>${full(r.q)}</td><td class="${r.brk?"down":""}">${r.brk||"–"}</td></tr>`+
@@ -3616,29 +3648,77 @@ function gzClick(t){const d=t.dataset;
   if(d.sohdel){const dd=d.sohdel;askConfirm("Delete the stock (X30) as on "+shortDate(dd)+"?","Delete",()=>delSohSnap(dd));return true;}
   return false;}
 
+/* 🏷️ FQ / Distress master: "pc9 List" sheet with Remark / Remark 2. A PC9 not in it is FQ. */
+function parseFqMaster(XLSX,wb){
+  const names=wb.SheetNames.slice().sort((a,b)=>(/pc9\s*list/i.test(b)?1:0)-(/pc9\s*list/i.test(a)?1:0));
+  for(const n of names){const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null});
+    for(let i=0;i<Math.min(10,rows.length);i++){const hd=(rows[i]||[]).map(normHdr);const pi=hd.indexOf("PC9"),r2=hd.indexOf("REMARK 2"),r1=hd.indexOf("REMARK");
+      if(pi<0||(r2<0&&r1<0))continue;const m={};
+      rows.slice(i+1).forEach(r=>{const pc=String(r&&r[pi]||"").trim().toUpperCase();if(!/^[0-9A-Z]{5}-[0-9A-Z]{4}$/.test(pc))return;
+        const s2=String((r2>=0?r[r2]:r[r1])||"").trim().toUpperCase(),s1=String((r1>=0?r[r1]:"")||"").trim();if(s2)m[pc]=[s1,s2];});
+      if(Object.keys(m).length)return {m};}}
+  return null;}
+let fqMaster=null,fqLoading=false;
+function loadFq(){if(fqMaster||fqLoading)return;fqLoading=true;fsGet("fqmaster").then(d=>{fqMaster=d&&d.json?{...d,m:JSON.parse(d.json)}:{m:{}};}).catch(()=>{fqMaster={m:{}};}).finally(()=>{fqLoading=false;render();});}
+async function saveFqMaster(fq,file){fqMaster={m:fq.m,file,at:todayISO()};try{await fsSet("fqmaster",{json:JSON.stringify(fq.m),file:file||"",at:todayISO()});}catch(e){toast("Could not save: "+(e.message||e));}}
+/* status: master first; then the X30 "dis" column; otherwise FQ */
+function fqStatus(pc){loadFq();const M=fqMaster&&fqMaster.m||{};if(M[pc])return {s:M[pc][1],r:M[pc][0],src:"master"};
+  const a=sohData&&sohData.p&&sohData.p[pc];if(a&&a[5]){const tot=Object.values(a[5]).reduce((x,v)=>x+num(v),0),ds=Object.keys(a[5]).filter(k=>/distress/i.test(k)).reduce((x,k)=>x+num(a[5][k]),0);if(tot&&ds>=tot)return {s:"DISTRESS",r:"X30 dis column",src:"x30"};}
+  if(!(fqMaster&&Object.keys(M).length)&&!(sohData&&sohData.p))return null;return {s:"FQ",r:"Full price · not on the distress list",src:"none"};}
+function fqClass(s){return /^FQ$/.test(s)?"fq":/DISTRESS/.test(s)?"dis":/NOT ON DISCOUNT/.test(s)?"nod":"dp";}
+function viewFqCard(){if(!canEdit())return "";loadFq();const M=fqMaster&&fqMaster.m||{};const n=Object.keys(M).length;const C={};Object.values(M).forEach(a=>{C[a[1]]=(C[a[1]]||0)+1;});
+  return `<section class="block"><h2>🏷️ FQ / Distress master</h2>${n?`<p class="hint" style="margin:0 0 8px">${esc(fqMaster.file||"")}${fqMaster.at?" · uploaded "+esc(shortDate(fqMaster.at)):""}</p><div class="grid">${Object.keys(C).sort().map(k=>`<div class="kv"><span>${esc(k)}</span><b>${full(C[k])}</b><small class="muted">PC9</small></div>`).join("")}</div>`:`<div class="empty">No master yet.</div>`}
+    <p class="hint">Upload the Distress / FQ check list (Excel with the "pc9 List" sheet) with the file button above. PC9 not in the master = FQ.</p></section>`;}
 /* ========== 🔍 PC9 search: ST% (week, month, season), SOH and Fast / Avg / Slow ========== */
-const SC={poll:0,pc:""};
+const SC={poll:0,pc:"",stream:null,timer:0,det:null,zx:null,size:""};
+function scStopCam(){clearInterval(SC.timer);SC.timer=0;try{SC.zx&&SC.zx.reset&&SC.zx.reset();}catch(e){}SC.zx=null;
+  if(SC.stream){SC.stream.getTracks().forEach(t=>t.stop());SC.stream=null;}}
+function scLoadZx(){return new Promise((res,rej)=>{if(window.ZXing)return res();const s=document.createElement("script");
+  s.src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js";s.onload=()=>window.ZXing?res():rej();s.onerror=rej;document.head.appendChild(s);});}
+async function scStartCam(){const msg=t=>{const m=document.getElementById("scMsg");if(m)m.textContent=t;};const v=document.getElementById("scVid");
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){msg("Camera not available. Type the PC9 below.");return;}
+  try{
+    if("BarcodeDetector" in window){
+      SC.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});v.srcObject=SC.stream;await v.play().catch(()=>{});
+      let fm=["code_128","code_39","ean_13","ean_8","upc_a","upc_e","itf","qr_code","data_matrix"];try{const sup=await BarcodeDetector.getSupportedFormats();fm=fm.filter(f=>sup.includes(f));}catch(e){}
+      SC.det=new BarcodeDetector({formats:fm});msg("Point at the PC9 barcode on the tag");
+      SC.timer=setInterval(async()=>{if(!SC.stream||v.readyState<2)return;try{const r=await SC.det.detect(v);if(r&&r.length)scGot(r[0].rawValue);}catch(e){}},250);
+    }else{
+      msg("Loading scanner…");await scLoadZx();
+      const hints=new Map();SC.zx=new ZXing.BrowserMultiFormatReader(hints,300);msg("Point at the PC9 barcode on the tag");
+      await SC.zx.decodeFromConstraints({video:{facingMode:{ideal:"environment"}},audio:false},v,(res)=>{if(res)scGot(res.getText());});
+      SC.stream=v.srcObject;}
+  }catch(e){msg(/denied|notallowed|permission/i.test(String(e&&(e.name||e.message)))?"Camera permission is off. Allow camera for this site, or type the PC9 below.":"Could not start the camera. Type the PC9 below.");}}
+/* a scanned / typed code: EAN barcode (from the X30) or a PC9 */
+function scGot(txt){const d=String(txt||"").replace(/\D/g,"");let pc="",sz="";
+  if(d.length>=8&&sohData&&sohData.ean&&sohData.ean[d]){[pc,sz]=sohData.ean[d];}
+  else{const a=String(txt||"").toUpperCase().replace(/[^A-Z0-9]/g,"");const K=scKnown();for(let i=0;i+9<=a.length&&!pc;i++){const c=a.slice(i,i+5)+"-"+a.slice(i+5,i+9);if(K.has(c))pc=c;}}
+  if(!pc){if(d.length>=8){const c=document.getElementById("scCard");if(c)c.innerHTML=`<div class="empty">Barcode ${esc(d)} is not in the store stock (X30). Type the PC9 from the tag.</div>`;}return;}
+  if(pc===SC.pc&&sz===SC.size)return;try{navigator.vibrate&&navigator.vibrate(60);}catch(e){}SC.size=sz;scShow(pc);}
 function scNorm(s){const a=String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");return a.length>=9?a.slice(0,5)+"-"+a.slice(5,9):"";}
 function scKnown(){const s=new Set();if(stRep&&stRep.rows)stRep.rows.forEach(r=>s.add(r[0]));
   Object.keys(mixCache).forEach(w=>{const D=mixCache[w]&&mixCache[w].days||{};Object.keys(D).forEach(d=>Object.keys(D[d].p||{}).forEach(pc=>s.add(pc)));});return s;}
 function scTc(x){x=String(x||"");return /[a-z]/.test(x)?x:x.toLowerCase().replace(/(^|[\s\-\/(])([a-z])/g,(m,p,c)=>p+c.toUpperCase());}
-function scClose(){clearInterval(SC.poll);SC.poll=0;const o=document.getElementById("scBox");if(o)o.hidden=true;}
+function scClose(){scStopCam();clearInterval(SC.poll);SC.poll=0;const o=document.getElementById("scBox");if(o)o.hidden=true;}
 function scOpen(){
   if(!stLoaded)loadStRep().then(()=>{});loadPcImgs();
   const o=gzOverlay("scBox");SC.pc="";
   o.innerHTML=`<div class="dialog scdlg"><div class="schead"><h2 style="margin:0">🔍 PC9 search</h2><button class="btn small" id="scX" aria-label="Close">✕</button></div>
-    <label class="f" for="scIn">Type the PC9</label><input type="text" id="scIn" placeholder="e.g. 00501-0193" autocomplete="off" autocapitalize="characters" inputmode="text">
+    <div class="scvid" id="scVidBox" hidden><video id="scVid" playsinline muted autoplay></video><div class="scguide"></div><p class="scmsg" id="scMsg">Starting camera…</p></div>
+    <div class="actions" style="margin:0"><button class="btn small primary" id="scCam" style="flex:1">📷 Scan barcode</button></div>
+    <label class="f" for="scIn">Or type the PC9 / barcode</label><input type="text" id="scIn" placeholder="e.g. 00501-0193 or 5401…" autocomplete="off" autocapitalize="characters" inputmode="text">
     <div class="chips" id="scSug" style="margin:6px 0 0"></div><div id="scCard"></div></div>`;
   o.hidden=false;
-  o.querySelector("#scX").onclick=scClose;
+  o.querySelector("#scX").onclick=scClose;if(!sohLoaded)loadSoh().then(()=>{});loadFq();
+  o.querySelector("#scCam").onclick=()=>{const b=document.getElementById("scVidBox");if(SC.stream||SC.zx){scStopCam();b.hidden=true;document.getElementById("scCam").textContent="📷 Scan barcode";return;}b.hidden=false;document.getElementById("scCam").textContent="Stop camera";scStartCam();};
   o.onclick=e=>{if(e.target===o)scClose();};
   const inp=o.querySelector("#scIn");setTimeout(()=>{try{inp.focus();}catch(e){}},50);
   inp.oninput=()=>{const q=inp.value.toUpperCase().replace(/[^A-Z0-9]/g,"");const box=o.querySelector("#scSug");
     if(q.length<3){box.innerHTML="";return;}const list=[...scKnown()].filter(pc=>pc.replace("-","").startsWith(q)).sort().slice(0,8);
     box.innerHTML=list.map(pc=>`<button data-scpc="${esc(pc)}">${esc(pc)}</button>`).join("")||`<span class="muted" style="font-size:13px">No PC9 starts with ${esc(q)}</span>`;
-    if(q.length>=9){const pc=scNorm(q);if(list.includes(pc))scShow(pc);}};
-  inp.onkeydown=e=>{if(e.key==="Enter"){const pc=scNorm(inp.value);if(pc)scShow(pc);}};
-  o.querySelector("#scSug").onclick=e=>{const b=e.target.closest("[data-scpc]");if(b)scShow(b.dataset.scpc);};}
+    if(/^\d{13}$/.test(q)){scGot(q);return;}if(q.length>=9){const pc=scNorm(q);if(list.includes(pc)){SC.size="";scShow(pc);}}};
+  inp.onkeydown=e=>{if(e.key==="Enter"){const d=inp.value.replace(/\D/g,"");if(d.length>=12&&!/[A-Z]/i.test(inp.value.replace(/[\s-]/g,"").slice(0,5))){scGot(d);return;}const pc=scNorm(inp.value);if(pc){SC.size="";scShow(pc);}}};
+  o.querySelector("#scSug").onclick=e=>{const b=e.target.closest("[data-scpc]");if(b){SC.size="";scShow(b.dataset.scpc);}};}
 /* ST for one PC9 over a built report: null = still loading */
 function scRow(R,pc,range){if(!R||!R.rep)return undefined;const r=R.rep.rows.find(x=>x[0]===pc);if(!r)return false;const o=stObj(r);
   const all=R.rep.rows.map(stObj).filter(x=>x.sale+x.soh>0);o.stat=stStatusMap(all,range,R.rep.date)[pc]||"";return o;}
@@ -3664,15 +3744,21 @@ function scShow(pc){clearInterval(SC.poll);SC.poll=0;SC.pc=pc;const inp=document
     const q=x=>x&&x!==false?`<small class="muted scq">${full(x.sale)} sold</small>`:"";
     const P=x=>{const t=x&&x!==false?x.stat:"";const c=t==="Fast"?"fast":t==="Avg"?"avg":t==="Slow"?"slow":t==="Miss"?"miss":"";return t?`<em class="stpill ${c} scp">${esc(t)}</em>`:"";};
     el.innerHTML=`<section class="sccard"><div class="sctop">${img?`<img src="${img}" alt="${esc(pc)}">`:`<div class="scnoimg">👖</div>`}
-      <div style="min-width:0"><b class="scpc">${esc(pc)}</b><div class="muted">${any?esc([GC_NAMES[any.gc]||any.gc,scTc(any.brick),scTc(any.fit)].filter(Boolean).join(" · ")):"Not in the ST report"}</div>${num(any&&any.mrp)>0?`<div class="scmrp">MRP ${inr(num(any.mrp))}</div>`:""}</div></div>
+      <div style="min-width:0"><b class="scpc">${esc(pc)}</b>${SC.size?` <span class="muted" style="font-size:14px">· size ${esc(SC.size)}</span>`:""}<div class="muted">${any?esc([GC_NAMES[any.gc]||any.gc,scTc(any.brick),scTc(any.fit)].filter(Boolean).join(" · ")):(sohData&&sohData.p&&sohData.p[pc]?esc([catLabel(sohData.p[pc][1]),scTc(sohData.p[pc][2]),scTc(sohData.p[pc][3])].join(" · ")):"Not in the ST report")}</div>${num(any&&any.mrp)>0?`<div class="scmrp">MRP ${inr(num(any.mrp))}</div>`:""}</div></div>
+      ${(()=>{const F=fqStatus(pc);return F?`<div class="scfq ${fqClass(F.s)}"><b>${F.s==="FQ"?"🟢":/DISTRESS/.test(F.s)?"🔴":/NOT ON/.test(F.s)?"🔵":"⚫"} ${esc(F.s)}</b><small>${esc(F.r||"")}</small></div>`:"";})()}
+      ${(()=>{const a=sohData&&sohData.p&&sohData.p[pc];if(!a)return sohData&&sohData.p?`<p class="hint" style="margin:8px 0 0">Not in the store stock (X30 as on ${esc(shortDate(sohData.date))}).</p>`:"";
+        const sz=a[6]||{},keys=Object.keys(sz).sort((x,y)=>{const n=v=>{const m=String(v).match(/^\d+/);return m?+m[0]:({XXS:1,XS:2,S:3,M:4,L:5,XL:6,XXL:7,"2XL":7,XXXL:8,"3XL":8}[String(v).toUpperCase()]||50);};return n(x)-n(y)||String(x).localeCompare(String(y));});
+        const tot=num(a[0])+num(a[4]);
+        return `<div class="sclist" style="margin-top:8px"><div style="border:0"><span>SOH <small class="muted">X30 as on ${esc(shortDate(sohData.date))}</small></span><b>${full(tot)} QTY</b></div></div>
+          ${keys.length?`<div class="scsz">${keys.map(k=>`<div class="${k===SC.size?"me ":""}${sz[k]<=0?"zero":sz[k]<=2?"lo":""}"><small>${esc(k)}</small><b>${full(sz[k])}</b></div>`).join("")}</div><p class="hint" style="margin:4px 0 0">${SC.size?"Gold box = the size you scanned · ":""}🟡 1–2 left</p>`:""}`;})()}
       ${any?`<div class="sclist">
         <div><span>ST% Week <small class="muted">${D.wkUsed?esc(mShort(D.wkUsed)):""}</small></span><b>${q(D.week)}${v(D.week)}${P(D.week)}</b></div>
         <div><span>ST% Month <small class="muted">${esc(mShort(D.cm))}</small></span><b>${q(D.month)}${v(D.month)}${P(D.month)}</b></div>
         <div><span>ST% ${esc(D.half)}</span><b>${q(D.season)}${v(D.season)}${P(D.season)}</b></div>
         <div><span>Days in store${D.rec?` <small class="muted">since ${esc(shortDate(D.rec))}</small>`:""}</span><b>${D.days!=null?full(D.days)+" days":"–"}</b></div>
-        <div><span>SOH</span><b>${me?full(me.soh)+" QTY":"–"}</b></div>
+        ${sohData&&sohData.p&&sohData.p[pc]?"":`<div><span>SOH <small class="muted">ST report</small></span><b>${me?full(me.soh)+" QTY":"–"}</b></div>`}
         </div>
-        ${D.pend?`<p class="hint">Loading…</p>`:""}`:`<div class="empty">No ST data for this PC9 yet.</div>`}</section>`;
+        ${D.pend?`<p class="hint">Loading…</p>`:""}`:`<p class="hint">No ST data for this PC9 yet.</p>`}</section>`;
     if(D.pend&&!SC.poll)SC.poll=setInterval(()=>{const d=scData(SC.pc);draw();if(d&&!d.pend){clearInterval(SC.poll);SC.poll=0;}},700);};
   draw();}
 /* ---------- in-app uploads (manager): training seasons + PC9 photos, saved in the database ---------- */
@@ -3800,7 +3886,7 @@ function render(){
   if(ui.tab==="learn"){v.innerHTML=viewLearn();return;}
   if(ui.tab==="daily") ensureDay();
   else if(!weeksReady()){ensureWeeks();v.innerHTML='<div class="empty">Loading…</div>';return;}
-  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd()+viewSohList(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+viewCelebrations(ui.day)+`<div class="actions" style="margin:0 0 10px;justify-content:flex-end"><button class="btn small" data-repday="day">📲 Daily report</button></div>`+learnCard(ui.day,true)+viewLeaves())+viewChecklist(ui.day)+viewSnags(): viewReport();
+  v.innerHTML = ui.tab==="home"?viewHome(): ui.tab==="add"?viewAdd()+viewSohList()+viewFqCard(): ui.tab==="staff"?viewStaff(): ui.tab==="daily"?viewDaily().replace(/(<div class="daytitle">[\s\S]*?<\/div>)/,(m)=>m+viewCelebrations(ui.day)+`<div class="actions" style="margin:0 0 10px;justify-content:flex-end"><button class="btn small" data-repday="day">📲 Daily report</button></div>`+learnCard(ui.day,true)+viewLeaves())+viewChecklist(ui.day)+viewSnags(): viewReport();
 }
 
 /* ---------- standalone helpers ---------- */
@@ -4131,6 +4217,7 @@ document.addEventListener("click",e=>{
     case "lyImport":if(ui.ly&&ui.ly.days){const n=Object.keys(ui.ly.days).length;Object.assign(lyStore.days,ui.ly.days);ui.ly=null;saveLy("LY imported: "+n+" days ✓");render();}break;
     case "lyClear":askConfirm("Clear all uploaded LY sales?","Clear",()=>{lyStore={days:{}};saveLy("LY cleared");render();});break;
     case "stImport":if(ui.x24&&ui.x24.st){saveStRep({...ui.x24.st,file:ui.x24.file});ui.x24=null;ui.tab="st";ui.stView="top";toast("ST report imported ✓");render();window.scrollTo(0,0);}break;
+    case "fqImport":if(ui.x24&&ui.x24.fq){saveFqMaster(ui.x24.fq,ui.x24.file);ui.x24=null;toast("FQ / Distress master saved ✓");render();}break;
     case "sohImport":if(ui.x24&&ui.x24.soh){const el=document.getElementById("sohDate");const d=(el&&el.value)||todayISO();saveSohSnap(d,ui.x24.soh);ui.x24=null;ui.tab="months";ui.report="mix";const m=monthOfDate(dOf(d));ui.month=m;ui.mode="month";try{localStorage.setItem("store-perf-mode","month");}catch(e){}toast("Stock as on "+shortDate(d)+" saved ✓");render();window.scrollTo(0,0);}break;
     case "prevD":ui.day=addDays(ui.day,-1);delete photoCache[ui.day];render();break;
     case "nextD":ui.day=addDays(ui.day,1);delete photoCache[ui.day];render();break;
